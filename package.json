@@ -1,0 +1,50 @@
+{
+  "name": "@safenest/mcp",
+  "version": "1.0.0",
+  "description": "MCP server for SafeNest - AI-powered child safety analysis tools for Claude and other AI assistants",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "safenest-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "safenest",
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "ai",
+    "child-safety",
+    "content-moderation",
+    "bullying-detection"
+  ],
+  "author": "SafeNest <sales@safenest.dev>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SafeNestSDK/mcp.git"
+  },
+  "homepage": "https://safenest.dev",
+  "bugs": {
+    "url": "https://github.com/SafeNestSDK/mcp/issues"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@safenest/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
