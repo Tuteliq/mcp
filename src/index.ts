@@ -7,15 +7,7 @@ import {
   ListToolsRequestSchema,
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import {
-  SafeNestClient,
-  Severity,
-  GroomingRisk,
-  RiskLevel,
-  EmotionTrend,
-  Audience,
-  MessageRole,
-} from '@safenest/sdk';
+import { SafeNestClient } from '@safenest/sdk';
 
 // Initialize SafeNest client
 const apiKey = process.env.SAFENEST_API_KEY;
@@ -24,7 +16,7 @@ if (!apiKey) {
   process.exit(1);
 }
 
-const client = new SafeNestClient({ apiKey });
+const client = new SafeNestClient(apiKey);
 
 // Severity emoji mapping
 const severityEmoji: Record<string, string> = {
@@ -152,7 +144,7 @@ const tools: Tool[] = [
   },
   {
     name: 'analyze_emotions',
-    description: 'Analyze emotional content and mental state indicators. Identifies dominant emotions, trends, and concerning patterns.',
+    description: 'Analyze emotional content and mental state indicators. Identifies dominant emotions, trends, and provides follow-up recommendations.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -194,7 +186,7 @@ const tools: Tool[] = [
   },
   {
     name: 'generate_report',
-    description: 'Generate a comprehensive incident report from a conversation. Includes timeline, evidence summary, and recommended next steps.',
+    description: 'Generate a comprehensive incident report from a conversation. Includes summary, risk level, and recommended next steps.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -250,8 +242,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     switch (name) {
       case 'detect_bullying': {
         const result = await client.detectBullying({
-          text: args.content as string,
-          context: args.context as any,
+          content: args.content as string,
+          context: args.context as Record<string, string> | undefined,
         });
 
         const emoji = severityEmoji[result.severity] || '⚪';
@@ -273,9 +265,9 @@ ${result.rationale}
       }
 
       case 'detect_grooming': {
-        const messages = (args.messages as any[]).map((m) => ({
+        const messages = (args.messages as Array<{ role: string; content: string }>).map((m) => ({
           role: m.role as 'adult' | 'child' | 'unknown',
-          content: m.content as string,
+          content: m.content,
         }));
 
         const result = await client.detectGrooming({
@@ -303,8 +295,8 @@ ${result.rationale}
 
       case 'detect_unsafe': {
         const result = await client.detectUnsafe({
-          text: args.content as string,
-          context: args.context as any,
+          content: args.content as string,
+          context: args.context as Record<string, string> | undefined,
         });
 
         const emoji = severityEmoji[result.severity] || '⚪';
@@ -327,8 +319,8 @@ ${result.rationale}
 
       case 'analyze': {
         const result = await client.analyze({
-          text: args.content as string,
-          include: args.include as string[] | undefined,
+          content: args.content as string,
+          include: args.include as Array<'bullying' | 'unsafe'> | undefined,
         });
 
         const emoji = riskEmoji[result.risk_level] || '⚪';
@@ -355,17 +347,27 @@ ${result.bullying ? `
 
       case 'analyze_emotions': {
         const result = await client.analyzeEmotions({
-          text: args.content as string,
+          content: args.content as string,
         });
 
         const emoji = trendEmoji[result.trend] || '➡️';
+
+        // Format emotion scores
+        const emotionScoresList = Object.entries(result.emotion_scores)
+          .sort((a, b) => b[1] - a[1])
+          .map(([emotion, score]) => `- ${emotion}: ${(score * 100).toFixed(0)}%`)
+          .join('\n');
+
         const response = `## Emotion Analysis
 
 **Dominant Emotions:** ${result.dominant_emotions.join(', ')}
 **Trend:** ${emoji} ${result.trend.charAt(0).toUpperCase() + result.trend.slice(1)}
-**Intensity:** ${(result.intensity * 100).toFixed(0)}%
 
-${result.concerning_patterns.length > 0 ? `### ⚠️ Concerning Patterns\n${result.concerning_patterns.map(p => `- ${p}`).join('\n')}` : '### ✅ No Concerning Patterns'}
+### Emotion Scores
+${emotionScoresList}
+
+### Summary
+${result.summary}
 
 ### Recommended Follow-up
 ${result.recommended_followup}`;
@@ -374,51 +376,35 @@ ${result.recommended_followup}`;
       }
 
       case 'get_action_plan': {
-        const audienceMap: Record<string, Audience> = {
-          child: Audience.Child,
-          parent: Audience.Parent,
-          educator: Audience.Educator,
-          platform: Audience.Platform,
-        };
-
-        const severityMap: Record<string, Severity> = {
-          low: Severity.Low,
-          medium: Severity.Medium,
-          high: Severity.High,
-          critical: Severity.Critical,
-        };
-
         const result = await client.getActionPlan({
           situation: args.situation as string,
           childAge: args.childAge as number | undefined,
-          audience: args.audience ? audienceMap[args.audience as string] : undefined,
-          severity: args.severity ? severityMap[args.severity as string] : undefined,
+          audience: args.audience as 'child' | 'parent' | 'educator' | 'platform' | undefined,
+          severity: args.severity as 'low' | 'medium' | 'high' | 'critical' | undefined,
         });
 
         const response = `## Action Plan
 
+**Audience:** ${result.audience}
 **Tone:** ${result.tone}
-**Urgency:** ${result.urgency}
+${result.reading_level ? `**Reading Level:** ${result.reading_level}` : ''}
 
 ### Steps
-${result.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}
-
-### Resources
-${result.resources.map(r => `- 📚 ${r}`).join('\n')}`;
+${result.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}`;
 
         return { content: [{ type: 'text', text: response }] };
       }
 
       case 'generate_report': {
-        const messages = (args.messages as any[]).map((m) => ({
-          sender: m.sender as string,
-          content: m.content as string,
+        const messages = (args.messages as Array<{ sender: string; content: string }>).map((m) => ({
+          sender: m.sender,
+          content: m.content,
         }));
 
         const result = await client.generateReport({
           messages,
           childAge: args.childAge as number | undefined,
-          incidentType: args.incidentType as string | undefined,
+          incident: args.incidentType ? { type: args.incidentType as string } : undefined,
         });
 
         const emoji = riskEmoji[result.risk_level] || '⚪';
@@ -429,11 +415,8 @@ ${result.resources.map(r => `- 📚 ${r}`).join('\n')}`;
 ### Summary
 ${result.summary}
 
-### Timeline
-${result.timeline.map(t => `- ${t}`).join('\n')}
-
-### Key Evidence
-${result.key_evidence.map(e => `- 📌 ${e}`).join('\n')}
+### Categories
+${result.categories.map(c => `- ${c}`).join('\n')}
 
 ### Recommended Next Steps
 ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}`;
