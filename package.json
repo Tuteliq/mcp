@@ -1,6 +1,6 @@
 {
   "name": "@safenest/mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP server for SafeNest - AI-powered child safety analysis tools for Claude and other AI assistants",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
