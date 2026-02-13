@@ -1,11 +1,11 @@
 {
-  "name": "@safenest/mcp",
-  "version": "1.1.0",
-  "description": "MCP server for SafeNest - AI-powered child safety analysis tools for Claude and other AI assistants",
+  "name": "@tuteliq/mcp",
+  "version": "1.2.0",
+  "description": "MCP server for Tuteliq - AI-powered child safety analysis tools for Claude and other AI assistants",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "safenest-mcp": "./dist/index.js"
+    "tuteliq-mcp": "./dist/index.js"
   },
   "files": [
     "dist"
@@ -17,7 +17,7 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [
-    "safenest",
+    "tuteliq",
     "mcp",
     "model-context-protocol",
     "claude",
@@ -26,19 +26,19 @@
     "content-moderation",
     "bullying-detection"
   ],
-  "author": "SafeNest <sales@safenest.dev>",
+  "author": "Tuteliq <sales@tuteliq.ai>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/SafeNestSDK/mcp.git"
+    "url": "https://github.com/Tuteliq/mcp.git"
   },
-  "homepage": "https://safenest.dev",
+  "homepage": "https://tuteliq.ai",
   "bugs": {
-    "url": "https://github.com/SafeNestSDK/mcp/issues"
+    "url": "https://github.com/Tuteliq/mcp/issues"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "@safenest/sdk": "^1.2.0"
+    "@tuteliq/sdk": "^1.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

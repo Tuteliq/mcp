@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: Report a bug in the SafeNest MCP Server
+about: Report a bug in the Tuteliq MCP Server
 title: "[Bug] "
 labels: bug
 assignees: ""
