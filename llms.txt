@@ -1,0 +1,27 @@
+# Tuteliq MCP Server
+
+> MCP server for Tuteliq — AI-powered child safety tools for Claude, Cursor, and other AI assistants.
+
+## What is this?
+A Model Context Protocol (MCP) server that exposes all Tuteliq child safety API endpoints as tools. Enables AI assistants like Claude and Cursor to detect bullying, grooming, self-harm, and other harmful content during development sessions.
+
+## Install
+npm install -g @tuteliq/mcp
+
+## Configuration
+Add to your MCP client settings with your Tuteliq API key. The server exposes tools for all 20+ Tuteliq API endpoints including text analysis, conversation analysis, media analysis, batch processing, and more.
+
+## Available Tools
+- detect_unsafe — Scan text for harmful content
+- detect_bullying — Detect bullying patterns
+- detect_grooming — Analyze conversations for grooming
+- detect_social_engineering — Detect manipulation tactics
+- analyze_emotions — Emotional well-being analysis
+- analyse_multi — Multi-endpoint fan-out
+- And 15+ more covering all Tuteliq API endpoints
+
+## Links
+- Website: https://tuteliq.ai
+- Documentation: https://docs.tuteliq.ai
+- npm: https://www.npmjs.com/package/@tuteliq/mcp
+- GitHub: https://github.com/Tuteliq/mcp
