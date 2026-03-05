@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+title: Tuteliq MCP Server
+message: "If you use this software, please cite it using this metadata."
+type: software
+authors:
+  - name: Tuteliq
+    website: https://tuteliq.ai
+repository-code: https://github.com/Tuteliq/mcp
+url: https://tuteliq.ai
+abstract: >-
+  MCP server for Tuteliq — AI-powered child safety tools for Claude, Cursor, and other AI assistants
+keywords:
+  - child safety
+  - MCP
+  - Model Context Protocol
+  - content moderation
+  - AI tools
+  - Claude
+  - online safety
+  - age verification
+  - identity verification
+license: MIT

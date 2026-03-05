@@ -26,7 +26,7 @@
 
 Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cursor, and other MCP-compatible AI assistants. Ask Claude to check messages for bullying, detect grooming patterns, or generate safety action plans.
 
-## Available Tools (33)
+## Available Tools (35)
 
 ### Safety Detection
 
@@ -93,6 +93,13 @@ Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cu
 | `list_breaches` | List all data breaches, optionally filtered by status |
 | `get_breach` | Get details of a specific data breach |
 | `update_breach_status` | Update breach status and notification progress |
+
+### Verification
+
+| Tool | Description |
+|------|-------------|
+| `verify_age` | Verify a user's age via document analysis, biometric estimation, or both. Methods: `document`, `biometric`, `combined`. Returns verified age range, confidence score, and minor status. Beta — requires Pro tier. 5 credits per call. |
+| `verify_identity` | Confirm user identity with document authentication, face matching, and liveness detection. Returns match score, liveness result, and document authentication status. Beta — requires Business tier. 10 credits per call. |
 
 ---
 
@@ -198,6 +205,13 @@ The message contains direct exclusionary language...
 
 ### Usage
 > "Show my monthly usage"
+
+### Age Verification
+> "Verify the age of this user using their uploaded ID document"
+> "Estimate this user's age from their selfie using biometric analysis"
+
+### Identity Verification
+> "Verify this user's identity by matching their selfie against their ID document"
 
 ---
 
