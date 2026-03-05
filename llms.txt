@@ -18,6 +18,8 @@ Add to your MCP client settings with your Tuteliq API key. The server exposes to
 - detect_social_engineering — Detect manipulation tactics
 - analyze_emotions — Emotional well-being analysis
 - analyse_multi — Multi-endpoint fan-out
+- verify_age — Age verification via document, biometric, or combined methods (Beta, Pro tier, 5 credits)
+- verify_identity — Identity verification with document auth, face matching, and liveness detection (Beta, Business tier, 10 credits)
 - And 15+ more covering all Tuteliq API endpoints
 
 ## Links
