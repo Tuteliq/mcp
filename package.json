@@ -1,6 +1,6 @@
 {
   "name": "@tuteliq/mcp",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "MCP App server for Tuteliq - AI-powered child safety analysis with interactive UI widgets for Claude, ChatGPT, and other MCP hosts",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
