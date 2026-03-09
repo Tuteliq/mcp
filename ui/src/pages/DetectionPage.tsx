@@ -19,17 +19,23 @@ function formatToolName(name: string): string {
 
 interface DetectionPageProps {
   data: ToolResultPayload;
-  onGetActionPlan?: () => void;
-  onRunFullAnalysis?: () => void;
 }
 
-export function DetectionPage({ data, onGetActionPlan, onRunFullAnalysis }: DetectionPageProps) {
+export function DetectionPage({ data }: DetectionPageProps) {
   const { toolName, result } = data;
   const title = formatToolName(toolName);
 
-  // Handle different result shapes
-  const riskScore = result.risk_score ?? 0;
-  const confidence = result.confidence ?? 0;
+  // Handle different result shapes — fraud endpoints return severity (0-1) as raw score,
+  // risk_score is age-adjusted and may be 0 when no age is provided
+  const riskScore = result.risk_score || (typeof result.severity === 'number' ? result.severity : 0);
+  // Fraud endpoints don't return top-level confidence — derive from categories or evidence
+  const confidence = result.confidence
+    ?? (Array.isArray(result.categories) && result.categories.length > 0 && typeof result.categories[0]?.confidence === 'number'
+      ? Math.max(...result.categories.map((c: any) => c.confidence ?? 0))
+      : undefined)
+    ?? (Array.isArray(result.evidence) && result.evidence.length > 0
+      ? Math.max(...result.evidence.map((e: any) => e.weight ?? 0))
+      : 0);
   const level = result.level || result.severity || result.grooming_risk || result.risk_level || 'none';
   const detected = result.detected ?? result.is_bullying ?? result.unsafe ?? (result.grooming_risk && result.grooming_risk !== 'none') ?? false;
   const rationale = result.rationale || result.summary || '';
@@ -64,45 +70,6 @@ export function DetectionPage({ data, onGetActionPlan, onRunFullAnalysis }: Dete
       {evidence.length > 0 && <EvidenceCard evidence={evidence} />}
 
       {action && <ActionCard action={action} />}
-
-      {(onGetActionPlan || onRunFullAnalysis) && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-          {onGetActionPlan && (
-            <button
-              onClick={onGetActionPlan}
-              style={{
-                padding: '8px 16px',
-                borderRadius: 8,
-                border: `1px solid ${colors.brand.primary}`,
-                background: colors.brand.primary,
-                color: '#fff',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Get Action Plan
-            </button>
-          )}
-          {onRunFullAnalysis && (
-            <button
-              onClick={onRunFullAnalysis}
-              style={{
-                padding: '8px 16px',
-                borderRadius: 8,
-                border: `1px solid ${colors.border}`,
-                background: '#fff',
-                color: colors.text.primary,
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Run Full Analysis
-            </button>
-          )}
-        </div>
-      )}
     </AppWrapper>
   );
 }

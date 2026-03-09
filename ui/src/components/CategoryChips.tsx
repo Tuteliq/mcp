@@ -21,9 +21,9 @@ export function CategoryChips({ categories }: CategoryChipsProps) {
               borderRadius: 10,
               fontSize: 11,
               fontWeight: 500,
-              color: colors.brand.primaryDark,
-              background: '#EEF2FF',
-              border: `1px solid #C7D2FE`,
+              color: colors.brand.primary,
+              background: '#E6F5F3',
+              border: `1px solid #A7DDD5`,
             }}
           >
             {label}

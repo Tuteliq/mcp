@@ -2,23 +2,17 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { useToolResult } from '@ui/hooks/useToolResult';
 import { ReportPage } from '@ui/pages/ReportPage';
+import { LoadingScreen } from '@ui/components/LoadingScreen';
 import { baseStyles } from '@ui/theme';
 
 function Widget() {
-  const { data, loading, callTool } = useToolResult();
+  const { data, loading } = useToolResult();
 
   if (loading || !data) {
-    return <div style={{ padding: 16, textAlign: 'center', color: '#94A3B8' }}>Generating report...</div>;
+    return <LoadingScreen message="Generating report..." />;
   }
 
-  return (
-    <ReportPage
-      data={data}
-      onGetActionPlan={() => {
-        callTool('get_action_plan', { situation: data.result.summary || '' });
-      }}
-    />
-  );
+  return <ReportPage data={data} />;
 }
 
 const style = document.createElement('style');

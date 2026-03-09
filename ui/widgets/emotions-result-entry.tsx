@@ -2,13 +2,14 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { useToolResult } from '@ui/hooks/useToolResult';
 import { EmotionsPage } from '@ui/pages/EmotionsPage';
+import { LoadingScreen } from '@ui/components/LoadingScreen';
 import { baseStyles } from '@ui/theme';
 
 function Widget() {
   const { data, loading } = useToolResult();
 
   if (loading || !data) {
-    return <div style={{ padding: 16, textAlign: 'center', color: '#94A3B8' }}>Analyzing emotions...</div>;
+    return <LoadingScreen message="Analyzing emotions..." />;
   }
 
   return <EmotionsPage data={data} />;

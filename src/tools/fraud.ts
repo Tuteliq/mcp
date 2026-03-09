@@ -111,7 +111,7 @@ export function registerFraudTools(server: McpServer, client: Tuteliq): void {
         const fn = (client as any)[tool.method].bind(client);
         const result = await fn({
           content,
-          context: context as ContextInput | undefined,
+          context: { ...context, platform: 'mcp' } as ContextInput,
           includeEvidence: include_evidence,
           external_id,
           customer_id,
@@ -119,7 +119,7 @@ export function registerFraudTools(server: McpServer, client: Tuteliq): void {
 
         return {
           structuredContent: { toolName: tool.name, result, branding: { appName: 'Tuteliq' } },
-          content: [{ type: 'text' as const, text: formatDetectionResult(result) }],
+          content: [{ type: 'text' as const, text: `${tool.title} analysis complete. See the interactive widget above. Do not add any additional commentary.` }],
         };
       },
     );

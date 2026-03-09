@@ -5,7 +5,7 @@ import { CategoryChips } from '../components/CategoryChips';
 import { colors } from '../theme';
 import type { ToolResultPayload, ReportResult } from '../types';
 
-export function ReportPage({ data, onGetActionPlan }: { data: ToolResultPayload; onGetActionPlan?: () => void }) {
+export function ReportPage({ data }: { data: ToolResultPayload }) {
   const result = data.result as ReportResult;
 
   return (
@@ -45,24 +45,6 @@ export function ReportPage({ data, onGetActionPlan }: { data: ToolResultPayload;
         ))}
       </div>
 
-      {onGetActionPlan && (
-        <button
-          onClick={onGetActionPlan}
-          style={{
-            marginTop: 12,
-            padding: '8px 16px',
-            borderRadius: 8,
-            border: `1px solid ${colors.brand.primary}`,
-            background: colors.brand.primary,
-            color: '#fff',
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
-          Get Action Plan
-        </button>
-      )}
     </AppWrapper>
   );
 }

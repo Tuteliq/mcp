@@ -2,13 +2,14 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { useToolResult } from '@ui/hooks/useToolResult';
 import { MediaPage } from '@ui/pages/MediaPage';
+import { LoadingScreen } from '@ui/components/LoadingScreen';
 import { baseStyles } from '@ui/theme';
 
 function Widget() {
   const { data, loading } = useToolResult();
 
   if (loading || !data) {
-    return <div style={{ padding: 16, textAlign: 'center', color: '#94A3B8' }}>Analyzing media...</div>;
+    return <LoadingScreen message="Analyzing media..." />;
   }
 
   return <MediaPage data={data} />;
