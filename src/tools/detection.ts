@@ -59,27 +59,12 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
     async ({ content, context }) => {
       const result = await client.detectBullying({
         content,
-        context: context as Record<string, string> | undefined,
+        context: { ...context, platform: 'mcp' } as Record<string, string>,
       });
-
-      const emoji = severityEmoji[result.severity] || '\u26AA';
-      const text = `## ${result.is_bullying ? '\u26A0\uFE0F Bullying Detected' : '\u2705 No Bullying Detected'}
-
-**Severity:** ${emoji} ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}
-**Confidence:** ${(result.confidence * 100).toFixed(0)}%
-**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
-
-${result.is_bullying ? `**Types:** ${result.bullying_type.join(', ')}` : ''}
-
-### Rationale
-${result.rationale}
-
-### Recommended Action
-\`${result.recommended_action}\``;
 
       return {
         structuredContent: { toolName: 'detect_bullying', result, branding: { appName: 'Tuteliq' } },
-        content: [{ type: 'text' as const, text }],
+        content: [{ type: 'text' as const, text: `Bullying analysis complete. See the interactive widget above. Do not add any additional commentary.` }],
       };
     },
   );
@@ -105,26 +90,12 @@ ${result.rationale}
       const result = await client.detectGrooming({
         messages,
         childAge,
+        context: { platform: 'mcp' } as Record<string, string>,
       });
-
-      const emoji = riskEmoji[result.grooming_risk] || '\u26AA';
-      const text = `## ${result.grooming_risk === 'none' ? '\u2705 No Grooming Detected' : '\u26A0\uFE0F Grooming Risk Detected'}
-
-**Risk Level:** ${emoji} ${result.grooming_risk.charAt(0).toUpperCase() + result.grooming_risk.slice(1)}
-**Confidence:** ${(result.confidence * 100).toFixed(0)}%
-**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
-
-${result.flags.length > 0 ? `**Warning Flags:**\n${result.flags.map(f => `- \u{1F6A9} ${f}`).join('\n')}` : ''}
-
-### Rationale
-${result.rationale}
-
-### Recommended Action
-\`${result.recommended_action}\``;
 
       return {
         structuredContent: { toolName: 'detect_grooming', result, branding: { appName: 'Tuteliq' } },
-        content: [{ type: 'text' as const, text }],
+        content: [{ type: 'text' as const, text: `Grooming analysis complete. See the interactive widget above. Do not add any additional commentary.` }],
       };
     },
   );
@@ -146,27 +117,12 @@ ${result.rationale}
     async ({ content, context }) => {
       const result = await client.detectUnsafe({
         content,
-        context: context as Record<string, string> | undefined,
+        context: { ...context, platform: 'mcp' } as Record<string, string>,
       });
-
-      const emoji = severityEmoji[result.severity] || '\u26AA';
-      const text = `## ${result.unsafe ? '\u26A0\uFE0F Unsafe Content Detected' : '\u2705 Content is Safe'}
-
-**Severity:** ${emoji} ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}
-**Confidence:** ${(result.confidence * 100).toFixed(0)}%
-**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
-
-${result.unsafe ? `**Categories:**\n${result.categories.map(c => `- \u26A0\uFE0F ${c}`).join('\n')}` : ''}
-
-### Rationale
-${result.rationale}
-
-### Recommended Action
-\`${result.recommended_action}\``;
 
       return {
         structuredContent: { toolName: 'detect_unsafe', result, branding: { appName: 'Tuteliq' } },
-        content: [{ type: 'text' as const, text }],
+        content: [{ type: 'text' as const, text: `Unsafe content analysis complete. See the interactive widget above. Do not add any additional commentary.` }],
       };
     },
   );
@@ -186,26 +142,11 @@ ${result.rationale}
       _meta: uiMeta('Shows combined safety analysis results', 'Running safety analysis...', 'Safety analysis complete.'),
     },
     async ({ content, include }) => {
-      const result = await client.analyze({ content, include });
-
-      const emoji = riskEmoji[result.risk_level] || '\u26AA';
-      const text = `## Safety Analysis Results
-
-**Overall Risk:** ${emoji} ${result.risk_level.charAt(0).toUpperCase() + result.risk_level.slice(1)}
-**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
-
-### Summary
-${result.summary}
-
-### Recommended Action
-\`${result.recommended_action}\`
-
----
-${result.bullying ? `\n**Bullying Check:** ${result.bullying.is_bullying ? '\u26A0\uFE0F Detected' : '\u2705 Clear'}\n` : ''}${result.unsafe ? `\n**Unsafe Content:** ${result.unsafe.unsafe ? '\u26A0\uFE0F Detected' : '\u2705 Clear'}\n` : ''}`;
+      const result = await client.analyze({ content, include, context: { platform: 'mcp' } });
 
       return {
         structuredContent: { toolName: 'analyze', result, branding: { appName: 'Tuteliq' } },
-        content: [{ type: 'text' as const, text }],
+        content: [{ type: 'text' as const, text: `Safety analysis complete. See the interactive widget above. Do not add any additional commentary.` }],
       };
     },
   );

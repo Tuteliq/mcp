@@ -19,7 +19,7 @@ export function ConfidenceBar({ value, label = 'Confidence' }: ConfidenceBarProp
           style={{
             height: '100%',
             borderRadius: 3,
-            background: colors.brand.primary,
+            background: colors.brand.primaryLight,
             width: `${pct}%`,
             transition: 'width 0.4s ease',
           }}

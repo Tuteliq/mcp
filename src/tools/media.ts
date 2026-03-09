@@ -62,47 +62,12 @@ export function registerMediaTools(server: McpServer, client: Tuteliq): void {
         analysisType: analysis_type || 'all',
         language,
         childAge: child_age,
+        platform: 'mcp',
       });
-
-      const emoji = severityEmoji[result.overall_severity] || '\u2705';
-      const segmentLines = result.transcription.segments
-        .slice(0, 20)
-        .map(s => `\`${s.start.toFixed(1)}s\u2013${s.end.toFixed(1)}s\` ${s.text}`)
-        .join('\n');
-
-      const analysisLines: string[] = [];
-      if (result.analysis.bullying) {
-        analysisLines.push(`**Bullying:** ${result.analysis.bullying.is_bullying ? '\u26A0\uFE0F Detected' : '\u2705 Clear'} (${(result.analysis.bullying.risk_score * 100).toFixed(0)}%)`);
-      }
-      if (result.analysis.unsafe) {
-        analysisLines.push(`**Unsafe:** ${result.analysis.unsafe.unsafe ? '\u26A0\uFE0F Detected' : '\u2705 Clear'} (${(result.analysis.unsafe.risk_score * 100).toFixed(0)}%)`);
-      }
-      if (result.analysis.grooming) {
-        analysisLines.push(`**Grooming:** ${result.analysis.grooming.grooming_risk !== 'none' ? '\u26A0\uFE0F ' + result.analysis.grooming.grooming_risk : '\u2705 Clear'} (${(result.analysis.grooming.risk_score * 100).toFixed(0)}%)`);
-      }
-      if (result.analysis.emotions) {
-        analysisLines.push(`**Emotions:** ${result.analysis.emotions.dominant_emotions.join(', ')} (${trendEmoji[result.analysis.emotions.trend] || ''} ${result.analysis.emotions.trend})`);
-      }
-
-      const text = `## \u{1F399}\uFE0F Voice Analysis
-
-**Overall Severity:** ${emoji} ${result.overall_severity}
-**Overall Risk Score:** ${(result.overall_risk_score * 100).toFixed(0)}%
-**Language:** ${result.transcription.language}
-**Duration:** ${result.transcription.duration.toFixed(1)}s
-
-### Transcript
-${result.transcription.text}
-
-### Timestamped Segments
-${segmentLines}${result.transcription.segments.length > 20 ? `\n_...and ${result.transcription.segments.length - 20} more segments_` : ''}
-
-### Analysis Results
-${analysisLines.join('\n')}`;
 
       return {
         structuredContent: { toolName: 'analyze_voice', result, branding: { appName: 'Tuteliq' } },
-        content: [{ type: 'text' as const, text }],
+        content: [{ type: 'text' as const, text: `Voice analysis complete. See the interactive widget above. Do not add any additional commentary.` }],
       };
     },
   );
@@ -134,40 +99,12 @@ ${analysisLines.join('\n')}`;
         file: buffer,
         filename,
         analysisType: analysis_type || 'all',
+        platform: 'mcp',
       });
-
-      const emoji = severityEmoji[result.overall_severity] || '\u2705';
-      const textAnalysisLines: string[] = [];
-      if (result.text_analysis?.bullying) {
-        textAnalysisLines.push(`**Bullying:** ${result.text_analysis.bullying.is_bullying ? '\u26A0\uFE0F Detected' : '\u2705 Clear'} (${(result.text_analysis.bullying.risk_score * 100).toFixed(0)}%)`);
-      }
-      if (result.text_analysis?.unsafe) {
-        textAnalysisLines.push(`**Unsafe:** ${result.text_analysis.unsafe.unsafe ? '\u26A0\uFE0F Detected' : '\u2705 Clear'} (${(result.text_analysis.unsafe.risk_score * 100).toFixed(0)}%)`);
-      }
-      if (result.text_analysis?.emotions) {
-        textAnalysisLines.push(`**Emotions:** ${result.text_analysis.emotions.dominant_emotions.join(', ')}`);
-      }
-
-      const text = `## \u{1F5BC}\uFE0F Image Analysis
-
-**Overall Severity:** ${emoji} ${result.overall_severity}
-**Overall Risk Score:** ${(result.overall_risk_score * 100).toFixed(0)}%
-
-### Vision Results
-**Description:** ${result.vision.visual_description}
-**Visual Severity:** ${severityEmoji[result.vision.visual_severity] || '\u2705'} ${result.vision.visual_severity}
-**Visual Confidence:** ${(result.vision.visual_confidence * 100).toFixed(0)}%
-**Contains Text:** ${result.vision.contains_text ? 'Yes' : 'No'}
-**Contains Faces:** ${result.vision.contains_faces ? 'Yes' : 'No'}
-${result.vision.visual_categories.length > 0 ? `**Visual Categories:** ${result.vision.visual_categories.join(', ')}` : ''}
-
-${result.vision.extracted_text ? `### Extracted Text (OCR)\n${result.vision.extracted_text}` : ''}
-
-${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines.join('\n')}` : ''}`;
 
       return {
         structuredContent: { toolName: 'analyze_image', result, branding: { appName: 'Tuteliq' } },
-        content: [{ type: 'text' as const, text }],
+        content: [{ type: 'text' as const, text: `Image analysis complete. See the interactive widget above. Do not add any additional commentary.` }],
       };
     },
   );
@@ -199,11 +136,12 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
         file: buffer,
         filename,
         ageGroup: age_group,
+        platform: 'mcp',
       });
 
       return {
         structuredContent: { toolName: 'analyze_video', result, branding: { appName: 'Tuteliq' } },
-        content: [{ type: 'text' as const, text: formatVideoResult(result) }],
+        content: [{ type: 'text' as const, text: `Video analysis complete. See the interactive widget above. Do not add any additional commentary.` }],
       };
     },
   );

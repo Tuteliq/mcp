@@ -9,7 +9,7 @@ export function ActionPlanPage({ data }: { data: ToolResultPayload }) {
   return (
     <AppWrapper title="Action Plan">
       <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-        <div style={{ padding: '4px 10px', borderRadius: 8, background: '#EEF2FF', fontSize: 12, color: colors.brand.primaryDark }}>
+        <div style={{ padding: '4px 10px', borderRadius: 8, background: '#E6F5F3', fontSize: 12, color: colors.brand.primary }}>
           <strong>Audience:</strong> {result.audience}
         </div>
         <div style={{ padding: '4px 10px', borderRadius: 8, background: colors.bg.secondary, fontSize: 12, color: colors.text.secondary }}>
@@ -38,7 +38,7 @@ export function ActionPlanPage({ data }: { data: ToolResultPayload }) {
                 minWidth: 28,
                 height: 28,
                 borderRadius: '50%',
-                background: colors.brand.primary,
+                background: '#2A9D8F',
                 color: '#fff',
                 display: 'flex',
                 alignItems: 'center',

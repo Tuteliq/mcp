@@ -58,31 +58,11 @@ export function registerAnalysisTools(server: McpServer, client: Tuteliq): void 
       },
     },
     async ({ content }) => {
-      const result = await client.analyzeEmotions({ content });
-
-      const emoji = trendEmoji[result.trend] || '\u27A1\uFE0F';
-      const emotionScoresList = Object.entries(result.emotion_scores)
-        .sort((a, b) => b[1] - a[1])
-        .map(([emotion, score]) => `- ${emotion}: ${(score * 100).toFixed(0)}%`)
-        .join('\n');
-
-      const text = `## Emotion Analysis
-
-**Dominant Emotions:** ${result.dominant_emotions.join(', ')}
-**Trend:** ${emoji} ${result.trend.charAt(0).toUpperCase() + result.trend.slice(1)}
-
-### Emotion Scores
-${emotionScoresList}
-
-### Summary
-${result.summary}
-
-### Recommended Follow-up
-${result.recommended_followup}`;
+      const result = await client.analyzeEmotions({ content, context: { platform: 'mcp' } });
 
       return {
         structuredContent: { toolName: 'analyze_emotions', result, branding: { appName: 'Tuteliq' } },
-        content: [{ type: 'text' as const, text }],
+        content: [{ type: 'text' as const, text: `Emotion analysis complete. See the interactive widget above. Do not add any additional commentary.` }],
       };
     },
   );
@@ -111,18 +91,9 @@ ${result.recommended_followup}`;
     async ({ situation, childAge, audience, severity }) => {
       const result = await client.getActionPlan({ situation, childAge, audience, severity });
 
-      const text = `## Action Plan
-
-**Audience:** ${result.audience}
-**Tone:** ${result.tone}
-${result.reading_level ? `**Reading Level:** ${result.reading_level}` : ''}
-
-### Steps
-${result.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}`;
-
       return {
         structuredContent: { toolName: 'get_action_plan', result, branding: { appName: 'Tuteliq' } },
-        content: [{ type: 'text' as const, text }],
+        content: [{ type: 'text' as const, text: `Action plan generated. See the interactive widget above. Do not add any additional commentary.` }],
       };
     },
   );
@@ -157,23 +128,9 @@ ${result.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}`;
         incident: incidentType ? { type: incidentType } : undefined,
       });
 
-      const emoji = riskEmoji[result.risk_level] || '\u26AA';
-      const text = `## \u{1F4CB} Incident Report
-
-**Risk Level:** ${emoji} ${result.risk_level.charAt(0).toUpperCase() + result.risk_level.slice(1)}
-
-### Summary
-${result.summary}
-
-### Categories
-${result.categories.map(c => `- ${c}`).join('\n')}
-
-### Recommended Next Steps
-${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}`;
-
       return {
         structuredContent: { toolName: 'generate_report', result, branding: { appName: 'Tuteliq' } },
-        content: [{ type: 'text' as const, text }],
+        content: [{ type: 'text' as const, text: `Incident report generated. See the interactive widget above. Do not add any additional commentary.` }],
       };
     },
   );
@@ -205,7 +162,7 @@ ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
       const result = await client.analyseMulti({
         content,
         detections: endpoints,
-        context: context as ContextInput | undefined,
+        context: { ...context, platform: 'mcp' } as ContextInput,
         includeEvidence: include_evidence,
         external_id,
         customer_id,
@@ -213,7 +170,7 @@ ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
 
       return {
         structuredContent: { toolName: 'analyse_multi', result, branding: { appName: 'Tuteliq' } },
-        content: [{ type: 'text' as const, text: formatMultiResult(result) }],
+        content: [{ type: 'text' as const, text: `Multi-endpoint analysis complete. See the interactive widget above. Do not add any additional commentary.` }],
       };
     },
   );

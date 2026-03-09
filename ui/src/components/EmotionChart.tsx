@@ -36,6 +36,7 @@ export function EmotionChart({ scores, trend }: EmotionChartProps) {
                   height: '100%',
                   borderRadius: 4,
                   background: `linear-gradient(90deg, ${colors.brand.primary}, ${colors.brand.primaryLight})`,
+
                   width: `${pct}%`,
                   transition: 'width 0.4s ease',
                 }}

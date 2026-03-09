@@ -1,24 +1,24 @@
 export const colors = {
   brand: {
-    primary: '#6366F1',
-    primaryLight: '#818CF8',
-    primaryDark: '#4F46E5',
+    primary: '#1B2A4A',
+    primaryLight: '#2A9D8F',
+    primaryDark: '#1B2A4A',
   },
   severity: {
-    safe: '#10B981',
-    low: '#F59E0B',
-    medium: '#F97316',
-    high: '#EF4444',
-    critical: '#991B1B',
+    safe: '#81B29A',
+    low: '#F2CC8F',
+    medium: '#E8A85C',
+    high: '#D94F3D',
+    critical: '#B5543D',
   },
   bg: {
-    primary: '#FFFFFF',
-    secondary: '#F8FAFC',
-    tertiary: '#F1F5F9',
+    primary: '#F7F9FC',
+    secondary: '#F0F4F8',
+    tertiary: '#E8ECF0',
   },
   text: {
-    primary: '#0F172A',
-    secondary: '#475569',
+    primary: '#1B2A4A',
+    secondary: '#4A5568',
     muted: '#94A3B8',
   },
   border: '#E2E8F0',
@@ -36,7 +36,7 @@ export function severityColor(level: string): string {
   return map[level] || colors.text.muted;
 }
 
-export const fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+export const fontFamily = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 export const baseStyles = `
   * { margin: 0; padding: 0; box-sizing: border-box; }

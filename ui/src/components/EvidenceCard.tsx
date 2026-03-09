@@ -26,7 +26,7 @@ export function EvidenceCard({ evidence }: EvidenceCardProps) {
             marginBottom: 6,
             borderRadius: 8,
             background: colors.bg.secondary,
-            borderLeft: `3px solid ${colors.brand.primary}`,
+            borderLeft: `3px solid ${colors.brand.primaryLight}`,
           }}
         >
           <div style={{ fontSize: 12, fontStyle: 'italic', color: colors.text.secondary, marginBottom: 4 }}>
@@ -44,7 +44,7 @@ export function EvidenceCard({ evidence }: EvidenceCardProps) {
           style={{
             background: 'none',
             border: 'none',
-            color: colors.brand.primary,
+            color: colors.brand.primaryLight,
             fontSize: 12,
             cursor: 'pointer',
             padding: '4px 0',
