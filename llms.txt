@@ -1,32 +1,74 @@
 # Tuteliq MCP Server
 
-> MCP server for Tuteliq — AI-powered child safety tools for Claude, Cursor, and other AI assistants.
+> MCP server for Tuteliq — AI-powered child safety and fraud detection tools for Claude, Cursor, and other MCP-compatible AI assistants.
 
 ## What is this?
-A Model Context Protocol (MCP) server that exposes all Tuteliq child safety API endpoints as tools. Enables AI assistants like Claude and Cursor to detect bullying, grooming, self-harm, and other harmful content during development sessions.
+A Model Context Protocol (MCP) server with 41 tools for detecting online harms: bullying, grooming, self-harm, sextortion, romance scams, social engineering, radicalisation, coercive control, gambling harm, and more. Includes voice, image, and video analysis, webhook management, GDPR compliance tools, and crisis helpline support.
 
 ## Install
-npm install -g @tuteliq/mcp
 
-## Configuration
-Add to your MCP client settings with your Tuteliq API key. The server exposes tools for all 20+ Tuteliq API endpoints including text analysis, conversation analysis, media analysis, batch processing, and more.
+### Claude Desktop
+Open Settings > Connectors > Add custom connector. Name: Tuteliq, URL: https://api.tuteliq.ai/mcp
 
-## Available Tools
-- detect_unsafe — Scan text for harmful content
-- detect_bullying — Detect bullying patterns
-- detect_grooming — Analyze conversations for grooming
-- detect_social_engineering — Detect manipulation tactics
-- analyze_emotions — Emotional well-being analysis
-- analyse_multi — Multi-endpoint fan-out
-- verify_age — Age verification via document, biometric, or combined methods (Beta, Pro tier, 5 credits)
-- verify_identity — Identity verification with document auth, face matching, and liveness detection (Beta, Business tier, 10 credits)
-- And 15+ more covering all Tuteliq API endpoints
+### Cursor
+Add to MCP settings: url: https://api.tuteliq.ai/mcp with Authorization: Bearer <your-api-key> header.
+
+### npx (other MCP clients)
+npx -y @tuteliq/mcp with TUTELIQ_API_KEY environment variable.
+
+## Get an API Key
+Create a free account at https://tuteliq.ai and generate an API key from the Dashboard. For MCP plugins, generate a Secure Token under Settings > Plugins.
+
+## Available Tools (41 MCP + 2 API-only)
+
+### Safety Detection
+- detect_bullying — Detect bullying, harassment, and harmful language
+- detect_grooming — Detect grooming patterns and predatory behavior in conversations
+- detect_unsafe — Identify unsafe content (self-harm, violence, explicit material, sextortion)
+- analyze — Quick comprehensive safety check (bullying + unsafe)
+- analyse_multi — Run multiple detection endpoints on a single piece of text
+- analyze_emotions — Analyze emotional content and mental state indicators
+- get_action_plan — Generate age-appropriate guidance for safety situations
+- generate_report — Create incident reports from conversations
+
+### Fraud & Harm Detection
+- detect_social_engineering — Pretexting, urgency fabrication, authority impersonation
+- detect_app_fraud — Fake investment platforms, phishing apps, subscription traps
+- detect_romance_scam — Love-bombing, financial requests, identity deception
+- detect_mule_recruitment — Money mule recruitment, easy-money offers, bank account sharing
+- detect_gambling_harm — Chasing losses, concealment, gambling-related distress
+- detect_coercive_control — Isolation, financial control, monitoring, threats
+- detect_vulnerability_exploitation — Targeting elderly, disabled, or financially distressed individuals
+- detect_radicalisation — Extremist rhetoric, us-vs-them framing, ideological grooming
+
+### Voice, Image & Video Analysis
+- analyze_voice — Transcribe audio and run safety analysis
+- analyze_image — Analyze images for visual safety + OCR text extraction
+- analyze_video — Analyze video files via key frame extraction (mp4, mov, avi, webm, mkv)
+
+### Webhook Management
+- list_webhooks, create_webhook, update_webhook, delete_webhook, test_webhook, regenerate_webhook_secret
+
+### Pricing & Usage
+- get_pricing, get_pricing_details, get_usage_history, get_usage_by_tool, get_usage_monthly
+
+### GDPR & Compliance
+- delete_account_data, export_account_data, record_consent, get_consent_status, withdraw_consent, rectify_data, get_audit_logs
+
+### Breach Management
+- log_breach, list_breaches, get_breach, update_breach_status
+
+### Verification (API & SDK only)
+- verify_age — Age verification via document, biometric, or combined methods (Pro tier)
+- verify_identity — Identity verification with face matching and liveness detection (Business tier)
 
 ## Supported Languages
-27 languages: English (stable), Spanish, Portuguese, Ukrainian, Swedish, Norwegian, Danish, Finnish, German, French, Dutch, Polish, Italian, Turkish, Romanian, Greek, Czech, Hungarian, Bulgarian, Croatian, Slovak, Lithuanian, Latvian, Estonian, Slovenian, Maltese, Irish (beta). Auto-detected, no configuration needed.
+27 languages with auto-detection: English (stable), Spanish, Portuguese, French, German, Italian, Dutch, Polish, Romanian, Turkish, Greek, Czech, Hungarian, Bulgarian, Croatian, Slovak, Slovenian, Lithuanian, Latvian, Estonian, Maltese, Irish, Swedish, Norwegian, Danish, Finnish, Ukrainian (beta).
 
 ## Links
 - Website: https://tuteliq.ai
 - Documentation: https://docs.tuteliq.ai
+- Trust Center: https://trust.tuteliq.ai
 - npm: https://www.npmjs.com/package/@tuteliq/mcp
 - GitHub: https://github.com/Tuteliq/mcp
+- Discord: https://discord.gg/7kbTeRYRXD
