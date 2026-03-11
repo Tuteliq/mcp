@@ -229,12 +229,12 @@ The message contains direct exclusionary language...
 
 ---
 
-## Get an API Key
+## Get Started (Free)
 
-1. Go to [tuteliq.ai](https://tuteliq.ai)
-2. Create an account
-3. Generate an API key
-4. Add it to your MCP config
+1. [Create a free Tuteliq account](https://tuteliq.ai/register)
+2. Go to your [Dashboard](https://tuteliq.ai/dashboard) and generate an **API Key**
+3. For Claude Desktop and other MCP plugins, generate a **Secure Token** under **Settings > Plugins**
+4. Use the API key for direct API/SDK access, or the Secure Token when connecting via MCP
 
 ---
 
