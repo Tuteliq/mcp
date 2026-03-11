@@ -169,6 +169,28 @@ export interface ImageAnalysisResult {
   overall_severity: string;
 }
 
+export interface SupportHelpline {
+  name: string;
+  number: string;
+  description?: string;
+  category: string;
+  available?: string;
+}
+
+export interface SupportResponseGuide {
+  category: string;
+  immediateActions: string[];
+  resources: Array<{ name: string; description?: string; url?: string }>;
+}
+
+export interface SupportData {
+  country: string;
+  country_name?: string;
+  emergency_number?: string;
+  helplines: SupportHelpline[];
+  response_guide?: SupportResponseGuide;
+}
+
 export interface ToolResultPayload {
   toolName: string;
   result: any;

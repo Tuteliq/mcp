@@ -65,7 +65,7 @@ ${result.rationale}
 
 ${evidence}
 ${messageAnalysis}
-${calibration}`.trim();
+${calibration}`.trim() + ((result as any).support ? formatSupportText((result as any).support) : '');
 }
 
 export function formatMultiResult(result: AnalyseMultiResult): string {
@@ -95,6 +95,52 @@ ${r.rationale}`;
 ---
 
 ${perEndpoint}`;
+}
+
+export function formatSupportText(support: {
+  country_name?: string;
+  emergency_number?: string;
+  helplines: Array<{ name: string; number: string; available?: string }>;
+  response_guide?: { immediateActions: string[]; resources: Array<{ name: string; url?: string }> };
+}): string {
+  const lines: string[] = [
+    '',
+    '---',
+    '',
+    '\u{1F499} **You Are Not Alone**',
+    'If you or someone you know needs support, help is available.',
+    '',
+  ];
+
+  if (support.emergency_number) {
+    lines.push(`\u{1F6A8} **Emergency:** ${support.emergency_number}${support.country_name ? ` (${support.country_name})` : ''}`);
+    lines.push('');
+  }
+
+  if (support.helplines.length > 0) {
+    lines.push('**Crisis Helplines:**');
+    for (const h of support.helplines) {
+      lines.push(`- \u{1F4DE} **${h.name}:** ${h.number}${h.available ? ` (${h.available})` : ''}`);
+    }
+    lines.push('');
+  }
+
+  if (support.response_guide?.immediateActions?.length) {
+    lines.push('**What you can do now:**');
+    for (const action of support.response_guide.immediateActions) {
+      lines.push(`- ${action}`);
+    }
+    lines.push('');
+  }
+
+  if (support.response_guide?.resources?.length) {
+    lines.push('**Resources:**');
+    for (const r of support.response_guide.resources) {
+      lines.push(r.url ? `- [${r.name}](${r.url})` : `- ${r.name}`);
+    }
+  }
+
+  return lines.join('\n');
 }
 
 export function formatVideoResult(result: VideoAnalysisResult): string {

@@ -30,5 +30,5 @@ export function useToolResult() {
     [app],
   );
 
-  return { data, loading, error, isConnected, callTool };
+  return { data, loading, error, isConnected, callTool, app };
 }

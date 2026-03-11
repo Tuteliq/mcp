@@ -3,13 +3,33 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import type { Tuteliq } from '@tuteliq/sdk';
 import { readFileSync } from 'fs';
-import { resolve } from 'path';
-import { severityEmoji, riskEmoji } from '../formatters.js';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { severityEmoji, riskEmoji, formatSupportText } from '../formatters.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const DETECTION_WIDGET_URI = 'ui://tuteliq/detection-result.html';
 
 function loadWidget(name: string): string {
-  return readFileSync(resolve(__dirname, '../../dist-ui', name), 'utf-8');
+  return readFileSync(resolve(__dirname, '../../../dist-ui', name), 'utf-8');
+}
+
+function handleTierError(err: any, toolName: string, featureLabel: string) {
+  if (err?.status === 403 || err?.response?.status === 403) {
+    const upsellResult = {
+      error: 'tier_restricted',
+      tier_restricted: true,
+      upgrade: true,
+      message: `Your current plan does not include ${featureLabel.toLowerCase()}. Upgrade your plan or purchase additional credits to unlock this feature.`,
+    };
+    return {
+      structuredContent: { toolName, result: upsellResult, branding: { appName: 'Tuteliq' } },
+      content: [{ type: 'text' as const, text: `\u26A0\uFE0F ${upsellResult.message}\n\nUpgrade at: https://tuteliq.ai/dashboard` }],
+    };
+  }
+  return null;
 }
 
 const contextSchema = z.object({
@@ -57,15 +77,38 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
       _meta: uiMeta('Shows bullying detection results with risk indicators', 'Analyzing content for bullying...', 'Bullying analysis complete.'),
     },
     async ({ content, context }) => {
-      const result = await client.detectBullying({
-        content,
-        context: { ...context, platform: 'mcp' } as Record<string, string>,
-      });
+      try {
+        const result = await client.detectBullying({
+          content,
+          context: context as Record<string, string> | undefined,
+        });
 
-      return {
-        structuredContent: { toolName: 'detect_bullying', result, branding: { appName: 'Tuteliq' } },
-        content: [{ type: 'text' as const, text: `Bullying analysis complete. See the interactive widget above. Do not add any additional commentary.` }],
-      };
+        const emoji = severityEmoji[result.severity] || '\u26AA';
+        let text = `## ${result.is_bullying ? '\u26A0\uFE0F Bullying Detected' : '\u2705 No Bullying Detected'}
+
+**Severity:** ${emoji} ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}
+**Confidence:** ${(result.confidence * 100).toFixed(0)}%
+**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
+
+${result.is_bullying ? `**Types:** ${result.bullying_type.join(', ')}` : ''}
+
+### Rationale
+${result.rationale}
+
+### Recommended Action
+\`${result.recommended_action}\``;
+
+        if ((result as any).support) text += formatSupportText((result as any).support);
+
+        return {
+          structuredContent: { toolName: 'detect_bullying', result, branding: { appName: 'Tuteliq' } },
+          content: [{ type: 'text' as const, text }],
+        };
+      } catch (err: any) {
+        const upsell = handleTierError(err, 'detect_bullying', 'Bullying Detection');
+        if (upsell) return upsell;
+        throw err;
+      }
     },
   );
 
@@ -87,16 +130,38 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
       _meta: uiMeta('Shows grooming detection results with risk indicators', 'Analyzing conversation for grooming patterns...', 'Grooming analysis complete.'),
     },
     async ({ messages, childAge }) => {
-      const result = await client.detectGrooming({
-        messages,
-        childAge,
-        context: { platform: 'mcp' } as Record<string, string>,
-      });
+      try {
+        const result = await client.detectGrooming({
+          messages,
+          childAge,
+        });
 
-      return {
-        structuredContent: { toolName: 'detect_grooming', result, branding: { appName: 'Tuteliq' } },
-        content: [{ type: 'text' as const, text: `Grooming analysis complete. See the interactive widget above. Do not add any additional commentary.` }],
-      };
+        const emoji = riskEmoji[result.grooming_risk] || '\u26AA';
+        let text = `## ${result.grooming_risk === 'none' ? '\u2705 No Grooming Detected' : '\u26A0\uFE0F Grooming Risk Detected'}
+
+**Risk Level:** ${emoji} ${result.grooming_risk.charAt(0).toUpperCase() + result.grooming_risk.slice(1)}
+**Confidence:** ${(result.confidence * 100).toFixed(0)}%
+**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
+
+${result.flags.length > 0 ? `**Warning Flags:**\n${result.flags.map(f => `- \u{1F6A9} ${f}`).join('\n')}` : ''}
+
+### Rationale
+${result.rationale}
+
+### Recommended Action
+\`${result.recommended_action}\``;
+
+        if ((result as any).support) text += formatSupportText((result as any).support);
+
+        return {
+          structuredContent: { toolName: 'detect_grooming', result, branding: { appName: 'Tuteliq' } },
+          content: [{ type: 'text' as const, text }],
+        };
+      } catch (err: any) {
+        const upsell = handleTierError(err, 'detect_grooming', 'Grooming Detection');
+        if (upsell) return upsell;
+        throw err;
+      }
     },
   );
 
@@ -115,15 +180,38 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
       _meta: uiMeta('Shows unsafe content detection results', 'Analyzing content for safety concerns...', 'Safety analysis complete.'),
     },
     async ({ content, context }) => {
-      const result = await client.detectUnsafe({
-        content,
-        context: { ...context, platform: 'mcp' } as Record<string, string>,
-      });
+      try {
+        const result = await client.detectUnsafe({
+          content,
+          context: context as Record<string, string> | undefined,
+        });
 
-      return {
-        structuredContent: { toolName: 'detect_unsafe', result, branding: { appName: 'Tuteliq' } },
-        content: [{ type: 'text' as const, text: `Unsafe content analysis complete. See the interactive widget above. Do not add any additional commentary.` }],
-      };
+        const emoji = severityEmoji[result.severity] || '\u26AA';
+        let text = `## ${result.unsafe ? '\u26A0\uFE0F Unsafe Content Detected' : '\u2705 Content is Safe'}
+
+**Severity:** ${emoji} ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}
+**Confidence:** ${(result.confidence * 100).toFixed(0)}%
+**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
+
+${result.unsafe ? `**Categories:**\n${result.categories.map(c => `- \u26A0\uFE0F ${c}`).join('\n')}` : ''}
+
+### Rationale
+${result.rationale}
+
+### Recommended Action
+\`${result.recommended_action}\``;
+
+        if ((result as any).support) text += formatSupportText((result as any).support);
+
+        return {
+          structuredContent: { toolName: 'detect_unsafe', result, branding: { appName: 'Tuteliq' } },
+          content: [{ type: 'text' as const, text }],
+        };
+      } catch (err: any) {
+        const upsell = handleTierError(err, 'detect_unsafe', 'Unsafe Content Detection');
+        if (upsell) return upsell;
+        throw err;
+      }
     },
   );
 
@@ -142,12 +230,33 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
       _meta: uiMeta('Shows combined safety analysis results', 'Running safety analysis...', 'Safety analysis complete.'),
     },
     async ({ content, include }) => {
-      const result = await client.analyze({ content, include, context: { platform: 'mcp' } });
+      try {
+        const result = await client.analyze({ content, include });
 
-      return {
-        structuredContent: { toolName: 'analyze', result, branding: { appName: 'Tuteliq' } },
-        content: [{ type: 'text' as const, text: `Safety analysis complete. See the interactive widget above. Do not add any additional commentary.` }],
-      };
+        const emoji = riskEmoji[result.risk_level] || '\u26AA';
+        const text = `## Safety Analysis Results
+
+**Overall Risk:** ${emoji} ${result.risk_level.charAt(0).toUpperCase() + result.risk_level.slice(1)}
+**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
+
+### Summary
+${result.summary}
+
+### Recommended Action
+\`${result.recommended_action}\`
+
+---
+${result.bullying ? `\n**Bullying Check:** ${result.bullying.is_bullying ? '\u26A0\uFE0F Detected' : '\u2705 Clear'}\n` : ''}${result.unsafe ? `\n**Unsafe Content:** ${result.unsafe.unsafe ? '\u26A0\uFE0F Detected' : '\u2705 Clear'}\n` : ''}`;
+
+        return {
+          structuredContent: { toolName: 'analyze', result, branding: { appName: 'Tuteliq' } },
+          content: [{ type: 'text' as const, text }],
+        };
+      } catch (err: any) {
+        const upsell = handleTierError(err, 'analyze', 'Safety Analysis');
+        if (upsell) return upsell;
+        throw err;
+      }
     },
   );
 }

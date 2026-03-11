@@ -7,6 +7,9 @@ import { CategoryChips } from '../components/CategoryChips';
 import { EvidenceCard } from '../components/EvidenceCard';
 import { ActionCard } from '../components/ActionCard';
 import { AgeCalibration } from '../components/AgeCalibration';
+import { FooterLinks } from '../components/FooterLinks';
+import { SupportCard } from '../components/SupportCard';
+import { UpsellBanner } from '../components/UpsellBanner';
 import { colors } from '../theme';
 import type { ToolResultPayload } from '../types';
 
@@ -25,24 +28,28 @@ export function DetectionPage({ data }: DetectionPageProps) {
   const { toolName, result } = data;
   const title = formatToolName(toolName);
 
-  // Handle different result shapes — fraud endpoints return severity (0-1) as raw score,
-  // risk_score is age-adjusted and may be 0 when no age is provided
-  const riskScore = result.risk_score || (typeof result.severity === 'number' ? result.severity : 0);
-  // Fraud endpoints don't return top-level confidence — derive from categories or evidence
-  const confidence = result.confidence
-    ?? (Array.isArray(result.categories) && result.categories.length > 0 && typeof result.categories[0]?.confidence === 'number'
-      ? Math.max(...result.categories.map((c: any) => c.confidence ?? 0))
-      : undefined)
-    ?? (Array.isArray(result.evidence) && result.evidence.length > 0
-      ? Math.max(...result.evidence.map((e: any) => e.weight ?? 0))
-      : 0);
-  const level = result.level || result.severity || result.grooming_risk || result.risk_level || 'none';
+  // Handle upsell / tier restriction errors
+  if (result.error && (result.upgrade || result.tier_restricted)) {
+    return (
+      <AppWrapper title={title}>
+        <UpsellBanner message={result.message || result.error} />
+        <FooterLinks />
+      </AppWrapper>
+    );
+  }
+
+  // Handle different result shapes — severity can be a string ("high") or number (0-1)
+  const severityIsNumeric = typeof result.severity === 'number';
+  const riskScore = result.risk_score ?? (severityIsNumeric ? result.severity : 0);
+  const confidence = result.confidence ?? 0;
+  const level = result.level || (!severityIsNumeric ? result.severity : null) || result.grooming_risk || result.risk_level || 'none';
   const detected = result.detected ?? result.is_bullying ?? result.unsafe ?? (result.grooming_risk && result.grooming_risk !== 'none') ?? false;
   const rationale = result.rationale || result.summary || '';
   const action = result.recommended_action || '';
   const categories = result.categories || result.bullying_type || result.flags || [];
   const evidence = result.evidence || [];
   const ageCalibration = result.age_calibration;
+  const support = result.support;
 
   return (
     <AppWrapper title={title}>
@@ -70,6 +77,12 @@ export function DetectionPage({ data }: DetectionPageProps) {
       {evidence.length > 0 && <EvidenceCard evidence={evidence} />}
 
       {action && <ActionCard action={action} />}
+
+      {support && (support.helplines?.length > 0 || support.response_guide || support.emergency_number) && (
+        <SupportCard support={support} />
+      )}
+
+      <FooterLinks />
     </AppWrapper>
   );
 }

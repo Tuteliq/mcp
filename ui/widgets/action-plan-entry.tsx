@@ -2,14 +2,14 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { useToolResult } from '@ui/hooks/useToolResult';
 import { ActionPlanPage } from '@ui/pages/ActionPlanPage';
-import { LoadingScreen } from '@ui/components/LoadingScreen';
+import { BrandedLoader } from '@ui/components/BrandedLoader';
 import { baseStyles } from '@ui/theme';
 
 function Widget() {
   const { data, loading } = useToolResult();
 
   if (loading || !data) {
-    return <LoadingScreen message="Generating action plan..." />;
+    return <BrandedLoader message="Generating action plan..." />;
   }
 
   return <ActionPlanPage data={data} />;

@@ -108,19 +108,35 @@ export function registerFraudTools(server: McpServer, client: Tuteliq): void {
         },
       },
       async ({ content, context, include_evidence, external_id, customer_id }) => {
-        const fn = (client as any)[tool.method].bind(client);
-        const result = await fn({
-          content,
-          context: { ...context, platform: 'mcp' } as ContextInput,
-          includeEvidence: include_evidence,
-          external_id,
-          customer_id,
-        });
+        try {
+          const fn = (client as any)[tool.method].bind(client);
+          const result = await fn({
+            content,
+            context: context as ContextInput | undefined,
+            includeEvidence: include_evidence,
+            external_id,
+            customer_id,
+          });
 
-        return {
-          structuredContent: { toolName: tool.name, result, branding: { appName: 'Tuteliq' } },
-          content: [{ type: 'text' as const, text: `${tool.title} analysis complete. See the interactive widget above. Do not add any additional commentary.` }],
-        };
+          return {
+            structuredContent: { toolName: tool.name, result, branding: { appName: 'Tuteliq' } },
+            content: [{ type: 'text' as const, text: formatDetectionResult(result) }],
+          };
+        } catch (err: any) {
+          if (err?.status === 403 || err?.response?.status === 403) {
+            const upsellResult = {
+              error: 'tier_restricted',
+              tier_restricted: true,
+              upgrade: true,
+              message: `Your current plan does not include ${tool.title.toLowerCase()}. Upgrade your plan or purchase additional credits to unlock this feature.`,
+            };
+            return {
+              structuredContent: { toolName: tool.name, result: upsellResult, branding: { appName: 'Tuteliq' } },
+              content: [{ type: 'text' as const, text: `⚠️ ${upsellResult.message}\n\nUpgrade at: https://tuteliq.ai/dashboard` }],
+            };
+          }
+          throw err;
+        }
       },
     );
   }
