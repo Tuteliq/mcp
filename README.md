@@ -26,7 +26,7 @@
 
 Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cursor, and other MCP-compatible AI assistants. Ask Claude to check messages for bullying, detect grooming patterns, or generate safety action plans.
 
-## Available Tools (35)
+## Available Tools (41 MCP + 2 API-only)
 
 ### Safety Detection
 
@@ -36,16 +36,31 @@ Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cu
 | `detect_grooming` | Detect grooming patterns and predatory behavior in conversations |
 | `detect_unsafe` | Identify unsafe content (self-harm, violence, explicit material) |
 | `analyze` | Quick comprehensive safety check (bullying + unsafe) |
+| `analyse_multi` | Run multiple detection endpoints on a single piece of text in one call |
 | `analyze_emotions` | Analyze emotional content and mental state indicators |
 | `get_action_plan` | Generate age-appropriate guidance for safety situations |
 | `generate_report` | Create incident reports from conversations |
 
-### Voice & Image Analysis
+### Fraud & Harm Detection
+
+| Tool | Description |
+|------|-------------|
+| `detect_social_engineering` | Detect social engineering tactics (pretexting, urgency fabrication, authority impersonation) |
+| `detect_app_fraud` | Detect app-based fraud (fake investment platforms, phishing apps, subscription traps) |
+| `detect_romance_scam` | Detect romance scam patterns (love-bombing, financial requests, identity deception) |
+| `detect_mule_recruitment` | Detect money mule recruitment tactics (easy-money offers, bank account sharing) |
+| `detect_gambling_harm` | Detect gambling-related harm indicators (chasing losses, concealment, distress) |
+| `detect_coercive_control` | Detect coercive control patterns (isolation, financial control, monitoring, threats) |
+| `detect_vulnerability_exploitation` | Detect exploitation of vulnerable individuals (elderly, disabled, financially distressed) |
+| `detect_radicalisation` | Detect radicalisation indicators (extremist rhetoric, us-vs-them framing, ideological grooming) |
+
+### Voice, Image & Video Analysis
 
 | Tool | Description |
 |------|-------------|
 | `analyze_voice` | Transcribe audio and run safety analysis on the transcript |
 | `analyze_image` | Analyze images for visual safety + OCR text extraction |
+| `analyze_video` | Analyze video files for safety concerns via key frame extraction (supports mp4, mov, avi, webm, mkv) |
 
 ### Webhook Management
 
@@ -94,7 +109,9 @@ Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cu
 | `get_breach` | Get details of a specific data breach |
 | `update_breach_status` | Update breach status and notification progress |
 
-### Verification
+### Verification (API & SDK only)
+
+These tools are available via the [REST API](https://docs.tuteliq.ai) and the [@tuteliq/sdk](https://www.npmjs.com/package/@tuteliq/sdk) Node SDK — not yet exposed as MCP tools.
 
 | Tool | Description |
 |------|-------------|
@@ -206,12 +223,9 @@ The message contains direct exclusionary language...
 ### Usage
 > "Show my monthly usage"
 
-### Age Verification
-> "Verify the age of this user using their uploaded ID document"
-> "Estimate this user's age from their selfie using biometric analysis"
-
-### Identity Verification
-> "Verify this user's identity by matching their selfie against their ID document"
+### Fraud Detection
+> "Check this message for social engineering: 'Your account will be suspended unless you verify now'"
+> "Is this a romance scam? 'I know we just met online but I need help with a medical bill'"
 
 ---
 
@@ -228,6 +242,42 @@ The message contains direct exclusionary language...
 
 - Node.js 18+
 - Tuteliq API key
+
+---
+
+## Supported Languages (27)
+
+Language is auto-detected when not specified. Beta languages have good accuracy but may have edge cases compared to English.
+
+| Language | Code | Status |
+|----------|------|--------|
+| English | `en` | Stable |
+| Spanish | `es` | Beta |
+| Portuguese | `pt` | Beta |
+| French | `fr` | Beta |
+| German | `de` | Beta |
+| Italian | `it` | Beta |
+| Dutch | `nl` | Beta |
+| Polish | `pl` | Beta |
+| Romanian | `ro` | Beta |
+| Turkish | `tr` | Beta |
+| Greek | `el` | Beta |
+| Czech | `cs` | Beta |
+| Hungarian | `hu` | Beta |
+| Bulgarian | `bg` | Beta |
+| Croatian | `hr` | Beta |
+| Slovak | `sk` | Beta |
+| Slovenian | `sl` | Beta |
+| Lithuanian | `lt` | Beta |
+| Latvian | `lv` | Beta |
+| Estonian | `et` | Beta |
+| Maltese | `mt` | Beta |
+| Irish | `ga` | Beta |
+| Swedish | `sv` | Beta |
+| Norwegian | `no` | Beta |
+| Danish | `da` | Beta |
+| Finnish | `fi` | Beta |
+| Ukrainian | `uk` | Beta |
 
 ---
 

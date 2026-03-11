@@ -1,25 +1,33 @@
 {
   "name": "@tuteliq/mcp",
-  "version": "3.2.0",
+  "version": "3.3.4",
   "description": "MCP App server for Tuteliq - AI-powered child safety analysis with interactive UI widgets for Claude, ChatGPT, and other MCP hosts",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/src/index.js",
+      "types": "./dist/src/index.d.ts"
+    }
+  },
   "bin": {
-    "tuteliq-mcp": "./dist/index.js"
+    "tuteliq-mcp": "./dist/src/index.js"
   },
   "files": [
     "dist",
     "dist-ui"
   ],
   "scripts": {
+    "clean": "rm -rf dist",
     "build:server": "tsc",
     "build:ui": "rm -rf dist-ui && WIDGET=detection-result vite build && WIDGET=multi-result vite build && WIDGET=emotions-result vite build && WIDGET=media-result vite build && WIDGET=action-plan vite build && WIDGET=report-result vite build",
     "build": "npm run build:ui && npm run build:server",
     "dev:server": "tsx watch server.ts",
     "dev:ui": "vite build --watch",
     "start": "node dist/server.js",
-    "start:stdio": "TUTELIQ_MCP_TRANSPORT=stdio node dist/index.js",
-    "prepublishOnly": "npm run build"
+    "start:stdio": "TUTELIQ_MCP_TRANSPORT=stdio node dist/src/index.js",
+    "prepublishOnly": "npm run clean && npm run build"
   },
   "keywords": [
     "tuteliq",
@@ -61,7 +69,6 @@
     "@vitejs/plugin-react": "^4.3.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "tsx": "^4.21.0",
     "typescript": "^5.3.0",
     "vite": "^6.0.0",
     "vite-plugin-singlefile": "^2.0.0"

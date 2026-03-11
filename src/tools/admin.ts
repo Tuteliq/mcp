@@ -217,7 +217,7 @@ ${result.recommendations ? `### Recommendation\n${result.recommendations.reason}
     'rectify_data',
     'Rectify (correct) user data (GDPR Right to Rectification).',
     {
-      collection: z.string().describe('Firestore collection name'),
+      collection: z.string().describe('Collection name'),
       document_id: z.string().describe('Document ID to rectify'),
       fields: z.record(z.string(), z.unknown()).describe('Fields to update'),
     },

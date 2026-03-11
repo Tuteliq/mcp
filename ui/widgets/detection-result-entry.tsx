@@ -1,18 +1,23 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { useToolResult } from '@ui/hooks/useToolResult';
+import { AppProvider } from '@ui/context/AppContext';
 import { DetectionPage } from '@ui/pages/DetectionPage';
-import { LoadingScreen } from '@ui/components/LoadingScreen';
+import { BrandedLoader } from '@ui/components/BrandedLoader';
 import { baseStyles } from '@ui/theme';
 
 function Widget() {
-  const { data, loading } = useToolResult();
+  const { data, loading, app } = useToolResult();
 
   if (loading || !data) {
-    return <LoadingScreen message="Analyzing content..." />;
+    return <BrandedLoader message="Analyzing content..." />;
   }
 
-  return <DetectionPage data={data} />;
+  return (
+    <AppProvider app={app}>
+      <DetectionPage data={data} />
+    </AppProvider>
+  );
 }
 
 const style = document.createElement('style');

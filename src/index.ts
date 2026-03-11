@@ -10,11 +10,10 @@ import { registerAnalysisTools } from './tools/analysis.js';
 import { registerAdminTools } from './tools/admin.js';
 import { getTransportMode, startStdio } from './transport.js';
 
-export function createServer(): McpServer {
-  const apiKey = process.env.TUTELIQ_API_KEY;
+export function createServer(apiKeyOverride?: string): McpServer {
+  const apiKey = apiKeyOverride || process.env.TUTELIQ_API_KEY;
   if (!apiKey) {
-    console.error('Error: TUTELIQ_API_KEY environment variable is required');
-    process.exit(1);
+    throw new Error('API key is required: pass it to createServer() or set TUTELIQ_API_KEY env var');
   }
 
   const client = new Tuteliq(apiKey);

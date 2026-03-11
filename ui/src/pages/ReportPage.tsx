@@ -2,6 +2,7 @@ import React from 'react';
 import { AppWrapper } from '../App';
 import { SeverityBadge } from '../components/SeverityBadge';
 import { CategoryChips } from '../components/CategoryChips';
+import { FooterLinks } from '../components/FooterLinks';
 import { colors } from '../theme';
 import type { ToolResultPayload, ReportResult } from '../types';
 
@@ -45,6 +46,7 @@ export function ReportPage({ data }: { data: ToolResultPayload }) {
         ))}
       </div>
 
+      <FooterLinks />
     </AppWrapper>
   );
 }
