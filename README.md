@@ -122,23 +122,17 @@ These tools are available via the [REST API](https://docs.tuteliq.ai) and the [@
 
 ## Installation
 
-### Claude Desktop
+### Claude Desktop (Recommended)
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on Mac):
+1. Open Claude Desktop and go to **Settings > Connectors**
+2. Click **Add custom connector**
+3. Set the name to **Tuteliq** and the URL to:
+   ```
+   https://api.tuteliq.ai/mcp
+   ```
+4. When prompted, enter your Tuteliq API key
 
-```json
-{
-  "mcpServers": {
-    "tuteliq": {
-      "command": "npx",
-      "args": ["-y", "@tuteliq/mcp"],
-      "env": {
-        "TUTELIQ_API_KEY": "your-api-key"
-      }
-    }
-  }
-}
-```
+That's it — Tuteliq tools will be available in your next conversation.
 
 ### Cursor
 
@@ -148,6 +142,23 @@ Add to your Cursor MCP settings:
 {
   "mcpServers": {
     "tuteliq": {
+      "url": "https://api.tuteliq.ai/mcp",
+      "headers": {
+        "Authorization": "Bearer your-api-key"
+      }
+    }
+  }
+}
+```
+
+### Other MCP clients (npx)
+
+For clients that support stdio transport:
+
+```json
+{
+  "mcpServers": {
+    "tuteliq": {
       "command": "npx",
       "args": ["-y", "@tuteliq/mcp"],
       "env": {
@@ -156,17 +167,6 @@ Add to your Cursor MCP settings:
     }
   }
 }
-```
-
-### Global Install
-
-```bash
-npm install -g @tuteliq/mcp
-```
-
-Then run:
-```bash
-TUTELIQ_API_KEY=your-api-key tuteliq-mcp
 ```
 
 ---
