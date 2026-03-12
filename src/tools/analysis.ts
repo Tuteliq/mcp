@@ -229,6 +229,7 @@ ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
         endpoints: z.array(z.string()).describe('Detection endpoints to run'),
         context: z.record(z.string(), z.unknown()).optional().describe('Optional analysis context'),
         include_evidence: z.boolean().optional().describe('Include supporting evidence'),
+        support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
         external_id: z.string().optional().describe('External tracking ID'),
         customer_id: z.string().optional().describe('Customer identifier'),
       },
@@ -239,13 +240,14 @@ ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
         'openai/toolInvocation/invoked': 'Multi-endpoint analysis complete.',
       },
     },
-    async ({ content, endpoints, context, include_evidence, external_id, customer_id }) => {
+    async ({ content, endpoints, context, include_evidence, support_threshold, external_id, customer_id }) => {
       try {
         const result = await client.analyseMulti({
           content,
           detections: endpoints,
           context: context as ContextInput | undefined,
           includeEvidence: include_evidence,
+          supportThreshold: support_threshold,
           external_id,
           customer_id,
         });

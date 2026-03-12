@@ -1,6 +1,6 @@
 {
   "name": "@tuteliq/mcp",
-  "version": "3.3.4",
+  "version": "3.3.5",
   "description": "MCP server for Tuteliq — 41 AI-powered tools for child safety, fraud detection, grooming, bullying, sextortion, and content moderation. Interactive UI widgets for Claude, Cursor, and MCP-compatible AI assistants.",
   "type": "module",
   "main": "./dist/src/index.js",
@@ -73,7 +73,7 @@
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^1.1.0",
     "@modelcontextprotocol/sdk": "^1.27.0",
-    "@tuteliq/sdk": "^2.3.1",
+    "@tuteliq/sdk": "^2.3.2",
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "zod": "^4.3.6"

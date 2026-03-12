@@ -73,14 +73,16 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
       inputSchema: {
         content: z.string().describe('The text content to analyze for bullying'),
         context: contextSchema,
+        support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
       },
       _meta: uiMeta('Shows bullying detection results with risk indicators', 'Analyzing content for bullying...', 'Bullying analysis complete.'),
     },
-    async ({ content, context }) => {
+    async ({ content, context, support_threshold }) => {
       try {
         const result = await client.detectBullying({
           content,
           context: context as Record<string, string> | undefined,
+          supportThreshold: support_threshold,
         });
 
         const emoji = severityEmoji[result.severity] || '\u26AA';
@@ -126,14 +128,16 @@ ${result.rationale}
           content: z.string(),
         })).describe('Array of messages in the conversation'),
         childAge: z.number().optional().describe('Age of the child in the conversation'),
+        support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
       },
       _meta: uiMeta('Shows grooming detection results with risk indicators', 'Analyzing conversation for grooming patterns...', 'Grooming analysis complete.'),
     },
-    async ({ messages, childAge }) => {
+    async ({ messages, childAge, support_threshold }) => {
       try {
         const result = await client.detectGrooming({
           messages,
           childAge,
+          supportThreshold: support_threshold,
         });
 
         const emoji = riskEmoji[result.grooming_risk] || '\u26AA';
@@ -176,14 +180,16 @@ ${result.rationale}
       inputSchema: {
         content: z.string().describe('The text content to analyze for unsafe content'),
         context: contextSchema,
+        support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
       },
       _meta: uiMeta('Shows unsafe content detection results', 'Analyzing content for safety concerns...', 'Safety analysis complete.'),
     },
-    async ({ content, context }) => {
+    async ({ content, context, support_threshold }) => {
       try {
         const result = await client.detectUnsafe({
           content,
           context: context as Record<string, string> | undefined,
+          supportThreshold: support_threshold,
         });
 
         const emoji = severityEmoji[result.severity] || '\u26AA';
