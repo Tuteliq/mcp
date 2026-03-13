@@ -240,10 +240,11 @@ ${result.rationale}
         const result = await client.analyze({ content, include });
 
         const emoji = riskEmoji[result.risk_level] || '\u26AA';
-        const text = `## Safety Analysis Results
+        let text = `## Safety Analysis Results
 
 **Overall Risk:** ${emoji} ${result.risk_level.charAt(0).toUpperCase() + result.risk_level.slice(1)}
 **Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
+**Confidence:** ${(result.confidence * 100).toFixed(0)}%
 
 ### Summary
 ${result.summary}
@@ -253,6 +254,9 @@ ${result.summary}
 
 ---
 ${result.bullying ? `\n**Bullying Check:** ${result.bullying.is_bullying ? '\u26A0\uFE0F Detected' : '\u2705 Clear'}\n` : ''}${result.unsafe ? `\n**Unsafe Content:** ${result.unsafe.unsafe ? '\u26A0\uFE0F Detected' : '\u2705 Clear'}\n` : ''}`;
+
+        // Show support resources from the unsafe sub-result if available
+        if ((result.unsafe as any)?.support) text += formatSupportText((result.unsafe as any).support);
 
         return {
           structuredContent: { toolName: 'analyze', result, branding: { appName: 'Tuteliq' } },
