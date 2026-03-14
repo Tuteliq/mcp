@@ -120,6 +120,62 @@ These tools are available via the [REST API](https://docs.tuteliq.ai) and the [@
 
 ---
 
+## Common Parameters
+
+### Context Fields
+
+All detection tools accept an optional `context` object. These fields influence severity scoring and classification:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `language` | `string` | ISO 639-1 code (e.g., `"en"`, `"sv"`). Auto-detected if omitted. |
+| `ageGroup` | `string` | Age group (e.g., `"10-12"`, `"13-15"`, `"under 18"`). Triggers age-calibrated scoring. |
+| `platform` | `string` | Platform name (e.g., `"Discord"`, `"Roblox"`). Adjusts detection for platform norms. |
+| `relationship` | `string` | Relationship context (e.g., `"classmates"`, `"stranger"`). |
+| `sender_trust` | `string` | Sender verification status: `"verified"`, `"trusted"`, or `"unknown"`. |
+| `sender_name` | `string` | Name of the sender (used with `sender_trust`). |
+
+#### `sender_trust` Behavior
+
+When `sender_trust` is set to `"verified"` or `"trusted"`:
+- **AUTH_IMPERSONATION** is fully suppressed — a verified sender cannot be impersonating an authority
+- **URGENCY_FABRICATION** is suppressed for routine time-sensitive information (schedules, deadlines, appointments)
+- Content is only flagged if it contains genuinely malicious elements (credential theft, phishing links, financial demands)
+- This prevents false positives on legitimate institutional messages (school notifications, hospital reminders, government advisories)
+
+### `support_threshold`
+
+Controls when crisis support resources (helplines, text lines, web resources) are included in the response:
+
+| Value | Behavior |
+|-------|----------|
+| `low` | Include support for Low severity and above |
+| `medium` | Include support for Medium severity and above |
+| `high` | **(Default)** Include support for High severity and above |
+| `critical` | Include support only for Critical severity |
+
+> **Note:** Critical severity **always** includes support resources regardless of the threshold setting.
+
+### `analyse_multi` Endpoint Values
+
+The `analyse_multi` tool accepts up to 10 endpoints per call. Valid endpoint values:
+
+| Endpoint ID | Description |
+|-------------|-------------|
+| `bullying` | Bullying and harassment detection |
+| `grooming` | Grooming pattern detection |
+| `unsafe` | Unsafe content detection (self-harm, violence, explicit material) |
+| `social-engineering` | Social engineering and pretexting |
+| `app-fraud` | App-based fraud patterns |
+| `romance-scam` | Romance scam patterns |
+| `mule-recruitment` | Money mule recruitment |
+| `gambling-harm` | Gambling-related harm |
+| `coercive-control` | Coercive control patterns |
+| `vulnerability-exploitation` | Exploitation of vulnerable individuals |
+| `radicalisation` | Radicalisation indicators |
+
+---
+
 ## Installation
 
 ### Claude Desktop (Recommended)
