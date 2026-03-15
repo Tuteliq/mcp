@@ -37,6 +37,7 @@ const contextSchema = z.object({
   ageGroup: z.string().optional(),
   relationship: z.string().optional(),
   platform: z.string().optional(),
+  country: z.string().optional().describe('ISO 3166-1 alpha-2 country code (e.g., "GB", "US") for geo-localised helpline data'),
 }).optional();
 
 const uiMeta = (desc: string, invoking: string, invoked: string) => ({

@@ -67,6 +67,7 @@ Pass a \`context\` object with any detection tool to improve accuracy.
 | \`language\` | string | ISO 639-1 code (e.g. \`"en"\`, \`"de"\`, \`"sv"\`). Auto-detected if omitted. 27 languages supported. |
 | \`platform\` | string | Platform name (e.g. \`"Discord"\`, \`"Roblox"\`, \`"WhatsApp"\`). Adjusts for platform-specific norms and slang. |
 | \`conversation_history\` | array | Prior messages for context-aware analysis. Each entry: \`{ sender: string, content: string }\`. Returns per-message \`message_analysis\`. |
+| \`country\` | string | ISO 3166-1 alpha-2 country code (e.g. \`"GB"\`, \`"US"\`, \`"SE"\`). Returns geo-localised crisis helplines. Falls back to user profile country if omitted. |
 | \`sender_trust\` | string | \`"verified"\`, \`"trusted"\`, or \`"unknown"\`. When \`"verified"\`, AUTH_IMPERSONATION is fully suppressed. |
 | \`sender_name\` | string | Sender identifier. Used with \`sender_trust\` for impersonation scoring. |
 
