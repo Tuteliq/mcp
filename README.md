@@ -54,13 +54,14 @@ Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cu
 | `detect_vulnerability_exploitation` | Detect exploitation of vulnerable individuals (elderly, disabled, financially distressed) |
 | `detect_radicalisation` | Detect radicalisation indicators (extremist rhetoric, us-vs-them framing, ideological grooming) |
 
-### Voice, Image & Video Analysis
+### Voice, Image, Video & Document Analysis
 
 | Tool | Description |
 |------|-------------|
 | `analyze_voice` | Transcribe audio and run safety analysis on the transcript |
 | `analyze_image` | Analyze images for visual safety + OCR text extraction |
 | `analyze_video` | Analyze video files for safety concerns via key frame extraction (supports mp4, mov, avi, webm, mkv) |
+| `analyze_document` | Analyze PDF documents for safety concerns — per-page multi-endpoint detection with chain-of-custody hashing (max 50MB, 100 pages) |
 
 ### Webhook Management
 

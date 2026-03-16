@@ -1,4 +1,4 @@
-import type { DetectionResult, AnalyseMultiResult, VideoAnalysisResult } from '@tuteliq/sdk';
+import type { DetectionResult, AnalyseMultiResult, VideoAnalysisResult, DocumentAnalysisResult, DocumentFlaggedPage, DocumentPageResult } from '@tuteliq/sdk';
 
 export const severityEmoji: Record<string, string> = {
   low: '\u{1F7E1}',
@@ -163,4 +163,55 @@ export function formatVideoResult(result: VideoAnalysisResult): string {
 
 ### Safety Findings
 ${findingsSection}`;
+}
+
+export function formatDocumentResult(result: DocumentAnalysisResult): string {
+  const emoji = riskEmoji[result.overall_severity] || '\u2705';
+
+  const extractionLines = [
+    `**Text Layer Pages:** ${result.extraction_summary.text_layer_pages}`,
+    result.extraction_summary.ocr_pages > 0 ? `**OCR Pages:** ${result.extraction_summary.ocr_pages}` : '',
+    result.extraction_summary.failed_pages > 0 ? `**Skipped Pages:** ${result.extraction_summary.failed_pages}` : '',
+  ].filter(Boolean).join('\n');
+
+  const flaggedSection = result.flagged_pages.length > 0
+    ? result.flagged_pages
+        .map((f: DocumentFlaggedPage) => {
+          const fEmoji = riskEmoji[f.severity] || '\u26AA';
+          return `- **Page ${f.page_number}** ${fEmoji} ${f.severity} (${(f.risk_score * 100).toFixed(0)}%) \u2014 ${f.detected_endpoints.join(', ')}`;
+        })
+        .join('\n')
+    : '_No flagged pages._';
+
+  const pageResultsSection = result.page_results
+    .slice(0, 10)
+    .map((p: DocumentPageResult) => {
+      const pEmoji = riskEmoji[p.page_severity] || '\u2705';
+      const detections = p.results.filter((r) => r.detected);
+      const detectionText = detections.length > 0
+        ? detections.map((r) => `${r.endpoint}: ${r.rationale}`).join('; ')
+        : 'Clear';
+      return `- **Page ${p.page_number}** ${pEmoji} ${p.page_severity} \u2014 ${detectionText}`;
+    })
+    .join('\n');
+
+  return `## \u{1F4C4} Document Analysis
+
+**Overall Severity:** ${emoji} ${result.overall_severity}
+**Overall Risk Score:** ${(result.overall_risk_score * 100).toFixed(0)}%
+**Document Hash:** \`${result.document_hash}\`
+**Total Pages:** ${result.total_pages} | **Analyzed:** ${result.pages_analyzed}
+**Credits Used:** ${result.credits_used}
+${result.language ? `**Language:** ${result.language}` : ''}
+
+### Extraction Summary
+${extractionLines}
+
+### Flagged Pages
+${flaggedSection}
+
+### Page Results
+${pageResultsSection}${result.page_results.length > 10 ? `\n_...and ${result.page_results.length - 10} more pages_` : ''}
+
+${result.detected_endpoints.length > 0 ? `### Detected Threats\n${result.detected_endpoints.map((e: string) => `- \u26A0\uFE0F ${e}`).join('\n')}` : ''}` + (result.support ? formatSupportText(result.support as any) : '');
 }

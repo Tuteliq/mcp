@@ -5,7 +5,7 @@ import type { Tuteliq } from '@tuteliq/sdk';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { severityEmoji, trendEmoji, formatVideoResult } from '../formatters.js';
+import { severityEmoji, trendEmoji, formatVideoResult, formatDocumentResult } from '../formatters.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -240,6 +240,54 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
         };
       } catch (err: any) {
         const upsell = handleTierError(err, 'analyze_video', 'Video Analysis');
+        if (upsell) return upsell;
+        throw err;
+      }
+    },
+  );
+
+  // ── analyze_document ────────────────────────────────────────────────────────
+  registerAppTool(
+    server,
+    'analyze_document',
+    {
+      title: 'Analyze Document',
+      description: 'Analyze a PDF document for safety and compliance concerns. Extracts text from each page, runs detection endpoints in parallel, and returns per-page results with an overall risk assessment. Zero-retention: no document data is stored after processing. Supports PDF only (max 50MB, 100 pages).',
+      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+      inputSchema: {
+        file_path: z.string().describe('Absolute path to the PDF file on disk'),
+        endpoints: z.array(z.enum(['unsafe', 'bullying', 'grooming', 'social-engineering', 'coercive-control', 'radicalisation', 'romance-scam', 'mule-recruitment'])).optional().describe('Detection endpoints to run per page (default: unsafe, coercive-control, radicalisation)'),
+        age_group: z.string().optional().describe('Age group for calibrated analysis (e.g., "13-15")'),
+        language: z.string().optional().describe('Language hint (e.g., "en", "sv")'),
+        support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to include crisis helplines (default: high)'),
+      },
+      _meta: {
+        ui: { resourceUri: MEDIA_WIDGET_URI },
+        'openai/widgetDescription': 'Shows document analysis results with per-page safety findings',
+        'openai/toolInvocation/invoking': 'Extracting text and analyzing document for safety concerns...',
+        'openai/toolInvocation/invoked': 'Document analysis complete.',
+      },
+    },
+    async ({ file_path, endpoints, age_group, language, support_threshold }) => {
+      try {
+        const buffer = readFileSync(file_path);
+        const filename = filenameFromPath(file_path);
+
+        const result = await client.analyzeDocument({
+          file: buffer,
+          filename,
+          endpoints,
+          ageGroup: age_group,
+          language,
+          supportThreshold: support_threshold,
+        });
+
+        return {
+          structuredContent: { toolName: 'analyze_document', result, branding: { appName: 'Tuteliq' } },
+          content: [{ type: 'text' as const, text: formatDocumentResult(result) }],
+        };
+      } catch (err: any) {
+        const upsell = handleTierError(err, 'analyze_document', 'Document Analysis');
         if (upsell) return upsell;
         throw err;
       }
