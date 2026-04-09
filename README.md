@@ -26,7 +26,7 @@
 
 Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cursor, and other MCP-compatible AI assistants. Ask Claude to check messages for bullying, detect grooming patterns, or generate safety action plans.
 
-## Available Tools (41 MCP + 2 API-only)
+## Available Tools (50 MCP)
 
 ### Safety Detection
 
@@ -62,6 +62,24 @@ Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cu
 | `analyze_image` | Analyze images for visual safety + OCR text extraction |
 | `analyze_video` | Analyze video files for safety concerns via key frame extraction (supports mp4, mov, avi, webm, mkv) |
 | `analyze_document` | Analyze PDF documents for safety concerns — per-page multi-endpoint detection with chain-of-custody hashing (max 50MB, 100 pages) |
+
+### Synthetic Content Detection
+
+| Tool | Description |
+|------|-------------|
+| `detect_synthetic_text` | Detect AI-generated text across 10 child-safety categories (synthetic CSAM, deepfake scripts, AI grooming) |
+| `detect_synthetic_image` | 6-signal forensic pipeline: vision AI, EXIF metadata, pixel stats, C2PA Content Credentials, watermarks, pHash |
+| `detect_synthetic_audio` | Dual-signal forensics: transcript + mel spectrogram vision + quantitative audio statistics |
+| `detect_synthetic_video` | 5-track analysis: per-frame vision, temporal face consistency, lip-sync correlation, spectral audio, transcript |
+| `get_synthetic_profile` | Account-level 30-day rolling window with trend detection and category distribution |
+
+### Identity & Age Verification
+
+| Tool | Description |
+|------|-------------|
+| `create_verification_session` | Create a session for age or identity verification — returns a URL for the user to complete the flow |
+| `get_verification_session` | Poll session status — returns full document intelligence (MRZ, barcode, authenticity, face match, liveness) |
+| `cancel_verification_session` | Cancel an active session (no credits consumed) |
 
 ### Webhook Management
 
@@ -109,15 +127,6 @@ Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cu
 | `list_breaches` | List all data breaches, optionally filtered by status |
 | `get_breach` | Get details of a specific data breach |
 | `update_breach_status` | Update breach status and notification progress |
-
-### Verification (API & SDK only)
-
-These tools are available via the [REST API](https://docs.tuteliq.ai) and the [@tuteliq/sdk](https://www.npmjs.com/package/@tuteliq/sdk) Node SDK — not yet exposed as MCP tools.
-
-| Tool | Description |
-|------|-------------|
-| `verify_age` | Verify a user's age via document analysis, biometric estimation, or both. Methods: `document`, `biometric`, `combined`. Returns verified age range, confidence score, and minor status. Beta — requires Pro tier. 5 credits per call. |
-| `verify_identity` | Confirm user identity with document authentication, face matching, and liveness detection. Returns match score, liveness result, and document authentication status. Beta — requires Business tier. 10 credits per call. |
 
 ---
 
@@ -279,6 +288,19 @@ The message contains direct exclusionary language...
 
 ### Usage
 > "Show my monthly usage"
+
+### Synthetic Content Detection
+> "Is this image AI-generated? /path/to/suspect-image.jpg"
+> "Check if this audio is a voice clone: /path/to/voice.mp3"
+> "Analyze this video for deepfake indicators: /path/to/video.mp4"
+> "Is this text AI-generated? 'The generated text to analyze...'"
+> "Show me the synthetic content profile for customer cust_xyz789"
+
+### Identity & Age Verification
+> "Create an age verification session"
+> "Create an identity verification session with passport as preferred document"
+> "Check the status of verification session abc123"
+> "Cancel verification session abc123"
 
 ### Fraud Detection
 > "Check this message for social engineering: 'Your account will be suspended unless you verify now'"

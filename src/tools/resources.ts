@@ -54,8 +54,15 @@ const CREDIT_COSTS = `# Credit Costs Per Endpoint
 | analyze_emotions | 1 |
 | get_action_plan | 1 |
 | generate_report | 2 |
-| age_verification | 5 |
-| identity_verification | 10 |`;
+| detect_synthetic_text | 2 |
+| detect_synthetic_image | 5 |
+| detect_synthetic_audio | 4-7 |
+| detect_synthetic_video | 2 + 3/frame + 2 |
+| get_synthetic_profile | 0 (read-only) |
+| create_verification_session (age) | 10 (on completion) |
+| create_verification_session (identity) | 15 (on completion) |
+| get_verification_session | 0 (read-only) |
+| cancel_verification_session | 0 |`;
 
 const CONTEXT_FIELDS = `# Context Fields Reference
 

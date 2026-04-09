@@ -7,6 +7,8 @@ import { registerDetectionTools } from './tools/detection.js';
 import { registerFraudTools } from './tools/fraud.js';
 import { registerMediaTools } from './tools/media.js';
 import { registerAnalysisTools } from './tools/analysis.js';
+import { registerSyntheticTools } from './tools/synthetic.js';
+import { registerVerificationTools } from './tools/verification.js';
 import { registerAdminTools } from './tools/admin.js';
 import { registerResources } from './tools/resources.js';
 import { getTransportMode, startStdio } from './transport.js';
@@ -29,6 +31,8 @@ export function createServer(apiKeyOverride?: string): McpServer {
   registerFraudTools(server, client);
   registerMediaTools(server, client);
   registerAnalysisTools(server, client);
+  registerSyntheticTools(server, client);
+  registerVerificationTools(server, client);
   registerAdminTools(server, client);
   registerResources(server);
 
