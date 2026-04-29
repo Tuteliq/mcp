@@ -394,6 +394,29 @@ See the [Language Support docs](https://docs.tuteliq.ai/languages) for details.
 
 ---
 
+## Privacy & Legal
+
+Tuteliq processes content for safety analysis on behalf of the operator (the API key holder). The MCP server is a thin transport that forwards requests to `api.tuteliq.ai` over TLS — no text, audio, image, or video content is stored locally by the MCP package.
+
+| Topic | Link |
+|-------|------|
+| Privacy Policy | [tuteliq.ai/privacy](https://tuteliq.ai/privacy) |
+| Terms of Service | [tuteliq.ai/terms](https://tuteliq.ai/terms) |
+| Data Processing Agreement | [tuteliq.ai/legal/dpa](https://tuteliq.ai/legal/dpa) |
+| AI Transparency | [tuteliq.ai/ai-transparency](https://tuteliq.ai/ai-transparency) |
+| Contact | privacy@tuteliq.ai |
+
+**What is collected, used, and stored**
+
+- **Authentication:** API keys (server-side) or OAuth 2.1 access tokens (Claude / Cursor connectors). OAuth tokens are issued by `api.tuteliq.ai` and follow the standard RFC 9728 / RFC 8414 discovery flow.
+- **Request content:** text, audio, images, video, and PDFs you submit to detection or analysis tools are processed in-memory by the upstream API. Content is not retained beyond the request unless you explicitly enable history features in the dashboard.
+- **Metadata stored:** request timestamps, tool name, status, latency, and credit consumption — used for usage analytics, billing, and audit logs.
+- **PII redaction:** enable `PII_REDACTION_ENABLED=true` to strip emails, phone numbers, URLs, social handles, and IPs from stored summaries and webhook payloads. The original input is still analyzed in full; only stored outputs are scrubbed.
+- **Sub-processors and retention:** see the [DPA](https://tuteliq.ai/legal/dpa).
+- **Your rights:** the MCP exposes GDPR tools (`export_account_data`, `delete_account_data`, `record_consent`, `withdraw_consent`, `rectify_data`, `get_audit_logs`) so you can exercise data subject rights directly from your client.
+
+---
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.

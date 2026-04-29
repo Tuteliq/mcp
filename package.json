@@ -1,7 +1,7 @@
 {
   "name": "@tuteliq/mcp",
   "mcpName": "ai.tuteliq/mcp",
-  "version": "3.9.0",
+  "version": "3.13.0",
   "description": "MCP server for Tuteliq — 50 AI-powered tools for child safety, fraud detection, synthetic content forensics, identity verification, grooming, bullying, sextortion, document analysis, and content moderation. Interactive UI widgets for Claude, Cursor, and MCP-compatible AI assistants.",
   "type": "module",
   "main": "./dist/src/index.js",
@@ -22,7 +22,7 @@
   "scripts": {
     "clean": "rm -rf dist",
     "build:server": "tsc",
-    "build:ui": "rm -rf dist-ui && WIDGET=detection-result vite build && WIDGET=multi-result vite build && WIDGET=emotions-result vite build && WIDGET=media-result vite build && WIDGET=action-plan vite build && WIDGET=report-result vite build",
+    "build:ui": "rm -rf dist-ui && WIDGET=detection-result vite build && WIDGET=multi-result vite build && WIDGET=emotions-result vite build && WIDGET=media-result vite build && WIDGET=action-plan vite build && WIDGET=report-result vite build && WIDGET=synthetic-result vite build",
     "build": "npm run build:ui && npm run build:server",
     "dev:server": "tsx watch server.ts",
     "dev:ui": "vite build --watch",
