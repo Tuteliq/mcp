@@ -5,12 +5,16 @@ import type { ToolResultPayload } from '../types';
 
 export function useToolResult() {
   const [data, setData] = useState<ToolResultPayload | null>(null);
+  const [viewUUID, setViewUUID] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
 
   const onAppCreated = useCallback((app: App) => {
     app.ontoolresult = (result) => {
       if (result.structuredContent) {
         setData(result.structuredContent as unknown as ToolResultPayload);
+      }
+      if (result._meta?.viewUUID) {
+        setViewUUID(String(result._meta.viewUUID));
       }
       setLoading(false);
     };
@@ -30,5 +34,5 @@ export function useToolResult() {
     [app],
   );
 
-  return { data, loading, error, isConnected, callTool, app };
+  return { data, viewUUID, loading, error, isConnected, callTool, app };
 }
