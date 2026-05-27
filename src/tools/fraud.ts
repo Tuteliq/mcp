@@ -3,6 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppTool } from '@modelcontextprotocol/ext-apps/server';
 import type { Tuteliq, ContextInput } from '@tuteliq/sdk';
 import { formatDetectionResult } from '../formatters.js';
+import { withViewId } from '../view-id.js';
 
 const DETECTION_WIDGET_URI = 'ui://tuteliq/detection-result.html';
 
@@ -80,6 +81,30 @@ const FRAUD_TOOLS: FraudToolDef[] = [
     invoking: 'Analyzing for radicalisation indicators...',
     invoked: 'Radicalisation analysis complete.',
   },
+  {
+    name: 'detect_distress_signals',
+    title: 'Detect Distress Signals',
+    description: 'Detect linguistic distress-signal patterns (loneliness expressions, isolation language, hopelessness phrases, trust-seeking openers, withdrawal references). Returns pattern detections and downstream exploitation-risk assessment. Frames the analysis as content classification, NOT inner-state emotion inference (relevant under EU AI Act Art 5(1)(f) when deployed in workplace or education contexts).',
+    method: 'detectDistressSignals',
+    invoking: 'Analyzing for distress-signal patterns...',
+    invoked: 'Distress-signals analysis complete.',
+  },
+  {
+    name: 'detect_emotional_distress',
+    title: 'Detect Emotional Distress (deprecated — use detect_distress_signals)',
+    description: 'DEPRECATED. Alias for detect_distress_signals; same behaviour and same backing endpoint (/safety/distress-signals). Will be removed in a future major version — update integrations to detect_distress_signals.',
+    method: 'detectDistressSignals',
+    invoking: 'Analyzing for distress-signal patterns...',
+    invoked: 'Distress-signals analysis complete.',
+  },
+  {
+    name: 'detect_tfgbv',
+    title: 'Detect Tech-Facilitated Gender-Based Violence',
+    description: 'Detect tech-facilitated gender-based violence (TFGBV) including image-based abuse, cyber stalking, online harassment, doxing, outing, post-separation abuse, digital coercion, and sexualised deepfakes.',
+    method: 'detectTFGBV',
+    invoking: 'Analyzing for tech-facilitated gender-based violence...',
+    invoked: 'TFGBV analysis complete.',
+  },
 ];
 
 const fraudInputSchema = {
@@ -120,10 +145,10 @@ export function registerFraudTools(server: McpServer, client: Tuteliq): void {
             customer_id,
           });
 
-          return {
+          return withViewId({
             structuredContent: { toolName: tool.name, result, branding: { appName: 'Tuteliq' } },
             content: [{ type: 'text' as const, text: formatDetectionResult(result) }],
-          };
+          });
         } catch (err: any) {
           if (err?.status === 403 || err?.response?.status === 403) {
             const upsellResult = {
