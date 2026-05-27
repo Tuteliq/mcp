@@ -2,7 +2,7 @@
   "name": "@tuteliq/mcp",
   "mcpName": "ai.tuteliq/mcp",
   "version": "3.14.0",
-  "description": "MCP server for Tuteliq — 50 AI-powered tools for child safety, fraud detection, synthetic content forensics, identity verification, grooming, bullying, sextortion, document analysis, and content moderation. Interactive UI widgets for Claude, Cursor, and MCP-compatible AI assistants.",
+  "description": "MCP server for Tuteliq \u2014 50 AI-powered tools for child safety, fraud detection, synthetic content forensics, identity verification, grooming, bullying, sextortion, document analysis, and content moderation. Interactive UI widgets for Claude, Cursor, and MCP-compatible AI assistants.",
   "type": "module",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
@@ -100,7 +100,12 @@
     "vite-plugin-singlefile": "^2.0.0"
   },
   "overrides": {
-    "hono": ">=4.12.7"
+    "qs": ">=6.15.2",
+    "hono": ">=4.12.12",
+    "@hono/node-server": ">=1.19.13",
+    "path-to-regexp": ">=8.2.0",
+    "fast-uri": ">=3.1.2",
+    "ip-address": ">=10.2.0"
   },
   "engines": {
     "node": ">=18.0.0"

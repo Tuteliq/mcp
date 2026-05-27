@@ -25,7 +25,11 @@ jobs:
         run: npm run build
 
       - name: Audit dependencies
-        run: npm audit --omit=dev
+        # Fail the build on high/critical CVEs. Moderate/low surface in the
+        # output but don't block — used for vulns where upstream hasn't
+        # published a fix yet. Patchable vulnerabilities are pinned via
+        # `overrides` in package.json.
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Check package
         run: npm pack --dry-run
