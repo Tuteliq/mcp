@@ -1,7 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { colors, fontFamily, severityColor } from '../theme';
 import { IncidentHeader } from '../components/IncidentHeader';
 import { TrajectoryCurve } from '../components/TrajectoryCurve';
+import { BYOKDecryptPanel } from '../components/BYOKDecryptPanel';
+import type { HybridEnvelope } from '../utils/byokDecrypt';
+
+const isHybridEnvelope = (value: unknown): value is HybridEnvelope =>
+  typeof value === 'object'
+  && value !== null
+  && (value as { scheme?: unknown }).scheme === 'TLQ-HYBRID-RSA-OAEP-AES-256-GCM-v1';
 
 interface IncidentDetail {
   id: string;
@@ -73,12 +80,54 @@ export function IncidentDetailPage({ data }: Props) {
   const i = data.result;
   const sev = severityColor(i.risk_level);
   const envelopeFields = i._e2e_envelope_fields ?? [];
+  // V3.15.7 — local decryption results (CryptoKey-based; never persisted).
+  // Keyed by field name; value is the plaintext UTF-8 returned by the
+  // BYOKDecryptPanel after a successful Web Crypto round-trip.
+  const [localDecrypted, setLocalDecrypted] = useState<Partial<Record<'summary' | 'metadata' | 'source_data', string>>>({});
+
+  const envelopes: Array<{ field: 'summary' | 'metadata' | 'source_data'; envelope: HybridEnvelope }> = [];
+  if (isHybridEnvelope(i.summary)) envelopes.push({ field: 'summary', envelope: i.summary });
+  if (isHybridEnvelope(i.metadata)) envelopes.push({ field: 'metadata', envelope: i.metadata });
+  if (isHybridEnvelope(i.source_data)) envelopes.push({ field: 'source_data', envelope: i.source_data });
 
   const renderField = (fieldName: 'summary' | 'metadata', value: string | Record<string, unknown> | null | undefined) => {
+    // V3.15.7: a locally-decrypted plaintext for this field takes priority.
+    // The BYOKDecryptPanel writes here via onDecrypted after a successful
+    // Web Crypto round-trip — no network round-trip, no private key egress.
+    const decrypted = localDecrypted[fieldName];
+    if (decrypted !== undefined) {
+      // Try to parse JSON for `metadata`/`source_data`; fall back to string.
+      let display: React.ReactNode = decrypted;
+      if (fieldName === 'metadata') {
+        try {
+          const parsed = JSON.parse(decrypted);
+          display = (
+            <pre style={{ fontSize: 10, background: colors.bg.tertiary, padding: 8, borderRadius: 6, overflowX: 'auto', maxHeight: 200 }}>
+              {JSON.stringify(parsed, null, 2)}
+            </pre>
+          );
+        } catch {
+          display = <span style={{ whiteSpace: 'pre-wrap' }}>{decrypted}</span>;
+        }
+      } else {
+        display = <span style={{ whiteSpace: 'pre-wrap' }}>{decrypted}</span>;
+      }
+      return (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: colors.severity.safe, marginBottom: 6, fontWeight: 600 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Decrypted locally in your browser
+          </div>
+          <div style={{ fontSize: 12, color: colors.text.primary, lineHeight: 1.6 }}>{display}</div>
+        </div>
+      );
+    }
     if (envelopeFields.includes(fieldName)) {
       return (
         <div style={{ padding: '10px 12px', background: `${colors.severity.medium}11`, border: `1px dashed ${colors.severity.medium}66`, borderRadius: 8, fontSize: 11, color: colors.text.secondary }}>
-          🔒 <strong>Encrypted</strong> — this field is wrapped in a BYOK hybrid envelope. Decrypt client-side with your RSA private key (registered fingerprint visible via <code>get_encryption_key</code>).
+          🔒 <strong>Encrypted under your customer-controlled key.</strong> Tuteliq cannot read this field. Use the panel below to decrypt locally with your RSA private key — the key never leaves your browser.
         </div>
       );
     }
@@ -142,6 +191,20 @@ export function IncidentDetailPage({ data }: Props) {
           <div style={{ fontSize: 13, fontWeight: 600, color: colors.text.primary, textTransform: 'capitalize' }}>{i.status}</div>
         </div>
       </div>
+
+      {/* V3.15.7 — BYOK decrypt panel. Surfaces right under the severity
+          banner when any field is a hybrid envelope, so the moderator's
+          first action ("decrypt locally") is one click away rather than
+          buried under a wall of metadata. The "decryption happens in your
+          browser" promise is delivered at the moment of pasting, not after. */}
+      {envelopes.length > 0 && (
+        <BYOKDecryptPanel
+          envelopes={envelopes}
+          onDecrypted={(field, plaintext) => {
+            setLocalDecrypted(prev => ({ ...prev, [field]: plaintext }));
+          }}
+        />
+      )}
 
       {/* V3.15.6 — Trajectory curve renders ABOVE the summary because it's
           the hero element: a 0.1 → 0.9 risk ramp tells the moderator the
