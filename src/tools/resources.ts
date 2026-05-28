@@ -58,7 +58,6 @@ const CREDIT_COSTS = `# Credit Costs Per Endpoint
 | detect_synthetic_image | 5 |
 | detect_synthetic_audio | 4-7 |
 | detect_synthetic_video | 2 + 3/frame + 2 |
-| get_synthetic_profile | 0 (read-only) |
 | create_verification_session (age) | 10 (on completion) |
 | create_verification_session (identity) | 15 (on completion) |
 | get_verification_session | 0 (read-only) |

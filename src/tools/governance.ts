@@ -6,17 +6,61 @@
  * - Art 12 audit receipts (#33): fetch a signed receipt for a past inference.
  * - Art 14 moderator review (#24): override a model decision and emit a
  *   linked, signed receipt.
+ * - V3.15.5 read-only dashboard tools (list_incidents / get_incident /
+ *   get_incidents_overview / get_incident_trends) with paired interactive
+ *   widgets registered as MCP resources.
  */
 
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Tuteliq, ModeratorAction, ModeratorReasonCode, RetentionClass, CustomerKeyAlgorithm } from '@tuteliq/sdk';
+import { registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: true } as const;
 const ADDITIVE = { readOnlyHint: false, destructiveHint: false, openWorldHint: true } as const;
 const DESTRUCTIVE = { readOnlyHint: false, destructiveHint: true, openWorldHint: true } as const;
 
+const INCIDENTS_OVERVIEW_WIDGET_URI = 'ui://tuteliq/incidents-overview.html';
+const INCIDENTS_LIST_WIDGET_URI = 'ui://tuteliq/incidents-list.html';
+const INCIDENT_DETAIL_WIDGET_URI = 'ui://tuteliq/incident-detail.html';
+const INCIDENT_TRENDS_WIDGET_URI = 'ui://tuteliq/incident-trends.html';
+
+function loadWidget(name: string): string {
+  return readFileSync(resolve(__dirname, '../../../dist-ui', name), 'utf-8');
+}
+
 export function registerGovernanceTools(server: McpServer, client: Tuteliq): void {
+
+  // V3.15.5 â€” register the four read-only dashboard widgets as MCP
+  // resources so MCP hosts (Claude Desktop, Cursor, etc.) can render
+  // them inline when the matching tool is invoked.
+  for (const r of [
+    { uri: INCIDENTS_OVERVIEW_WIDGET_URI, file: 'incidents-overview.html' },
+    { uri: INCIDENTS_LIST_WIDGET_URI, file: 'incidents-list.html' },
+    { uri: INCIDENT_DETAIL_WIDGET_URI, file: 'incident-detail.html' },
+    { uri: INCIDENT_TRENDS_WIDGET_URI, file: 'incident-trends.html' },
+  ]) {
+    registerAppResource(
+      server as any,
+      r.uri,
+      r.uri,
+      { mimeType: RESOURCE_MIME_TYPE },
+      async () => ({
+        contents: [{
+          uri: r.uri,
+          mimeType: RESOURCE_MIME_TYPE,
+          text: loadWidget(r.file),
+        }],
+      }),
+    );
+  }
+
 
   // =========================================================================
   // Encryption keys (E2E for incident records)
@@ -239,6 +283,12 @@ ${result.audit_receipt ? `### Audit receipt\n**Request ID:** \`${result.audit_re
         cursor: z.string().optional().describe('Opaque cursor from a prior list_incidents response'),
         include_summary: z.boolean().optional().describe('Decrypt the summary text per row (extra credit per row)'),
       },
+      _meta: {
+        ui: { resourceUri: INCIDENTS_LIST_WIDGET_URI },
+        'openai/widgetDescription': 'Renders a paginated, filterable list of incidents with severity, status, and source chips',
+        'openai/toolInvocation/invoking': 'Loading incidents...',
+        'openai/toolInvocation/invoked': 'Incidents loaded.',
+      },
     },
     async (input) => {
       const result = await client.listIncidents({
@@ -287,6 +337,12 @@ ${input.include_summary ? '\n_Encrypted-with-customer-key fields are noted as ðŸ
       inputSchema: {
         incident_id: z.string().describe('The incident\'s UUID (from list_incidents or a webhook)'),
       },
+      _meta: {
+        ui: { resourceUri: INCIDENT_DETAIL_WIDGET_URI },
+        'openai/widgetDescription': 'Renders the full incident detail with severity banner, summary, vision signals, and review history',
+        'openai/toolInvocation/invoking': 'Fetching incident detail...',
+        'openai/toolInvocation/invoked': 'Incident detail loaded.',
+      },
     },
     async ({ incident_id }) => {
       const inc = await client.getIncident(incident_id);
@@ -334,6 +390,12 @@ ${summaryPreview}${envelopeNote}`;
       inputSchema: {
         from: z.string().optional().describe('ISO 8601 inclusive lower bound. Default: now - 30 days.'),
         to: z.string().optional().describe('ISO 8601 exclusive upper bound. Default: now.'),
+      },
+      _meta: {
+        ui: { resourceUri: INCIDENTS_OVERVIEW_WIDGET_URI },
+        'openai/widgetDescription': 'KPI dashboard with severity/category/source/status breakdowns and top platforms',
+        'openai/toolInvocation/invoking': 'Computing incident overview...',
+        'openai/toolInvocation/invoked': 'Overview ready.',
       },
     },
     async ({ from, to }) => {
@@ -387,6 +449,12 @@ ${topPlatforms}`;
         bucket: z.enum(['hour', 'day', 'week']).optional().describe('Default: day'),
         from: z.string().optional().describe('ISO 8601 inclusive lower bound. Default: now - 30 days.'),
         to: z.string().optional().describe('ISO 8601 exclusive upper bound. Default: now.'),
+      },
+      _meta: {
+        ui: { resourceUri: INCIDENT_TRENDS_WIDGET_URI },
+        'openai/widgetDescription': 'Stacked bar chart of incidents over time, broken down by severity',
+        'openai/toolInvocation/invoking': 'Computing incident trends...',
+        'openai/toolInvocation/invoked': 'Trends ready.',
       },
     },
     async ({ bucket, from, to }) => {

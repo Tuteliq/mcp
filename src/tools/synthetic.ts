@@ -10,7 +10,7 @@ import {
   formatSyntheticImageResult,
   formatSyntheticAudioResult,
   formatSyntheticVideoResult,
-  formatSyntheticProfile,
+  // formatSyntheticProfile removed with get_synthetic_profile (v3.15.4)
 } from '../formatters.js';
 import { resolveFile } from '../resolveFile.js';
 import { withViewId } from '../view-id.js';
@@ -266,36 +266,11 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
   );
 
   // ── get_synthetic_profile ──────────────────────────────────────────────────
-  registerAppTool(
-    server,
-    'get_synthetic_profile',
-    {
-      title: 'Synthetic Content Profile',
-      description: 'Get account-level synthetic content profile for a customer. Returns 30-day rolling window with total items analyzed, synthetic vs. authentic counts, category distribution, trend detection, and composite account synthetic score.',
-      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
-      inputSchema: {
-        customer_id: z.string().describe('Customer identifier to retrieve profile for'),
-      },
-      _meta: {
-        ui: { resourceUri: SYNTHETIC_WIDGET_URI },
-        'openai/widgetDescription': 'Shows account-level synthetic content profiling with trend analysis',
-        'openai/toolInvocation/invoking': 'Loading synthetic content profile...',
-        'openai/toolInvocation/invoked': 'Synthetic profile loaded.',
-      },
-    },
-    async ({ customer_id }) => {
-      try {
-        const result = await client.getSyntheticProfile(customer_id);
-
-        return withViewId({
-          structuredContent: { toolName: 'get_synthetic_profile', result, branding: { appName: 'Tuteliq' } },
-          content: [{ type: 'text' as const, text: formatSyntheticProfile(result) }],
-        });
-      } catch (err: any) {
-        const upsell = handleTierError(err, 'get_synthetic_profile', 'Synthetic Profiling');
-        if (upsell) return upsell;
-        throw err;
-      }
-    },
-  );
+  // REMOVED in v3.15.4 — the backing API route
+  // GET /api/v1/safety/synthetic-content/profile/:customer_id was never
+  // shipped, so this tool advertised a capability that 404'd at call time.
+  // Removed from the tool list to avoid surfacing a broken capability.
+  // If you reintroduce the route, restore the tool block from git history
+  // (last present at e5b0d45). The SDK method client.getSyntheticProfile()
+  // is also being removed in @tuteliq/sdk 2.13.0.
 }
