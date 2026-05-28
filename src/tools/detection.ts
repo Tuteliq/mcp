@@ -6,6 +6,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { severityEmoji, riskEmoji, formatSupportText } from '../formatters.js';
+import { withViewId } from '../view-id.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -103,10 +104,10 @@ ${result.rationale}
 
         if ((result as any).support) text += formatSupportText((result as any).support);
 
-        return {
+        return withViewId({
           structuredContent: { toolName: 'detect_bullying', result, branding: { appName: 'Tuteliq' } },
           content: [{ type: 'text' as const, text }],
-        };
+        });
       } catch (err: any) {
         const upsell = handleTierError(err, 'detect_bullying', 'Bullying Detection');
         if (upsell) return upsell;
@@ -121,23 +122,26 @@ ${result.rationale}
     'detect_grooming',
     {
       title: 'Detect Grooming',
-      description: 'Analyze a conversation for grooming patterns and predatory behavior.',
+      description: 'Analyze a conversation for grooming patterns and predatory behavior. Supports optional ages: pass `childAge` for the minor, `participantAge` for the non-minor counterpart, and `senderAge` per message when you have richer multi-party info. Explicit ages give the engine a stronger age-gap signal than role labels alone.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
         messages: z.array(z.object({
           role: z.enum(['adult', 'child', 'unknown']),
           content: z.string(),
+          senderAge: z.number().optional().describe('Optional age of this message\'s sender'),
         })).describe('Array of messages in the conversation'),
         childAge: z.number().optional().describe('Age of the child in the conversation'),
+        participantAge: z.number().optional().describe('Optional age of the non-minor participant'),
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
       },
       _meta: uiMeta('Shows grooming detection results with risk indicators', 'Analyzing conversation for grooming patterns...', 'Grooming analysis complete.'),
     },
-    async ({ messages, childAge, support_threshold }) => {
+    async ({ messages, childAge, participantAge, support_threshold }) => {
       try {
         const result = await client.detectGrooming({
           messages,
           childAge,
+          participantAge,
           supportThreshold: support_threshold,
         });
 
@@ -158,10 +162,10 @@ ${result.rationale}
 
         if ((result as any).support) text += formatSupportText((result as any).support);
 
-        return {
+        return withViewId({
           structuredContent: { toolName: 'detect_grooming', result, branding: { appName: 'Tuteliq' } },
           content: [{ type: 'text' as const, text }],
-        };
+        });
       } catch (err: any) {
         const upsell = handleTierError(err, 'detect_grooming', 'Grooming Detection');
         if (upsell) return upsell;
@@ -210,10 +214,10 @@ ${result.rationale}
 
         if ((result as any).support) text += formatSupportText((result as any).support);
 
-        return {
+        return withViewId({
           structuredContent: { toolName: 'detect_unsafe', result, branding: { appName: 'Tuteliq' } },
           content: [{ type: 'text' as const, text }],
-        };
+        });
       } catch (err: any) {
         const upsell = handleTierError(err, 'detect_unsafe', 'Unsafe Content Detection');
         if (upsell) return upsell;
@@ -259,10 +263,10 @@ ${result.bullying ? `\n**Bullying Check:** ${result.bullying.is_bullying ? '\u26
         // Show support resources from the unsafe sub-result if available
         if ((result.unsafe as any)?.support) text += formatSupportText((result.unsafe as any).support);
 
-        return {
+        return withViewId({
           structuredContent: { toolName: 'analyze', result, branding: { appName: 'Tuteliq' } },
           content: [{ type: 'text' as const, text }],
-        };
+        });
       } catch (err: any) {
         const upsell = handleTierError(err, 'analyze', 'Safety Analysis');
         if (upsell) return upsell;
