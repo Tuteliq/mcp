@@ -70,21 +70,25 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
     'detect_bullying',
     {
       title: 'Detect Bullying',
-      description: 'Analyze text content to detect bullying, harassment, or harmful language.',
+      description: 'Analyze text content to detect bullying, harassment, or harmful language. For multi-turn conversations, pass `continuation_token` returned by a prior call to preserve trajectory awareness without server-side message storage.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
         content: z.string().describe('The text content to analyze for bullying'),
         context: contextSchema,
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
+        continuation_token: z.string().optional().describe('Opaque signed token returned by a prior detect_bullying call. Pass it back to maintain multi-turn awareness without server-side content storage. The result includes a fresh continuation_token to forward into the next call.'),
+        reset_conversation: z.boolean().optional().describe('If true, discard any continuation_token and analyze this content as a fresh conversation.'),
       },
       _meta: uiMeta('Shows bullying detection results with risk indicators', 'Analyzing content for bullying...', 'Bullying analysis complete.'),
     },
-    async ({ content, context, support_threshold }) => {
+    async ({ content, context, support_threshold, continuation_token, reset_conversation }) => {
       try {
         const result = await client.detectBullying({
           content,
           context: context as Record<string, string> | undefined,
           supportThreshold: support_threshold,
+          continuationToken: continuation_token,
+          resetConversation: reset_conversation,
         });
 
         const emoji = severityEmoji[result.severity] || '\u26AA';
@@ -122,7 +126,7 @@ ${result.rationale}
     'detect_grooming',
     {
       title: 'Detect Grooming',
-      description: 'Analyze a conversation for grooming patterns and predatory behavior. Supports optional ages: pass `childAge` for the minor, `participantAge` for the non-minor counterpart, and `senderAge` per message when you have richer multi-party info. Explicit ages give the engine a stronger age-gap signal than role labels alone.',
+      description: 'Analyze a conversation for grooming patterns and predatory behavior. Supports optional ages: pass `childAge` for the minor, `participantAge` for the non-minor counterpart, and `senderAge` per message when you have richer multi-party info. For conversations longer than ~20 turns, chunk into sliding windows and pass the `continuation_token` from each result back into the next call to preserve trajectory awareness.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
         messages: z.array(z.object({
@@ -133,16 +137,20 @@ ${result.rationale}
         childAge: z.number().optional().describe('Age of the child in the conversation'),
         participantAge: z.number().optional().describe('Optional age of the non-minor participant'),
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
+        continuation_token: z.string().optional().describe('Opaque signed token returned by a prior detect_grooming call. Pass it back to maintain multi-turn awareness across chunked conversations without server-side content storage. The result includes a fresh continuation_token for the next call.'),
+        reset_conversation: z.boolean().optional().describe('If true, discard any continuation_token and analyze these messages as a fresh conversation.'),
       },
       _meta: uiMeta('Shows grooming detection results with risk indicators', 'Analyzing conversation for grooming patterns...', 'Grooming analysis complete.'),
     },
-    async ({ messages, childAge, participantAge, support_threshold }) => {
+    async ({ messages, childAge, participantAge, support_threshold, continuation_token, reset_conversation }) => {
       try {
         const result = await client.detectGrooming({
           messages,
           childAge,
           participantAge,
           supportThreshold: support_threshold,
+          continuationToken: continuation_token,
+          resetConversation: reset_conversation,
         });
 
         const emoji = riskEmoji[result.grooming_risk] || '\u26AA';
