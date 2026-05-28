@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { colors, fontFamily, severityColor } from '../theme';
 import { IncidentHeader } from '../components/IncidentHeader';
 
@@ -85,6 +85,29 @@ export function IncidentsListPage({ data }: Props) {
   const r = data.result;
   const hasSummaryColumn = r.incidents.some(i => i.summary !== undefined);
 
+  // V3.15.8 — multi-select state. Builds the input for batch_review_incidents
+  // when the moderator hits a bulk action. We don't actually call the API
+  // from the widget (MCP widgets are read-only renderers by design); we
+  // surface the selected ids as a copy-ready batch_review_incidents call
+  // the moderator can fire from their MCP host. That preserves the
+  // host-side approval flow (human-in-the-loop on every mutating call).
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toggle = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const toggleAll = () => {
+    setSelected(prev =>
+      prev.size === r.incidents.length ? new Set() : new Set(r.incidents.map(i => i.id)),
+    );
+  };
+  const allSelected = selected.size > 0 && selected.size === r.incidents.length;
+  const someSelected = selected.size > 0;
+
   return (
     <div style={{ fontFamily, color: colors.text.primary }}>
       <IncidentHeader
@@ -92,24 +115,120 @@ export function IncidentsListPage({ data }: Props) {
         subtitle={`${r.total_returned} returned${r.next_cursor ? ' · more pages available' : ' · final page'}`}
       />
 
+      {/* V3.15.8 — bulk action bar. Hidden when nothing is selected so the
+          empty-queue case stays clean. */}
+      {someSelected && (
+        <div
+          style={{
+            background: colors.brand.primary,
+            color: '#fff',
+            padding: '8px 14px',
+            borderRadius: 10,
+            marginBottom: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            fontSize: 12,
+          }}
+        >
+          <span style={{ fontWeight: 700 }}>
+            {selected.size} selected
+          </span>
+          <span style={{ flex: 1, fontSize: 11, opacity: 0.8 }}>
+            Use these IDs with <code style={{ background: 'rgba(255,255,255,0.15)', padding: '1px 5px', borderRadius: 3, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>batch_review_incidents</code> to dismiss / confirm / escalate in one call:
+          </span>
+          <button
+            type="button"
+            onClick={() => navigator.clipboard.writeText(Array.from(selected).join(','))}
+            style={{
+              padding: '4px 10px',
+              background: 'rgba(255,255,255,0.15)',
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 6,
+              fontSize: 10,
+              cursor: 'pointer',
+              fontFamily,
+              fontWeight: 600,
+            }}
+          >
+            Copy {selected.size} IDs
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelected(new Set())}
+            style={{
+              padding: '4px 10px',
+              background: 'transparent',
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 6,
+              fontSize: 10,
+              cursor: 'pointer',
+              fontFamily,
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {r.incidents.length === 0 ? (
         <div style={{ background: '#fff', border: `1px solid ${colors.border}`, borderRadius: 12, padding: '24px', textAlign: 'center', color: colors.text.muted, fontSize: 13 }}>
           No incidents matched the filters.
         </div>
       ) : (
         <div style={{ background: '#fff', border: `1px solid ${colors.border}`, borderRadius: 12, overflow: 'hidden' }}>
+          {/* Select-all toggle header */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '8px 14px',
+              borderBottom: `1px solid ${colors.border}`,
+              background: colors.bg.secondary,
+              fontSize: 11,
+              color: colors.text.muted,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={allSelected}
+              ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
+              onChange={toggleAll}
+              style={{ cursor: 'pointer' }}
+              aria-label="Select all incidents on this page"
+            />
+            <span>
+              {someSelected
+                ? allSelected
+                  ? 'All on this page selected · click to deselect'
+                  : `${selected.size} of ${r.incidents.length} selected`
+                : 'Select all on this page'}
+            </span>
+          </div>
+
           {r.incidents.map((inc, idx) => (
             <div
               key={inc.id}
               style={{
                 display: 'grid',
-                gridTemplateColumns: hasSummaryColumn ? '1fr auto' : 'auto 1fr auto',
+                gridTemplateColumns: 'auto 1fr auto',
                 gap: 12,
                 padding: '12px 14px',
                 borderBottom: idx < r.incidents.length - 1 ? `1px solid ${colors.border}` : 'none',
                 alignItems: 'start',
+                background: selected.has(inc.id) ? `${colors.brand.primaryLight}08` : 'transparent',
               }}
             >
+              <input
+                type="checkbox"
+                checked={selected.has(inc.id)}
+                onChange={() => toggle(inc.id)}
+                style={{ marginTop: 3, cursor: 'pointer' }}
+                aria-label={`Select incident ${inc.id}`}
+              />
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
                   <span style={severityChip(inc.risk_level)}>{inc.risk_level}</span>

@@ -17,6 +17,7 @@ import { fileURLToPath } from 'url';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Tuteliq, ModeratorAction, ModeratorReasonCode, RetentionClass, CustomerKeyAlgorithm } from '@tuteliq/sdk';
+import { RiskLevel, RiskCategory } from '@tuteliq/sdk';
 import { registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -25,6 +26,20 @@ const __dirname = dirname(__filename);
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: true } as const;
 const ADDITIVE = { readOnlyHint: false, destructiveHint: false, openWorldHint: true } as const;
 const DESTRUCTIVE = { readOnlyHint: false, destructiveHint: true, openWorldHint: true } as const;
+
+// Enums mirrored from the API contract — kept in sync with what
+// /api/v1/incidents/:id/review and /api/v1/incidents/batch-review accept.
+const MODERATOR_ACTIONS = ['confirm', 'downgrade', 'escalate', 'reclassify', 'dismiss'] as const;
+const REASON_CODES = [
+  'confirmed_accurate',
+  'false_positive',
+  'out_of_context',
+  'insufficient_severity',
+  'incorrect_category',
+  'requires_law_enforcement',
+  'parent_notified',
+  'other',
+] as const;
 
 const INCIDENTS_OVERVIEW_WIDGET_URI = 'ui://tuteliq/incidents-overview.html';
 const INCIDENTS_LIST_WIDGET_URI = 'ui://tuteliq/incidents-list.html';
@@ -249,6 +264,70 @@ ${receipt.canonical}
 
 ${result.audit_receipt ? `### Audit receipt\n**Request ID:** \`${result.audit_receipt.request_id}\`\n**Signed at:** ${result.audit_receipt.timestamp}\n**Signature:** \`${result.audit_receipt.signature}\`` : '⚠️ No audit receipt returned (check server logs)'}`;
       return { content: [{ type: 'text', text }] };
+    },
+  );
+
+  // =========================================================================
+  // V3.15.8 — Bulk moderator review (Art 14, multi-incident).
+  //
+  // Applies the same action + reason to up to 100 incidents in one call.
+  // Each incident still emits its own signed Art 12 audit receipt — bulk
+  // is a UX shortcut, not a compliance shortcut. Failures on individual
+  // incidents are non-fatal: the per-incident outcome list lets the
+  // caller retry or escalate just the failed ones.
+  // =========================================================================
+
+  server.registerTool(
+    'batch_review_incidents',
+    {
+      title: 'Batch Review Incidents',
+      description:
+        'Apply the same moderator action + reason to up to 100 incidents in one call. Per-incident success/error is returned so partial failures can be retried without re-running successful items. Each incident still emits its own signed Art 12 audit receipt. Use for triage-queue throughput when many incidents share the same disposition (mass false-positive dismissal, batch escalation, etc).',
+      annotations: ADDITIVE,
+      inputSchema: {
+        incident_ids: z.array(z.string()).min(1).max(100).describe('Incident UUIDs to review. 1 to 100.'),
+        action: z.enum(MODERATOR_ACTIONS).describe('Action to apply to every incident in the batch.'),
+        reason_code: z.enum(REASON_CODES).describe('Reason code recorded on every incident and audit receipt.'),
+        reason_comment: z.string().max(4000).optional().describe('Optional free-form comment (encrypted under your registered customer key when E2E is enabled).'),
+        new_risk_level: z.enum(Object.values(RiskLevel) as [RiskLevel, ...RiskLevel[]]).optional(),
+        new_risk_category: z.enum(Object.values(RiskCategory) as [RiskCategory, ...RiskCategory[]]).optional(),
+        moderator_external_id: z.string().max(256).optional(),
+        retention_class: z.enum(['biometric-high-risk', 'safety-high-risk', 'limited-risk', 'minimal-risk']).optional(),
+      },
+    },
+    async (input) => {
+      const result = await client.batchReviewIncidents({
+        incident_ids: input.incident_ids,
+        action: input.action as ModeratorAction,
+        reason_code: input.reason_code as ModeratorReasonCode,
+        reason_comment: input.reason_comment,
+        new_risk_level: input.new_risk_level,
+        new_risk_category: input.new_risk_category,
+        moderator_external_id: input.moderator_external_id,
+        retention_class: input.retention_class as RetentionClass | undefined,
+      });
+
+      const rows = result.results.map((r: { incident_id: string; ok: boolean; original?: { risk_level: string }; revised?: { risk_level: string }; audit_receipt?: unknown; error?: string }) => {
+        if (r.ok) {
+          return `| \`${r.incident_id.slice(0, 8)}…\` | ✅ | ${r.original?.risk_level ?? '—'} → ${r.revised?.risk_level ?? '—'} | ${r.audit_receipt ? '✓ signed' : '⚠️ no receipt'} |`;
+        }
+        return `| \`${r.incident_id.slice(0, 8)}…\` | ❌ | ${r.error ?? 'unknown'} | — |`;
+      }).join('\n');
+
+      const text = `## 🗳️ Batch Review
+
+**Action:** ${input.action} (${input.reason_code})
+**Outcome:** ${result.succeeded}/${result.total} succeeded${result.failed > 0 ? `, ${result.failed} failed` : ''}
+
+| Incident | Status | Risk change | Receipt |
+|---|---|---|---|
+${rows}
+
+${result.failed === 0 ? '_All reviews recorded with signed Art 12 receipts._' : '_Failed items can be retried individually with `review_incident`._'}`;
+      return {
+        structuredContent: { toolName: 'batch_review_incidents', result, branding: { appName: 'Tuteliq' } },
+        content: [{ type: 'text' as const, text }],
+      };
     },
   );
 
