@@ -448,9 +448,200 @@ function SyntheticImageView({ result }: { result: any }) {
         </div>
       )}
 
+      {/* CSAM compositional risk assessment */}
+      {result.csam_assessment && (
+        <CsamPanel csam={result.csam_assessment} />
+      )}
+
       <RationaleCard rationale={result.rationale} delay={0.6} />
       <ActionBadge action={result.recommended_action} delay={0.7} />
     </>
+  );
+}
+
+function CsamPanel({ csam }: { csam: any }) {
+  const level: string = csam.risk_level || 'none';
+  const isEscalated = level === 'critical' || level === 'high';
+  const isElevated = level === 'elevated';
+  const levelColor =
+    level === 'critical' ? colors.severity.critical :
+    level === 'high'     ? colors.severity.high     :
+    level === 'elevated' ? colors.severity.medium   :
+    level === 'low'      ? colors.severity.low      :
+                           colors.severity.safe;
+  const labelText = {
+    critical: 'CSAM risk — CRITICAL',
+    high:     'CSAM risk — HIGH',
+    elevated: 'CSAM risk — Elevated',
+    low:      'CSAM signals — Low',
+    none:     'CSAM screening — Clear',
+  }[level] || 'CSAM screening';
+
+  return (
+    <div
+      style={{
+        marginBottom: 14,
+        padding: '12px 14px',
+        borderRadius: 12,
+        background: `${levelColor}0F`,
+        border: `1px solid ${levelColor}44`,
+        animation: 'synth-fadeSlideUp 0.5s ease 0.55s both',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: isEscalated || isElevated ? 10 : 0 }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={levelColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          {isEscalated ? <line x1="12" y1="8" x2="12" y2="13" /> : <polyline points="9 12 11 14 15 10" />}
+          {isEscalated && <line x1="12" y1="16" x2="12" y2="16" />}
+        </svg>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: colors.text.primary, fontFamily }}>{labelText}</div>
+          <div style={{ fontSize: 10, color: colors.text.muted, fontFamily }}>
+            risk score {(csam.risk_score ?? 0).toFixed(2)} · {csam.requires_escalation ? 'escalation required' : csam.requires_review ? 'review recommended' : 'no action'}
+          </div>
+        </div>
+        {csam.uncertainty_score != null && (
+          <div style={{
+            fontSize: 9,
+            color: colors.text.muted,
+            background: `${levelColor}1A`,
+            border: `1px solid ${levelColor}33`,
+            borderRadius: 6,
+            padding: '2px 6px',
+            fontFamily,
+          }}>
+            uncertainty {(csam.uncertainty_score ?? 0).toFixed(2)}
+          </div>
+        )}
+      </div>
+
+      {(isEscalated || isElevated) && csam.recommendation && (
+        <div style={{
+          fontSize: 11,
+          color: colors.text.primary,
+          background: `${levelColor}14`,
+          border: `1px dashed ${levelColor}55`,
+          borderRadius: 8,
+          padding: '8px 10px',
+          marginBottom: 10,
+          fontFamily,
+          lineHeight: 1.5,
+        }}>
+          {csam.recommendation}
+        </div>
+      )}
+
+      {isEscalated && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '8px 10px',
+          marginBottom: 10,
+          borderRadius: 8,
+          background: `${levelColor}1A`,
+          border: `1px solid ${levelColor}66`,
+          fontFamily,
+        }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={levelColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <div style={{ flex: 1, fontSize: 11, color: colors.text.primary, lineHeight: 1.5 }}>
+            Report suspected CSAM to the Internet Watch Foundation —{' '}
+            <a
+              href="https://report.iwf.org.uk/org/report"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: levelColor, fontWeight: 700, textDecoration: 'underline' }}
+            >
+              report.iwf.org.uk
+            </a>
+            . US-based reporters should also notify NCMEC CyberTipline at{' '}
+            <a
+              href="https://report.cybertip.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: levelColor, fontWeight: 700, textDecoration: 'underline' }}
+            >
+              report.cybertip.org
+            </a>
+            . Preserve evidence; do not distribute.
+          </div>
+        </div>
+      )}
+
+      {Array.isArray(csam.signals) && csam.signals.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
+          {csam.signals.map((s: string, i: number) => (
+            <span key={i} style={{
+              padding: '2px 8px',
+              borderRadius: 6,
+              fontSize: 10,
+              background: `${levelColor}1A`,
+              color: colors.text.primary,
+              border: `1px solid ${levelColor}33`,
+              fontFamily,
+            }}>{s}</span>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px 12px', fontSize: 10, fontFamily }}>
+        {csam.age_signal && (
+          <CsamMini
+            label="Age signal"
+            value={
+              csam.age_signal.youngest_age_group
+                ? `${csam.age_signal.youngest_age_group}${csam.age_signal.youngest_age != null ? ` (~${Math.round(csam.age_signal.youngest_age)}y)` : ''}`
+                : csam.age_signal.face_count > 0 ? 'detected' : 'no face'
+            }
+            warn={csam.age_signal.minor_detected || csam.age_signal.child_detected}
+          />
+        )}
+        {csam.nudity_signal && (
+          <CsamMini
+            label="Nudity signal"
+            value={
+              csam.nudity_signal.is_explicit ? 'explicit'
+              : csam.nudity_signal.is_suggestive ? 'suggestive'
+              : 'none'
+            }
+            warn={csam.nudity_signal.is_explicit}
+          />
+        )}
+        {csam.synthetic_signal && (
+          <CsamMini
+            label="Synthetic signal"
+            value={
+              csam.synthetic_signal.is_synthetic ? 'synthetic'
+              : csam.synthetic_signal.classification || 'unknown'
+            }
+            warn={csam.synthetic_signal.is_synthetic}
+          />
+        )}
+      </div>
+
+      {(level === 'none' || level === 'low') && (
+        <div style={{ fontSize: 10, color: colors.text.muted, fontFamily, marginTop: 8 }}>
+          Composite scoring across face-age, anatomical nudity, body proportions, framing, and synthetic provenance. Adult-only content with no minor signals is screened out before LLM analysis.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CsamMini({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+  return (
+    <div>
+      <div style={{ color: colors.text.muted, fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</div>
+      <div style={{
+        fontWeight: 600,
+        color: warn ? colors.severity.high : colors.text.primary,
+        marginTop: 2,
+      }}>{value}</div>
+    </div>
   );
 }
 
