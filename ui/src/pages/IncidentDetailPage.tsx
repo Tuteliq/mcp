@@ -1,6 +1,7 @@
 import React from 'react';
 import { colors, fontFamily, severityColor } from '../theme';
 import { IncidentHeader } from '../components/IncidentHeader';
+import { TrajectoryCurve } from '../components/TrajectoryCurve';
 
 interface IncidentDetail {
   id: string;
@@ -27,6 +28,11 @@ interface IncidentDetail {
   contains_text?: boolean | null;
   contains_faces?: boolean | null;
   review?: Record<string, unknown> | null;
+  message_analysis?: Array<{
+    message_index: number;
+    risk_score: number;
+    flags: string[];
+  }> | null;
   _e2e_envelope_fields?: string[];
 }
 
@@ -136,6 +142,13 @@ export function IncidentDetailPage({ data }: Props) {
           <div style={{ fontSize: 13, fontWeight: 600, color: colors.text.primary, textTransform: 'capitalize' }}>{i.status}</div>
         </div>
       </div>
+
+      {/* V3.15.6 — Trajectory curve renders ABOVE the summary because it's
+          the hero element: a 0.1 → 0.9 risk ramp tells the moderator the
+          story of the conversation in three seconds in a way prose can't. */}
+      {Array.isArray(i.message_analysis) && i.message_analysis.length > 1 && (
+        <TrajectoryCurve entries={i.message_analysis} incidentFlags={i.detected_patterns} />
+      )}
 
       {/* Summary */}
       <div style={{ background: '#fff', border: `1px solid ${colors.border}`, borderRadius: 12, padding: '12px 14px', marginBottom: 10 }}>
