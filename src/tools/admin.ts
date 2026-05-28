@@ -153,8 +153,15 @@ export function registerAdminTools(server: McpServer, client: Tuteliq): void {
     },
     async () => {
       const result = await client.getPricingDetails();
+      // -1 is the internal sentinel for "unlimited / custom" (used on the
+      // Enterprise tier). Render it as "Custom" rather than echoing the
+      // sentinel verbatim, which previously surfaced as "Monthly: -1/mo".
+      const fmtMoney = (n: number | undefined | null) =>
+        n == null ? '—' : n === -1 ? 'Custom' : n === 0 ? 'Free' : `$${n}`;
+      const fmtCount = (n: number | undefined | null) =>
+        n == null ? '—' : n === -1 ? 'Unlimited' : n.toLocaleString();
       const lines = result.plans.map(p =>
-        `### ${p.name}\n**Monthly:** ${p.price_monthly}/mo | **Yearly:** ${p.price_yearly}/mo\n**API Calls:** ${p.api_calls_per_month}/mo | **Rate Limit:** ${p.rate_limit}/min\n${p.features.map(f => `- ${f}`).join('\n')}`
+        `### ${p.name}\n**Monthly:** ${fmtMoney(p.price_monthly)} | **Yearly:** ${fmtMoney(p.price_yearly)}\n**API Calls:** ${fmtCount(p.api_calls_per_month)}/mo | **Rate Limit:** ${fmtCount(p.rate_limit)}/min\n${p.features.map(f => `- ${f}`).join('\n')}`
       ).join('\n\n');
       return { content: [{ type: 'text', text: `## Tuteliq Pricing Details\n\n${lines}` }] };
     },

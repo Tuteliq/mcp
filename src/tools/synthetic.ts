@@ -15,6 +15,31 @@ import {
 import { resolveFile } from '../resolveFile.js';
 import { withViewId } from '../view-id.js';
 
+/**
+ * V3.15.4 — permissive boolean parser.
+ *
+ * MCP hosts (Claude Desktop, Cursor, OpenAI tool runtime, agent
+ * orchestrators, etc.) serialize tool inputs inconsistently — some
+ * preserve booleans through JSON, others stringify "true"/"false" or
+ * "1"/"0" at various layers of the transport. A strict `z.boolean()`
+ * makes the field unreachable from any host that doesn't carefully
+ * type-preserve, which defeats the point of having an opt-out at all.
+ *
+ * This helper accepts boolean, "true"/"false", "1"/"0" and normalizes
+ * to a real boolean. Anything else stays undefined (treated as the
+ * default-false case downstream).
+ */
+const bypassCacheInput = z.preprocess((v) => {
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'string') {
+    const lower = v.toLowerCase();
+    if (lower === 'true' || lower === '1') return true;
+    if (lower === 'false' || lower === '0') return false;
+  }
+  if (typeof v === 'number') return v !== 0;
+  return v;
+}, z.boolean().optional());
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -69,7 +94,7 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high)'),
         external_id: z.string().optional().describe('External tracking ID'),
         customer_id: z.string().optional().describe('Customer identifier'),
-        bypass_cache: z.boolean().optional().describe('Skip the verdict cache for both read and write. Use for forensic re-tests or regression probes when a guaranteed fresh evaluation is required. Cache keys are SHA-256 of the input bytes (one-way; we never store the content itself) and verdicts expire after 1 hour by default.'),
+        bypass_cache: bypassCacheInput.describe('Skip the verdict cache for both read and write. Use for forensic re-tests or regression probes when a guaranteed fresh evaluation is required. Cache keys are SHA-256 of the input bytes (one-way; we never store the content itself) and verdicts expire after 1 hour by default. Accepts boolean true/false or string "true"/"false"/"1"/"0" for MCP host compatibility.'),
       },
       _meta: {
         ui: { resourceUri: SYNTHETIC_WIDGET_URI },
@@ -119,7 +144,7 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
         platform: z.string().optional().describe('Platform name for context'),
         external_id: z.string().optional().describe('External tracking ID'),
         customer_id: z.string().optional().describe('Customer identifier'),
-        bypass_cache: z.boolean().optional().describe('Skip the verdict cache for both read and write. Use for forensic re-tests or regression probes when a guaranteed fresh evaluation is required. Cache keys are SHA-256 of the input bytes; verdicts expire after 1 hour by default.'),
+        bypass_cache: bypassCacheInput.describe('Skip the verdict cache for both read and write. Use for forensic re-tests or regression probes when a guaranteed fresh evaluation is required. Cache keys are SHA-256 of the input bytes; verdicts expire after 1 hour by default. Accepts boolean or string "true"/"false" for MCP host compatibility.'),
       },
       _meta: {
         ui: { resourceUri: SYNTHETIC_WIDGET_URI },
@@ -173,7 +198,7 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
         platform: z.string().optional().describe('Platform name for context'),
         external_id: z.string().optional().describe('External tracking ID'),
         customer_id: z.string().optional().describe('Customer identifier'),
-        bypass_cache: z.boolean().optional().describe('Skip the verdict cache for both read and write. Use for forensic re-tests when a guaranteed fresh evaluation is required.'),
+        bypass_cache: bypassCacheInput.describe('Skip the verdict cache for both read and write. Use for forensic re-tests when a guaranteed fresh evaluation is required. Accepts boolean or string "true"/"false" for MCP host compatibility.'),
       },
       _meta: {
         ui: { resourceUri: SYNTHETIC_WIDGET_URI },
@@ -228,7 +253,7 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
         platform: z.string().optional().describe('Platform name for context'),
         external_id: z.string().optional().describe('External tracking ID'),
         customer_id: z.string().optional().describe('Customer identifier'),
-        bypass_cache: z.boolean().optional().describe('Skip the verdict cache for both read and write. Use for forensic re-tests when a guaranteed fresh evaluation is required.'),
+        bypass_cache: bypassCacheInput.describe('Skip the verdict cache for both read and write. Use for forensic re-tests when a guaranteed fresh evaluation is required. Accepts boolean or string "true"/"false" for MCP host compatibility.'),
       },
       _meta: {
         ui: { resourceUri: SYNTHETIC_WIDGET_URI },
