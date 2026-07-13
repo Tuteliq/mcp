@@ -6,6 +6,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { trendEmoji, riskEmoji, formatMultiResult } from '../formatters.js';
+import { withViewId } from '../view-id.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -65,10 +66,22 @@ export function registerAnalysisTools(server: McpServer, client: Tuteliq): void 
     'analyze_emotions',
     {
       title: 'Analyze Emotions',
-      description: 'Analyze emotional content and mental state indicators. Identifies dominant emotions, trends, and provides follow-up recommendations.',
+      description: 'Analyze emotional content and mental state indicators. Identifies dominant emotions, trends, and provides follow-up recommendations. Pass either `content` (single text) or `messages` (a conversation with senders) — messages enable per-speaker trend analysis.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
-        content: z.string().describe('The text content to analyze for emotions'),
+        content: z.string().optional().describe('Single text content to analyze for emotions (alternative to messages)'),
+        messages: z.array(z.object({
+          sender: z.string().describe('Sender identifier or role'),
+          content: z.string().describe('Message content'),
+        })).optional().describe('Conversation history to analyze (alternative to content). Preserves per-speaker structure for trend analysis.'),
+        context: z.object({
+          language: z.string().optional(),
+          ageGroup: z.string().optional(),
+          platform: z.string().optional(),
+        }).optional().describe('Optional analysis context'),
+        external_id: z.string().optional().describe('Your unique identifier for this request. Echoed in the response and included in webhooks.'),
+        customer_id: z.string().optional().describe('Your end-customer identifier for multi-tenant scenarios.'),
+        metadata: z.record(z.string(), z.unknown()).optional().describe('Custom key-value pairs stored with results.'),
       },
       _meta: {
         ui: { resourceUri: EMOTIONS_WIDGET_URI },
@@ -77,9 +90,22 @@ export function registerAnalysisTools(server: McpServer, client: Tuteliq): void 
         'openai/toolInvocation/invoked': 'Emotion analysis complete.',
       },
     },
-    async ({ content }) => {
+    async ({ content, messages, context, external_id, customer_id, metadata }) => {
       try {
-        const result = await client.analyzeEmotions({ content });
+        if (!content && !messages?.length) {
+          return {
+            content: [{ type: 'text' as const, text: '⚠️ Provide either `content` (single text) or `messages` (conversation history) to analyze.' }],
+            isError: true,
+          };
+        }
+        const result = await client.analyzeEmotions({
+          content,
+          messages,
+          context: context as ContextInput | undefined,
+          external_id,
+          customer_id,
+          metadata,
+        });
 
         const emoji = trendEmoji[result.trend] || '\u27A1\uFE0F';
         const emotionScoresList = Object.entries(result.emotion_scores)
@@ -101,10 +127,10 @@ ${result.summary}
 ### Recommended Follow-up
 ${result.recommended_followup}`;
 
-        return {
+        return withViewId({
           structuredContent: { toolName: 'analyze_emotions', result, branding: { appName: 'Tuteliq' } },
           content: [{ type: 'text' as const, text }],
-        };
+        });
       } catch (err: any) {
         const upsell = handleTierError(err, 'analyze_emotions', 'Emotion Analysis');
         if (upsell) return upsell;
@@ -147,10 +173,10 @@ ${result.reading_level ? `**Reading Level:** ${result.reading_level}` : ''}
 ### Steps
 ${result.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}`;
 
-        return {
+        return withViewId({
           structuredContent: { toolName: 'get_action_plan', result, branding: { appName: 'Tuteliq' } },
           content: [{ type: 'text' as const, text }],
-        };
+        });
       } catch (err: any) {
         const upsell = handleTierError(err, 'get_action_plan', 'Action Plan');
         if (upsell) return upsell;
@@ -204,10 +230,10 @@ ${result.categories.map(c => `- ${c}`).join('\n')}
 ### Recommended Next Steps
 ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}`;
 
-        return {
+        return withViewId({
           structuredContent: { toolName: 'generate_report', result, branding: { appName: 'Tuteliq' } },
           content: [{ type: 'text' as const, text }],
-        };
+        });
       } catch (err: any) {
         const upsell = handleTierError(err, 'generate_report', 'Report Generation');
         if (upsell) return upsell;
@@ -252,12 +278,80 @@ ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
           customer_id,
         });
 
-        return {
+        return withViewId({
           structuredContent: { toolName: 'analyse_multi', result, branding: { appName: 'Tuteliq' } },
           content: [{ type: 'text' as const, text: formatMultiResult(result) }],
-        };
+        });
       } catch (err: any) {
         const upsell = handleTierError(err, 'analyse_multi', 'Multi-Endpoint Analysis');
+        if (upsell) return upsell;
+        throw err;
+      }
+    },
+  );
+
+  // ── batch_analyze ──────────────────────────────────────────────────────────
+  server.registerTool(
+    'batch_analyze',
+    {
+      title: 'Batch Analysis',
+      description: 'Analyze up to 25 items in a single request — ideal for bulk triage. Each item runs one detection type: bullying, unsafe, or emotions (pass `content`), or grooming (pass `messages`). Per-item success/error is returned so a partial failure does not lose the successful results.',
+      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+      inputSchema: {
+        items: z.array(z.object({
+          type: z.enum(['bullying', 'unsafe', 'emotions', 'grooming']).describe('Detection type to run on this item'),
+          content: z.string().optional().describe('Text to analyze (required for bullying/unsafe/emotions)'),
+          messages: z.array(z.object({
+            role: z.enum(['adult', 'child', 'unknown']),
+            content: z.string(),
+          })).optional().describe('Conversation messages (required for grooming)'),
+          childAge: z.number().optional().describe('Age of the child (grooming only)'),
+          external_id: z.string().optional().describe('Your correlation ID for this item, echoed in its result'),
+        })).min(1).max(25).describe('Items to analyze (max 25)'),
+        parallel: z.boolean().optional().describe('Process items in parallel (default: true)'),
+      },
+    },
+    async ({ items, parallel }) => {
+      try {
+        const invalid = items
+          .map((it, i) => (it.type === 'grooming' ? !it.messages?.length : !it.content) ? i : -1)
+          .filter(i => i >= 0);
+        if (invalid.length > 0) {
+          return {
+            content: [{ type: 'text' as const, text: `⚠️ Invalid items at index ${invalid.join(', ')}: grooming items need \`messages\`, all other types need \`content\`.` }],
+            isError: true,
+          };
+        }
+
+        const result = await client.batch({
+          items: items.map(it => it.type === 'grooming'
+            ? { type: 'grooming' as const, messages: it.messages!, childAge: it.childAge, external_id: it.external_id }
+            : { type: it.type, content: it.content!, external_id: it.external_id }),
+          parallel,
+        });
+
+        const lines = result.results.map(r => {
+          const item = items[r.index];
+          const label = r.external_id ? `\`${r.external_id}\`` : `#${r.index}`;
+          if (!r.success) return `- ❌ ${label} (${item?.type}): ${r.error ?? 'unknown error'}`;
+          const res = r.result as any;
+          const signal = res?.severity ?? res?.grooming_risk ?? res?.trend ?? '';
+          return `- ✅ ${label} (${item?.type})${signal ? ` — ${signal}` : ''}`;
+        }).join('\n');
+
+        const text = `## Batch Analysis
+
+**Total:** ${result.summary.total} | **Succeeded:** ${result.summary.successful} | **Failed:** ${result.summary.failed}
+**Processing Time:** ${result.processing_time_ms}ms
+
+${lines}`;
+
+        return {
+          structuredContent: { toolName: 'batch_analyze', result, branding: { appName: 'Tuteliq' } },
+          content: [{ type: 'text' as const, text }],
+        };
+      } catch (err: any) {
+        const upsell = handleTierError(err, 'batch_analyze', 'Batch Analysis');
         if (upsell) return upsell;
         throw err;
       }

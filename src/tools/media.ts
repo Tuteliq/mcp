@@ -6,6 +6,8 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { severityEmoji, trendEmoji, formatVideoResult, formatDocumentResult } from '../formatters.js';
+import { withViewId } from '../view-id.js';
+import { resolveFile } from '../resolveFile.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,10 +16,6 @@ const MEDIA_WIDGET_URI = 'ui://tuteliq/media-result.html';
 
 function loadWidget(name: string): string {
   return readFileSync(resolve(__dirname, '../../../dist-ui', name), 'utf-8');
-}
-
-function filenameFromPath(filePath: string): string {
-  return filePath.split('/').pop() || filePath;
 }
 
 function handleTierError(err: any, toolName: string, featureLabel: string) {
@@ -57,10 +55,13 @@ export function registerMediaTools(server: McpServer, client: Tuteliq): void {
     'analyze_voice',
     {
       title: 'Analyze Voice',
-      description: 'Analyze an audio file for safety concerns. Transcribes the audio via Whisper, then runs safety analysis on the transcript. Supports mp3, wav, m4a, ogg, flac, webm, mp4.',
+      description: 'Analyze an audio file for safety concerns. Transcribes the audio via Whisper, then runs safety analysis on the transcript. Supports mp3, wav, m4a, ogg, flac, webm, mp4. Provide a file_path, url, or base64-encoded audio.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
-        file_path: z.string().describe('Absolute path to the audio file on disk'),
+        file_path: z.string().optional().describe('Absolute path to the audio file on disk'),
+        url: z.string().optional().describe('URL to download the audio from'),
+        base64: z.string().optional().describe('Base64-encoded audio data (with or without data URI prefix)'),
+        filename: z.string().optional().describe('Filename hint (e.g., "voice.mp3") — required with base64, optional otherwise'),
         analysis_type: z.enum(['bullying', 'unsafe', 'grooming', 'emotions', 'all']).optional().describe('Type of analysis to run on the transcript (default: all)'),
         child_age: z.number().optional().describe('Child age (used for grooming analysis)'),
         language: z.string().optional().describe('Language hint for transcription (e.g., "en", "es")'),
@@ -72,10 +73,9 @@ export function registerMediaTools(server: McpServer, client: Tuteliq): void {
         'openai/toolInvocation/invoked': 'Voice analysis complete.',
       },
     },
-    async ({ file_path, analysis_type, child_age, language }) => {
+    async ({ file_path, url, base64, filename: filenameHint, analysis_type, child_age, language }) => {
       try {
-        const buffer = readFileSync(file_path);
-        const filename = filenameFromPath(file_path);
+        const { buffer, filename } = await resolveFile({ file_path, url, base64, filename: filenameHint });
 
         const result = await client.analyzeVoice({
           file: buffer,
@@ -121,10 +121,10 @@ ${segmentLines}${result.transcription.segments.length > 20 ? `\n_...and ${result
 ### Analysis Results
 ${analysisLines.join('\n')}`;
 
-        return {
+        return withViewId({
           structuredContent: { toolName: 'analyze_voice', result, branding: { appName: 'Tuteliq' } },
           content: [{ type: 'text' as const, text }],
-        };
+        });
       } catch (err: any) {
         const upsell = handleTierError(err, 'analyze_voice', 'Voice Analysis');
         if (upsell) return upsell;
@@ -139,10 +139,13 @@ ${analysisLines.join('\n')}`;
     'analyze_image',
     {
       title: 'Analyze Image',
-      description: 'Analyze an image for visual safety concerns and OCR text extraction. Supports png, jpg, jpeg, gif, webp.',
+      description: 'Analyze an image for visual safety concerns and OCR text extraction. Supports png, jpg, jpeg, gif, webp. Provide a file_path, url, or base64-encoded image.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
-        file_path: z.string().describe('Absolute path to the image file on disk'),
+        file_path: z.string().optional().describe('Absolute path to the image file on disk'),
+        url: z.string().optional().describe('URL to download the image from'),
+        base64: z.string().optional().describe('Base64-encoded image data (with or without data URI prefix)'),
+        filename: z.string().optional().describe('Filename hint (e.g., "photo.jpg") — required with base64, optional otherwise'),
         analysis_type: z.enum(['bullying', 'unsafe', 'emotions', 'all']).optional().describe('Type of analysis to run on extracted text (default: all)'),
       },
       _meta: {
@@ -152,10 +155,9 @@ ${analysisLines.join('\n')}`;
         'openai/toolInvocation/invoked': 'Image analysis complete.',
       },
     },
-    async ({ file_path, analysis_type }) => {
+    async ({ file_path, url, base64, filename: filenameHint, analysis_type }) => {
       try {
-        const buffer = readFileSync(file_path);
-        const filename = filenameFromPath(file_path);
+        const { buffer, filename } = await resolveFile({ file_path, url, base64, filename: filenameHint });
 
         const result = await client.analyzeImage({
           file: buffer,
@@ -192,10 +194,10 @@ ${result.vision.extracted_text ? `### Extracted Text (OCR)\n${result.vision.extr
 
 ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines.join('\n')}` : ''}`;
 
-        return {
+        return withViewId({
           structuredContent: { toolName: 'analyze_image', result, branding: { appName: 'Tuteliq' } },
           content: [{ type: 'text' as const, text }],
-        };
+        });
       } catch (err: any) {
         const upsell = handleTierError(err, 'analyze_image', 'Image Analysis');
         if (upsell) return upsell;
@@ -210,10 +212,13 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
     'analyze_video',
     {
       title: 'Analyze Video',
-      description: 'Analyze a video file for safety concerns. Extracts key frames and runs safety classification. Supports mp4, mov, avi, webm, mkv.',
+      description: 'Analyze a video file for safety concerns. Extracts key frames and runs safety classification. Supports mp4, mov, avi, webm, mkv. Provide a file_path, url, or base64-encoded video.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
-        file_path: z.string().describe('Absolute path to the video file on disk'),
+        file_path: z.string().optional().describe('Absolute path to the video file on disk'),
+        url: z.string().optional().describe('URL to download the video from'),
+        base64: z.string().optional().describe('Base64-encoded video data (with or without data URI prefix)'),
+        filename: z.string().optional().describe('Filename hint (e.g., "clip.mp4") — required with base64, optional otherwise'),
         age_group: z.string().optional().describe('Age group for calibrated analysis (e.g., "child", "teen", "adult")'),
       },
       _meta: {
@@ -223,10 +228,9 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
         'openai/toolInvocation/invoked': 'Video analysis complete.',
       },
     },
-    async ({ file_path, age_group }) => {
+    async ({ file_path, url, base64, filename: filenameHint, age_group }) => {
       try {
-        const buffer = readFileSync(file_path);
-        const filename = filenameFromPath(file_path);
+        const { buffer, filename } = await resolveFile({ file_path, url, base64, filename: filenameHint });
 
         const result = await client.analyzeVideo({
           file: buffer,
@@ -234,10 +238,10 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
           ageGroup: age_group,
         });
 
-        return {
+        return withViewId({
           structuredContent: { toolName: 'analyze_video', result, branding: { appName: 'Tuteliq' } },
           content: [{ type: 'text' as const, text: formatVideoResult(result) }],
-        };
+        });
       } catch (err: any) {
         const upsell = handleTierError(err, 'analyze_video', 'Video Analysis');
         if (upsell) return upsell;
@@ -252,10 +256,13 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
     'analyze_document',
     {
       title: 'Analyze Document',
-      description: 'Analyze a PDF document for safety and compliance concerns. Extracts text from each page, runs detection endpoints in parallel, and returns per-page results with an overall risk assessment. Zero-retention: no document data is stored after processing. Supports PDF only (max 50MB, 100 pages).',
+      description: 'Analyze a PDF document for safety and compliance concerns. Extracts text from each page, runs detection endpoints in parallel, and returns per-page results with an overall risk assessment. Zero-retention: no document data is stored after processing. Supports PDF only (max 50MB, 100 pages). Provide a file_path, url, or base64-encoded PDF.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
-        file_path: z.string().describe('Absolute path to the PDF file on disk'),
+        file_path: z.string().optional().describe('Absolute path to the PDF file on disk'),
+        url: z.string().optional().describe('URL to download the PDF from'),
+        base64: z.string().optional().describe('Base64-encoded PDF data (with or without data URI prefix)'),
+        filename: z.string().optional().describe('Filename hint (e.g., "report.pdf") — required with base64, optional otherwise'),
         endpoints: z.array(z.enum(['unsafe', 'bullying', 'grooming', 'social-engineering', 'coercive-control', 'radicalisation', 'romance-scam', 'mule-recruitment'])).optional().describe('Detection endpoints to run per page (default: unsafe, coercive-control, radicalisation)'),
         age_group: z.string().optional().describe('Age group for calibrated analysis (e.g., "13-15")'),
         language: z.string().optional().describe('Language hint (e.g., "en", "sv")'),
@@ -268,10 +275,9 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
         'openai/toolInvocation/invoked': 'Document analysis complete.',
       },
     },
-    async ({ file_path, endpoints, age_group, language, support_threshold }) => {
+    async ({ file_path, url, base64, filename: filenameHint, endpoints, age_group, language, support_threshold }) => {
       try {
-        const buffer = readFileSync(file_path);
-        const filename = filenameFromPath(file_path);
+        const { buffer, filename } = await resolveFile({ file_path, url, base64, filename: filenameHint });
 
         const result = await client.analyzeDocument({
           file: buffer,
@@ -282,10 +288,10 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
           supportThreshold: support_threshold,
         });
 
-        return {
+        return withViewId({
           structuredContent: { toolName: 'analyze_document', result, branding: { appName: 'Tuteliq' } },
           content: [{ type: 'text' as const, text: formatDocumentResult(result) }],
-        };
+        });
       } catch (err: any) {
         const upsell = handleTierError(err, 'analyze_document', 'Document Analysis');
         if (upsell) return upsell;

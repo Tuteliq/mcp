@@ -6,7 +6,7 @@ import { FooterLinks } from '../components/FooterLinks';
 import { colors } from '../theme';
 import type { ToolResultPayload, ReportResult } from '../types';
 
-export function ReportPage({ data }: { data: ToolResultPayload }) {
+export function ReportPage({ data, viewUUID }: { data: ToolResultPayload; viewUUID?: string }) {
   const result = data.result as ReportResult;
 
   return (

@@ -6,13 +6,13 @@ import { BrandedLoader } from '@ui/components/BrandedLoader';
 import { baseStyles } from '@ui/theme';
 
 function Widget() {
-  const { data, loading } = useToolResult();
+  const { data, viewUUID, loading } = useToolResult();
 
   if (loading || !data) {
     return <BrandedLoader message="Running multi-endpoint analysis..." />;
   }
 
-  return <MultiPage data={data} />;
+  return <MultiPage data={data} viewUUID={viewUUID} />;
 }
 
 const style = document.createElement('style');

@@ -41,6 +41,16 @@ const contextSchema = z.object({
   country: z.string().optional().describe('ISO 3166-1 alpha-2 country code (e.g., "GB", "US") for geo-localised helpline data'),
 }).optional();
 
+// Correlation fields shared by the detection endpoints. They are echoed back in
+// the response, stored on any resulting incident, and included in webhook
+// payloads — which is what lets a moderation agent tie an incident back to the
+// platform's own message/user records.
+const trackingSchema = {
+  external_id: z.string().optional().describe('Your unique identifier for this request (e.g., message ID). Echoed in the response, stored on incidents, and included in webhooks.'),
+  customer_id: z.string().optional().describe('Your end-customer identifier for multi-tenant scenarios. Enables routing alerts to the correct customer from a single webhook.'),
+  metadata: z.record(z.string(), z.unknown()).optional().describe('Custom key-value pairs stored with detection results and included in webhooks.'),
+};
+
 const uiMeta = (desc: string, invoking: string, invoked: string) => ({
   ui: { resourceUri: DETECTION_WIDGET_URI },
   'openai/widgetDescription': desc,
@@ -78,10 +88,11 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
         continuation_token: z.string().optional().describe('Opaque signed token returned by a prior detect_bullying call. Pass it back to maintain multi-turn awareness without server-side content storage. The result includes a fresh continuation_token to forward into the next call.'),
         reset_conversation: z.boolean().optional().describe('If true, discard any continuation_token and analyze this content as a fresh conversation.'),
+        ...trackingSchema,
       },
       _meta: uiMeta('Shows bullying detection results with risk indicators', 'Analyzing content for bullying...', 'Bullying analysis complete.'),
     },
-    async ({ content, context, support_threshold, continuation_token, reset_conversation }) => {
+    async ({ content, context, support_threshold, continuation_token, reset_conversation, external_id, customer_id, metadata }) => {
       try {
         const result = await client.detectBullying({
           content,
@@ -89,6 +100,9 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
           supportThreshold: support_threshold,
           continuationToken: continuation_token,
           resetConversation: reset_conversation,
+          external_id,
+          customer_id,
+          metadata,
         });
 
         const emoji = severityEmoji[result.severity] || '\u26AA';
@@ -139,10 +153,11 @@ ${result.rationale}
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
         continuation_token: z.string().optional().describe('Opaque signed token returned by a prior detect_grooming call. Pass it back to maintain multi-turn awareness across chunked conversations without server-side content storage. The result includes a fresh continuation_token for the next call.'),
         reset_conversation: z.boolean().optional().describe('If true, discard any continuation_token and analyze these messages as a fresh conversation.'),
+        ...trackingSchema,
       },
       _meta: uiMeta('Shows grooming detection results with risk indicators', 'Analyzing conversation for grooming patterns...', 'Grooming analysis complete.'),
     },
-    async ({ messages, childAge, participantAge, support_threshold, continuation_token, reset_conversation }) => {
+    async ({ messages, childAge, participantAge, support_threshold, continuation_token, reset_conversation, external_id, customer_id, metadata }) => {
       try {
         const result = await client.detectGrooming({
           messages,
@@ -151,6 +166,9 @@ ${result.rationale}
           supportThreshold: support_threshold,
           continuationToken: continuation_token,
           resetConversation: reset_conversation,
+          external_id,
+          customer_id,
+          metadata,
         });
 
         const emoji = riskEmoji[result.grooming_risk] || '\u26AA';
@@ -194,15 +212,19 @@ ${result.rationale}
         content: z.string().describe('The text content to analyze for unsafe content'),
         context: contextSchema,
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
+        ...trackingSchema,
       },
       _meta: uiMeta('Shows unsafe content detection results', 'Analyzing content for safety concerns...', 'Safety analysis complete.'),
     },
-    async ({ content, context, support_threshold }) => {
+    async ({ content, context, support_threshold, external_id, customer_id, metadata }) => {
       try {
         const result = await client.detectUnsafe({
           content,
           context: context as Record<string, string> | undefined,
           supportThreshold: support_threshold,
+          external_id,
+          customer_id,
+          metadata,
         });
 
         const emoji = severityEmoji[result.severity] || '\u26AA';

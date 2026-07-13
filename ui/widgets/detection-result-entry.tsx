@@ -7,7 +7,7 @@ import { BrandedLoader } from '@ui/components/BrandedLoader';
 import { baseStyles } from '@ui/theme';
 
 function Widget() {
-  const { data, loading, app } = useToolResult();
+  const { data, viewUUID, loading, app } = useToolResult();
 
   if (loading || !data) {
     return <BrandedLoader message="Analyzing content..." />;
@@ -15,7 +15,7 @@ function Widget() {
 
   return (
     <AppProvider app={app}>
-      <DetectionPage data={data} />
+      <DetectionPage data={data} viewUUID={viewUUID} />
     </AppProvider>
   );
 }

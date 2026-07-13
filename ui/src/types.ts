@@ -169,6 +169,35 @@ export interface ImageAnalysisResult {
   overall_severity: string;
 }
 
+export interface DocumentFlaggedPage {
+  page_number: number;
+  risk_score: number;
+  severity: string;
+  detected_endpoints: string[];
+}
+
+export interface DocumentExtractionSummary {
+  text_layer_pages: number;
+  ocr_pages: number;
+  failed_pages: number;
+  average_ocr_confidence?: number;
+}
+
+export interface DocumentAnalysisResult {
+  file_id?: string;
+  document_hash: string;
+  total_pages: number;
+  pages_analyzed: number;
+  extraction_summary: DocumentExtractionSummary;
+  flagged_pages: DocumentFlaggedPage[];
+  detected_endpoints: string[];
+  overall_risk_score: number;
+  overall_severity: string;
+  credits_used?: number;
+  processing_time_ms?: number;
+  language?: string;
+}
+
 export interface SupportHelpline {
   name: string;
   number: string;

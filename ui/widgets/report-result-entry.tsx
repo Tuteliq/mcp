@@ -7,7 +7,7 @@ import { BrandedLoader } from '@ui/components/BrandedLoader';
 import { baseStyles } from '@ui/theme';
 
 function Widget() {
-  const { data, loading, app } = useToolResult();
+  const { data, viewUUID, loading, app } = useToolResult();
 
   if (loading || !data) {
     return <BrandedLoader message="Generating report..." />;
@@ -15,7 +15,7 @@ function Widget() {
 
   return (
     <AppProvider app={app}>
-      <ReportPage data={data} />
+      <ReportPage data={data} viewUUID={viewUUID} />
     </AppProvider>
   );
 }

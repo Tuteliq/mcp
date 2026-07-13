@@ -26,3 +26,9 @@ npm-debug.log*
 
 # Claude
 .claude/
+
+# MCP Registry
+PUBLISHING.md
+tuteliq-mcp-key.pem
+tuteliq-mcp-private-key-hex.txt
+mcp-private.pem

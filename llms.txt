@@ -27,7 +27,8 @@ Create a free account at https://tuteliq.ai and generate an API key from the Das
 - detect_unsafe — Identify unsafe content (self-harm, violence, explicit material, sextortion)
 - analyze — Quick comprehensive safety check (bullying + unsafe)
 - analyse_multi — Run multiple detection endpoints on a single piece of text
-- analyze_emotions — Analyze emotional content and mental state indicators
+- batch_analyze — Analyze up to 25 items in one request (bullying, unsafe, emotions, grooming)
+- analyze_emotions — Analyze emotional content and mental state indicators (single text or conversation)
 - get_action_plan — Generate age-appropriate guidance for safety situations
 - generate_report — Create incident reports from conversations
 
@@ -50,7 +51,10 @@ Create a free account at https://tuteliq.ai and generate an API key from the Das
 - list_webhooks, create_webhook, update_webhook, delete_webhook, test_webhook, regenerate_webhook_secret
 
 ### Pricing & Usage
-- get_pricing, get_pricing_details, get_usage_history, get_usage_by_tool, get_usage_monthly
+- get_pricing, get_pricing_details, get_usage_history, get_usage_by_tool, get_usage_monthly, get_usage_summary, get_usage_quota
+
+### Policy Configuration
+- get_policy, set_policy — read/update per-category detection thresholds and auto-moderation settings
 
 ### GDPR & Compliance
 - delete_account_data, export_account_data, record_consent, get_consent_status, withdraw_consent, rectify_data, get_audit_logs

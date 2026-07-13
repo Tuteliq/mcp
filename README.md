@@ -26,7 +26,7 @@
 
 Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cursor, and other MCP-compatible AI assistants. Ask Claude to check messages for bullying, detect grooming patterns, or generate safety action plans.
 
-## Available Tools (50 MCP)
+## Available Tools (67 MCP)
 
 ### Safety Detection
 
@@ -37,7 +37,8 @@ Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cu
 | `detect_unsafe` | Identify unsafe content (self-harm, violence, explicit material) |
 | `analyze` | Quick comprehensive safety check (bullying + unsafe) |
 | `analyse_multi` | Run multiple detection endpoints on a single piece of text in one call |
-| `analyze_emotions` | Analyze emotional content and mental state indicators |
+| `batch_analyze` | Analyze up to 25 items in a single request (bullying, unsafe, emotions, grooming) — ideal for bulk triage |
+| `analyze_emotions` | Analyze emotional content and mental state indicators — accepts single text or full conversations |
 | `get_action_plan` | Generate age-appropriate guidance for safety situations |
 | `generate_report` | Create incident reports from conversations |
 
@@ -71,7 +72,6 @@ Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cu
 | `detect_synthetic_image` | 6-signal forensic pipeline: vision AI, EXIF metadata, pixel stats, C2PA Content Credentials, watermarks, pHash |
 | `detect_synthetic_audio` | Dual-signal forensics: transcript + mel spectrogram vision + quantitative audio statistics |
 | `detect_synthetic_video` | 5-track analysis: per-frame vision, temporal face consistency, lip-sync correlation, spectral audio, transcript |
-| `get_synthetic_profile` | Account-level 30-day rolling window with trend detection and category distribution |
 
 ### Identity & Age Verification
 
@@ -106,6 +106,15 @@ Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cu
 | `get_usage_history` | Get daily usage history |
 | `get_usage_by_tool` | Get usage by tool/endpoint |
 | `get_usage_monthly` | Get monthly usage with billing info |
+| `get_usage_summary` | Get current billing-period summary (used, limits, purchased credits) |
+| `get_usage_quota` | Get real-time rate-limit status — pre-flight check before batch runs |
+
+### Policy Configuration
+
+| Tool | Description |
+|------|-------------|
+| `get_policy` | Get the account's detection policy (per-category flag/block thresholds, auto-moderation) |
+| `set_policy` | Update the account's detection policy configuration |
 
 ### GDPR Account
 

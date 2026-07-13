@@ -43,13 +43,15 @@ export function registerAdminTools(server: McpServer, client: Tuteliq): void {
         name: z.string().describe('Display name for the webhook'),
         url: z.string().describe('HTTPS URL to receive webhook payloads'),
         events: z.array(z.string()).describe('Event types to subscribe to'),
+        headers: z.record(z.string(), z.string()).optional().describe('Custom headers to send with webhook payloads (e.g., an auth header for your endpoint)'),
       },
     },
-    async ({ name, url, events }) => {
+    async ({ name, url, events, headers }) => {
       const result = await client.createWebhook({
         name,
         url,
         events: events as WebhookEventType[],
+        headers,
       });
       return { content: [{ type: 'text', text: `## ✅ Webhook Created\n\n**ID:** ${result.id}\n**Name:** ${result.name}\n**URL:** ${result.url}\n**Events:** ${result.events.join(', ')}\n\n⚠️ **Secret (save this — shown only once):**\n\`${result.secret}\`` }] };
     },
@@ -67,14 +69,16 @@ export function registerAdminTools(server: McpServer, client: Tuteliq): void {
         url: z.string().optional().describe('New HTTPS URL'),
         events: z.array(z.string()).optional().describe('New event subscriptions'),
         is_active: z.boolean().optional().describe('Enable or disable the webhook'),
+        headers: z.record(z.string(), z.string()).optional().describe('New custom headers to send with webhook payloads'),
       },
     },
-    async ({ id, name, url, events, is_active }) => {
+    async ({ id, name, url, events, is_active, headers }) => {
       const result = await client.updateWebhook(id, {
         name,
         url,
         events: events as WebhookEventType[] | undefined,
         isActive: is_active,
+        headers,
       });
       return { content: [{ type: 'text', text: `## ✅ Webhook Updated\n\n**ID:** ${result.id}\n**Name:** ${result.name}\n**Active:** ${result.is_active ? '\u{1F7E2} Yes' : '⚪ No'}` }] };
     },
@@ -229,6 +233,83 @@ export function registerAdminTools(server: McpServer, client: Tuteliq): void {
 
 ${result.recommendations ? `### Recommendation\n${result.recommendations.reason}\n**Suggested Tier:** ${result.recommendations.suggested_tier}\n[Upgrade](${result.recommendations.upgrade_url})` : ''}`;
       return { content: [{ type: 'text', text }] };
+    },
+  );
+
+  server.registerTool(
+    'get_usage_summary',
+    {
+      title: 'Usage Summary',
+      description: 'Get the current billing-period usage summary: messages used, limits, purchased credits, and days remaining.',
+      annotations: READ_ONLY,
+      inputSchema: {},
+    },
+    async () => {
+      const result = await client.getUsageSummary();
+      const text = `## Usage Summary
+
+**Billing Period:** ${result.period_start} → ${result.period_end} (${result.days_remaining} days left)
+**Used:** ${result.messages_used} / ${result.message_limit} (${result.usage_percentage.toFixed(1)}%)
+**Purchased Credits:** ${result.purchased_credits}
+**Total Available:** ${result.total_available}`;
+      return { content: [{ type: 'text', text }] };
+    },
+  );
+
+  server.registerTool(
+    'get_usage_quota',
+    {
+      title: 'Rate Limit Quota',
+      description: 'Get the real-time rate limit status: requests remaining this minute and seconds until reset. Useful as a pre-flight check before running batch analyses.',
+      annotations: READ_ONLY,
+      inputSchema: {},
+    },
+    async () => {
+      const result = await client.getQuota();
+      const text = `## Rate Limit Quota
+
+**Tier:** ${result.tier}
+**Rate Limit:** ${result.rate_limit}/min
+**Remaining This Minute:** ${result.remaining}
+**Resets In:** ${result.reset_in_seconds}s`;
+      return { content: [{ type: 'text', text }] };
+    },
+  );
+
+  // =========================================================================
+  // Policy Configuration
+  // =========================================================================
+
+  server.registerTool(
+    'get_policy',
+    {
+      title: 'Get Policy Configuration',
+      description: 'Get the account\'s detection policy configuration: per-category thresholds (flag/block risk scores), auto-moderation flags, emotion monitoring, and incident reporting settings.',
+      annotations: READ_ONLY,
+      inputSchema: {},
+    },
+    async () => {
+      const result = await client.getPolicy();
+      if (!result.config) {
+        return { content: [{ type: 'text', text: result.message ?? 'No policy configuration set — the account uses default thresholds.' }] };
+      }
+      return { content: [{ type: 'text', text: `## Policy Configuration\n\n\`\`\`json\n${JSON.stringify(result.config, null, 2)}\n\`\`\`` }] };
+    },
+  );
+
+  server.registerTool(
+    'set_policy',
+    {
+      title: 'Set Policy Configuration',
+      description: 'Set the account\'s detection policy configuration. Replaces the current policy — call get_policy first and modify from that baseline. Categories: bullying, grooming, selfHarm, hateSpeech, threats, sexualContent, violence, emotionMonitoring, incidentReporting; each with `enabled` plus per-category thresholds like `minRiskScoreToFlag`/`minRiskScoreToBlock` (0-1).',
+      annotations: DESTRUCTIVE,
+      inputSchema: {
+        config: z.record(z.string(), z.unknown()).describe('Full policy configuration object (same shape as returned by get_policy)'),
+      },
+    },
+    async ({ config }) => {
+      const result = await client.setPolicy(config as never);
+      return { content: [{ type: 'text', text: `## ${result.success ? '✅ Policy Updated' : '❌ Policy Update Failed'}\n\n${result.message ?? ''}${result.config ? `\n\`\`\`json\n${JSON.stringify(result.config, null, 2)}\n\`\`\`` : ''}` }] };
     },
   );
 
