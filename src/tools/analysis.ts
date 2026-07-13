@@ -295,7 +295,7 @@ ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
     'batch_analyze',
     {
       title: 'Batch Analysis',
-      description: 'Analyze up to 25 items in a single request — ideal for bulk triage. Each item runs one detection type: bullying, unsafe, or emotions (pass `content`), or grooming (pass `messages`). Per-item success/error is returned so a partial failure does not lose the successful results.',
+      description: 'Analyze up to 50 items in a single request — ideal for bulk triage. Each item runs one detection type: bullying, unsafe, or emotions (pass `content`), or grooming (pass `messages`). Per-item success/error is returned so a partial failure does not lose the successful results.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
         items: z.array(z.object({
@@ -307,7 +307,7 @@ ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
           })).optional().describe('Conversation messages (required for grooming)'),
           childAge: z.number().optional().describe('Age of the child (grooming only)'),
           external_id: z.string().optional().describe('Your correlation ID for this item, echoed in its result'),
-        })).min(1).max(25).describe('Items to analyze (max 25)'),
+        })).min(1).max(50).describe('Items to analyze (max 50)'),
         parallel: z.boolean().optional().describe('Process items in parallel (default: true)'),
       },
     },

@@ -27,7 +27,7 @@ Create a free account at https://tuteliq.ai and generate an API key from the Das
 - detect_unsafe — Identify unsafe content (self-harm, violence, explicit material, sextortion)
 - analyze — Quick comprehensive safety check (bullying + unsafe)
 - analyse_multi — Run multiple detection endpoints on a single piece of text
-- batch_analyze — Analyze up to 25 items in one request (bullying, unsafe, emotions, grooming)
+- batch_analyze — Analyze up to 50 items in one request (bullying, unsafe, emotions, grooming)
 - analyze_emotions — Analyze emotional content and mental state indicators (single text or conversation)
 - get_action_plan — Generate age-appropriate guidance for safety situations
 - generate_report — Create incident reports from conversations
@@ -55,6 +55,16 @@ Create a free account at https://tuteliq.ai and generate an API key from the Das
 
 ### Policy Configuration
 - get_policy, set_policy — read/update per-category detection thresholds and auto-moderation settings
+
+### Policy Automation Rules
+- list_policy_rules, create_policy_rule, get_policy_rule, update_policy_rule, delete_policy_rule — rules that block/flag/escalate/notify automatically on matching detections
+- evaluate_policy_rules — dry-run rules against a hypothetical detection result
+
+### Detection Settings
+- get_detection_settings, update_detection_settings, reset_detection_settings — per-account endpoint enable/disable + default context
+
+### Threat Intelligence (Business+ tier)
+- get_intelligence_trends, get_emerging_threats, get_weekly_digest, get_risk_trends — anonymised network-wide threat signals
 
 ### GDPR & Compliance
 - delete_account_data, export_account_data, record_consent, get_consent_status, withdraw_consent, rectify_data, get_audit_logs

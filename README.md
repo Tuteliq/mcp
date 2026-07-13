@@ -26,7 +26,7 @@
 
 Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cursor, and other MCP-compatible AI assistants. Ask Claude to check messages for bullying, detect grooming patterns, or generate safety action plans.
 
-## Available Tools (67 MCP)
+## Available Tools (80 MCP)
 
 ### Safety Detection
 
@@ -37,7 +37,7 @@ Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cu
 | `detect_unsafe` | Identify unsafe content (self-harm, violence, explicit material) |
 | `analyze` | Quick comprehensive safety check (bullying + unsafe) |
 | `analyse_multi` | Run multiple detection endpoints on a single piece of text in one call |
-| `batch_analyze` | Analyze up to 25 items in a single request (bullying, unsafe, emotions, grooming) — ideal for bulk triage |
+| `batch_analyze` | Analyze up to 50 items in a single request (bullying, unsafe, emotions, grooming) — ideal for bulk triage |
 | `analyze_emotions` | Analyze emotional content and mental state indicators — accepts single text or full conversations |
 | `get_action_plan` | Generate age-appropriate guidance for safety situations |
 | `generate_report` | Create incident reports from conversations |
@@ -115,6 +115,34 @@ Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cu
 |------|-------------|
 | `get_policy` | Get the account's detection policy (per-category flag/block thresholds, auto-moderation) |
 | `set_policy` | Update the account's detection policy configuration |
+
+### Policy Automation Rules
+
+| Tool | Description |
+|------|-------------|
+| `list_policy_rules` | List all automation rules (block/flag/escalate/notify/log_only on matching detections) |
+| `create_policy_rule` | Create a rule that acts automatically when detections match its conditions |
+| `get_policy_rule` | Get full detail of a single rule |
+| `update_policy_rule` | Update any subset of a rule's fields (e.g., pause with `enabled: false`) |
+| `delete_policy_rule` | Permanently delete a rule |
+| `evaluate_policy_rules` | Dry-run rules against a hypothetical detection result |
+
+### Detection Settings
+
+| Tool | Description |
+|------|-------------|
+| `get_detection_settings` | See which detection endpoints are enabled/disabled + default context |
+| `update_detection_settings` | Enable/disable endpoints, set default context |
+| `reset_detection_settings` | Reset to defaults (all endpoints enabled) |
+
+### Threat Intelligence (Business+ tier)
+
+| Tool | Description |
+|------|-------------|
+| `get_intelligence_trends` | Anonymised network-wide threat trends by endpoint/category/age/platform/geo |
+| `get_emerging_threats` | Emerging threat patterns over a recent window |
+| `get_weekly_digest` | Weekly digest: summary, top categories, notable changes |
+| `get_risk_trends` | Anonymised global risk trends |
 
 ### GDPR Account
 

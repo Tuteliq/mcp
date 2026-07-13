@@ -13,6 +13,7 @@ import { registerAnalysisTools } from './tools/analysis.js';
 import { registerSyntheticTools } from './tools/synthetic.js';
 import { registerVerificationTools } from './tools/verification.js';
 import { registerAdminTools } from './tools/admin.js';
+import { registerAutomationTools } from './tools/automation.js';
 import { registerGovernanceTools } from './tools/governance.js';
 import { registerResources } from './tools/resources.js';
 import { getTransportMode, startStdio } from './transport.js';
@@ -44,6 +45,7 @@ export function createServer(apiKeyOverride?: string): McpServer {
   registerSyntheticTools(server, client);
   registerVerificationTools(server, client);
   registerAdminTools(server, client);
+  registerAutomationTools(server, client);
   registerGovernanceTools(server, client);
   registerResources(server);
 
