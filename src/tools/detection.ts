@@ -88,11 +88,12 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
         continuation_token: z.string().optional().describe('Opaque signed token returned by a prior detect_bullying call. Pass it back to maintain multi-turn awareness without server-side content storage. The result includes a fresh continuation_token to forward into the next call.'),
         reset_conversation: z.boolean().optional().describe('If true, discard any continuation_token and analyze this content as a fresh conversation.'),
+        verdict_only: z.boolean().optional().describe('Fast mode. Return only the verdict (severity, categories, recommended action) and omit any per-message breakdown. Lower latency for real-time screening; the verdict itself is unchanged.'),
         ...trackingSchema,
       },
       _meta: uiMeta('Shows bullying detection results with risk indicators', 'Analyzing content for bullying...', 'Bullying analysis complete.'),
     },
-    async ({ content, context, support_threshold, continuation_token, reset_conversation, external_id, customer_id, metadata }) => {
+    async ({ content, context, support_threshold, continuation_token, reset_conversation, verdict_only, external_id, customer_id, metadata }) => {
       try {
         const result = await client.detectBullying({
           content,
@@ -100,6 +101,7 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
           supportThreshold: support_threshold,
           continuationToken: continuation_token,
           resetConversation: reset_conversation,
+          verdictOnly: verdict_only,
           external_id,
           customer_id,
           metadata,
@@ -153,11 +155,12 @@ ${result.rationale}
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
         continuation_token: z.string().optional().describe('Opaque signed token returned by a prior detect_grooming call. Pass it back to maintain multi-turn awareness across chunked conversations without server-side content storage. The result includes a fresh continuation_token for the next call.'),
         reset_conversation: z.boolean().optional().describe('If true, discard any continuation_token and analyze these messages as a fresh conversation.'),
+        verdict_only: z.boolean().optional().describe('Fast mode. Return only the conversation-level verdict (risk level, flags, recommended action) and omit the per-message breakdown. Lower latency for real-time screening; the verdict itself is unchanged.'),
         ...trackingSchema,
       },
       _meta: uiMeta('Shows grooming detection results with risk indicators', 'Analyzing conversation for grooming patterns...', 'Grooming analysis complete.'),
     },
-    async ({ messages, childAge, participantAge, support_threshold, continuation_token, reset_conversation, external_id, customer_id, metadata }) => {
+    async ({ messages, childAge, participantAge, support_threshold, continuation_token, reset_conversation, verdict_only, external_id, customer_id, metadata }) => {
       try {
         const result = await client.detectGrooming({
           messages,
@@ -166,6 +169,7 @@ ${result.rationale}
           supportThreshold: support_threshold,
           continuationToken: continuation_token,
           resetConversation: reset_conversation,
+          verdictOnly: verdict_only,
           external_id,
           customer_id,
           metadata,

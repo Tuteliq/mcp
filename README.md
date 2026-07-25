@@ -26,13 +26,17 @@
 
 Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cursor, and other MCP-compatible AI assistants. Ask Claude to check messages for bullying, detect grooming patterns, or generate safety action plans.
 
+**Reads context, not just keywords.** Every detector understands coded slang, emoji, leetspeak, algospeak, and deliberate filter evasion, and weighs the conversation around a message — so it tells gaming trash-talk apart from targeted harassment instead of drowning your team in false positives. This coded-language resilience is platform-wide (it applies to grooming, fraud, radicalisation, and the rest, not just bullying) and is built from our own research into how bad actors evade moderation. In an internal benchmark of coded-language and filter-evasion cases, Tuteliq detected roughly **1.7x more** of them than leading general-purpose moderation APIs (319-case evasion set; vendors unnamed).
+
+**Fast mode.** Pass `verdict_only: true` on `detect_grooming` or `detect_bullying` to get just the verdict (risk level, flags, recommended action) without the per-message breakdown — lower latency for real-time screening. The verdict itself is unchanged.
+
 ## Available Tools (80 MCP)
 
 ### Safety Detection
 
 | Tool | Description |
 |------|-------------|
-| `detect_bullying` | Analyze text for bullying, harassment, or harmful language |
+| `detect_bullying` | Analyze text for bullying, harassment, and gaming toxicity — including coded slang, emoji, and deliberate filter evasion, with context that tells trash-talk apart from genuine harm |
 | `detect_grooming` | Detect grooming patterns and predatory behavior in conversations |
 | `detect_unsafe` | Identify unsafe content (self-harm, violence, explicit material) |
 | `analyze` | Quick comprehensive safety check (bullying + unsafe) |
