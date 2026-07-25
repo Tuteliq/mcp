@@ -102,7 +102,7 @@
   "overrides": {
     "qs": ">=6.15.2",
     "hono": ">=4.12.12",
-    "@hono/node-server": ">=1.19.13",
+    "@hono/node-server": ">=2.0.10",
     "path-to-regexp": ">=8.2.0",
     "fast-uri": ">=3.1.4",
     "ip-address": ">=10.2.0"
