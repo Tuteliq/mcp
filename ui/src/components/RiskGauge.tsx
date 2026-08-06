@@ -1,83 +1,88 @@
 import React from 'react';
-import { severityColor, colors, fontFamily } from '../theme';
+import { severityColor, colors, fonts } from '../theme';
 
 const gaugeKeyframes = `
-@keyframes gauge-fill {
-  from { stroke-dashoffset: var(--gauge-circumference); }
-  to { stroke-dashoffset: var(--gauge-target); }
-}
-@keyframes gauge-fadeIn {
-  from { opacity: 0; transform: scale(0.9); }
-  to { opacity: 1; transform: scale(1); }
-}
-@keyframes gauge-countUp {
-  from { opacity: 0; }
-  to { opacity: 1; }
+@keyframes tq-gauge-sweep {
+  from { stroke-dashoffset: var(--tq-gauge-start); }
+  to   { stroke-dashoffset: var(--tq-gauge-end); }
 }
 `;
 
 interface RiskGaugeProps {
-  score: number; // 0-1
+  /** 0–1. */
+  score: number;
   level: string;
+  size?: number;
 }
 
-export function RiskGauge({ score, level }: RiskGaugeProps) {
-  const pct = Math.round(score * 100);
+/**
+ * Risk score as a ring.
+ *
+ * The value sits in HTML rather than an SVG `<text>` so it renders in Poppins
+ * with the same weight as every other headline number in the system — SVG text
+ * ignores the display stack in several of the hosts we render inside.
+ */
+export function RiskGauge({ score, level, size = 96 }: RiskGaugeProps) {
+  const clamped = Math.max(0, Math.min(1, score || 0));
+  const pct = Math.round(clamped * 100);
   const color = severityColor(level);
-  const radius = 40;
-  const stroke = 8;
+
+  const radius = 42;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference * (1 - score);
+  const offset = circumference * (1 - clamped);
 
   return (
-    <div
-      style={{
-        textAlign: 'center',
-        padding: '8px 0',
-        animation: 'gauge-fadeIn 0.5s ease both',
-      }}
-    >
+    <div style={{ position: 'relative', width: size, height: size, flex: '0 0 auto' }}>
       <style>{gaugeKeyframes}</style>
-      <svg width={100} height={100} viewBox="0 0 100 100">
-        {/* Background track */}
+      <svg viewBox="0 0 100 100" width={size} height={size} role="img" aria-label={`Risk score ${pct} percent, ${level}`}>
+        <circle cx={50} cy={50} r={radius} fill="none" stroke={colors.bg.track} strokeWidth={10} />
         <circle
-          cx={50} cy={50} r={radius}
-          fill="none" stroke={colors.bg.tertiary} strokeWidth={stroke}
-        />
-        {/* Animated fill */}
-        <circle
-          cx={50} cy={50} r={radius}
-          fill="none" stroke={color} strokeWidth={stroke}
+          cx={50}
+          cy={50}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={10}
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           transform="rotate(-90 50 50)"
           style={{
-            // CSS custom properties for the keyframe animation
-            ['--gauge-circumference' as string]: circumference,
-            ['--gauge-target' as string]: offset,
-            animation: `gauge-fill 1s ease-out 0.3s both`,
+            ['--tq-gauge-start' as string]: circumference,
+            ['--tq-gauge-end' as string]: offset,
+            animation: 'tq-gauge-sweep 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both',
           }}
         />
-        {/* Percentage text */}
-        <text
-          x={50} y={44} textAnchor="middle"
-          fontSize={22} fontWeight={700} fill={color}
-          fontFamily={fontFamily}
-          style={{ animation: 'gauge-countUp 0.6s ease 0.5s both' }}
+      </svg>
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+        }}
+      >
+        <span
+          className="tq-tabular"
+          style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: 22, color, lineHeight: 1 }}
         >
           {pct}%
-        </text>
-        {/* Label */}
-        <text
-          x={50} y={60} textAnchor="middle"
-          fontSize={9} fontWeight={500} fill={colors.text.muted}
-          fontFamily={fontFamily}
-          style={{ animation: 'gauge-countUp 0.6s ease 0.7s both' }}
+        </span>
+        <span
+          style={{
+            fontSize: 10,
+            color: colors.text.muted,
+            letterSpacing: 0.4,
+            textTransform: 'uppercase',
+            marginTop: 3,
+          }}
         >
-          Risk Score
-        </text>
-      </svg>
+          Risk score
+        </span>
+      </div>
     </div>
   );
 }

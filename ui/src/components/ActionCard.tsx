@@ -1,5 +1,5 @@
 import React from 'react';
-import { colors, fontFamily } from '../theme';
+import { colors, fonts, radius } from '../theme';
 
 interface ActionCardProps {
   action: string;
@@ -7,8 +7,14 @@ interface ActionCardProps {
   detail?: string;
 }
 
+/**
+ * The recommended next step.
+ *
+ * The action itself is set in mono because it is a literal enum value from the
+ * API (`flag_for_review`, `escalate`), not prose — a moderator wiring this into
+ * their own pipeline needs the exact token, and mono signals it is one.
+ */
 export function ActionCard({ action, detail }: ActionCardProps) {
-  // Don't render for empty or "none" actions
   if (!action || action.toLowerCase() === 'none') return null;
 
   return (
@@ -16,49 +22,59 @@ export function ActionCard({ action, detail }: ActionCardProps) {
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
-        padding: '10px 14px',
-        borderRadius: 10,
-        background: `linear-gradient(135deg, ${colors.brand.primary}08, ${colors.brand.primaryLight}12)`,
-        border: `1px solid ${colors.brand.primaryLight}30`,
-        marginBottom: 12,
+        gap: 12,
+        background: colors.bg.tertiary,
+        borderRadius: radius.inset,
+        padding: '14px 18px',
       }}
     >
       <div
         style={{
-          width: 28,
-          height: 28,
-          borderRadius: 8,
-          background: `linear-gradient(135deg, ${colors.brand.primary}, ${colors.brand.primaryLight})`,
+          width: 26,
+          height: 26,
+          borderRadius: radius.chip,
+          background: colors.ink.base,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          flexShrink: 0,
+          flex: '0 0 auto',
         }}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="9 11 12 14 22 4" />
-          <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M20 6L9 17l-5-5"
+            stroke={colors.teal.base}
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
       </div>
-      <div>
+      <div style={{ minWidth: 0 }}>
         <div
           style={{
-            fontSize: 10,
-            fontWeight: 600,
-            color: colors.text.muted,
-            fontFamily,
+            fontSize: 10.5,
+            fontWeight: 700,
+            letterSpacing: 0.8,
             textTransform: 'uppercase',
-            letterSpacing: '0.04em',
+            color: colors.text.muted,
           }}
         >
-          Recommended Action
+          Recommended action
         </div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: colors.text.primary, fontFamily }}>
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 700,
+            color: colors.text.primary,
+            fontFamily: fonts.mono,
+            marginTop: 1,
+          }}
+        >
           {action}
         </div>
         {detail && (
-          <div style={{ fontSize: 11, color: colors.text.muted, fontFamily, marginTop: 3, lineHeight: 1.4 }}>
+          <div style={{ fontSize: 12.5, color: colors.text.muted, marginTop: 4, lineHeight: 1.45 }}>
             {detail}
           </div>
         )}

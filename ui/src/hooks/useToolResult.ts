@@ -21,7 +21,9 @@ export function useToolResult() {
   }, []);
 
   const { app, isConnected, error } = useApp({
-    appInfo: { name: 'Tuteliq', version: '3.0.0' },
+    // Injected from package.json at build time — see vite.config.ts. Hardcoding
+    // this is how it ended up stuck at 3.0.0 across eighteen releases.
+    appInfo: { name: 'Tuteliq', version: __TUTELIQ_VERSION__ },
     capabilities: {},
     onAppCreated,
   });

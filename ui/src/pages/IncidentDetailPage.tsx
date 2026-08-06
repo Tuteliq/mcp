@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { colors, fontFamily, severityColor } from '../theme';
-import { IncidentHeader } from '../components/IncidentHeader';
+import { WidgetShell } from '../components/WidgetShell';
+import { CardHeader, StatTile } from '../components/primitives';
+import { StatusBanner } from '../components/StatusBanner';
 import { TrajectoryCurve } from '../components/TrajectoryCurve';
 import { BYOKDecryptPanel } from '../components/BYOKDecryptPanel';
 import type { HybridEnvelope } from '../utils/byokDecrypt';
@@ -143,53 +145,45 @@ export function IncidentDetailPage({ data }: Props) {
   };
 
   return (
-    <div style={{ fontFamily, color: colors.text.primary }}>
-      <IncidentHeader
-        title={`${i.risk_category} · ${i.risk_level}`}
+    <WidgetShell tool="get_incident">
+      <CardHeader
+        title={i.risk_category}
         subtitle={`Incident ${i.id}`}
         icon={
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 9v4" />
-            <path d="M12 17h.01" />
-            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+              stroke={colors.teal.base}
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         }
       />
 
-      {/* Top banner with severity */}
+      <StatusBanner
+        level={i.risk_level}
+        // Capitalise only the level. A blanket `textTransform: capitalize`
+        // on the banner renders "Critical Severity".
+        title={`${i.risk_level.charAt(0).toUpperCase()}${i.risk_level.slice(1)} severity`}
+        subtitle={i.risk_category.replace(/_/g, ' ')}
+        style={{ marginBottom: 16 }}
+      />
+
       <div
         style={{
-          background: `${sev}11`,
-          border: `1px solid ${sev}44`,
-          borderRadius: 12,
-          padding: '12px 14px',
-          marginBottom: 12,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+          gap: 14,
+          marginBottom: 20,
         }}
       >
-        <div style={{ width: 8, height: 36, background: sev, borderRadius: 4 }} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 11, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: 0.4, fontWeight: 600 }}>
-            Severity
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: sev, textTransform: 'capitalize' }}>{i.risk_level}</div>
-        </div>
+        <StatTile label="Severity" value={i.risk_level} accent={sev} />
         {i.confidence_score != null && (
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 11, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: 0.4, fontWeight: 600 }}>
-              Confidence
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: colors.text.primary }}>{(i.confidence_score * 100).toFixed(0)}%</div>
-          </div>
+          <StatTile label="Confidence" value={`${(i.confidence_score * 100).toFixed(0)}%`} />
         )}
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 11, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: 0.4, fontWeight: 600 }}>
-            Status
-          </div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: colors.text.primary, textTransform: 'capitalize' }}>{i.status}</div>
-        </div>
+        <StatTile label="Status" value={i.status} />
       </div>
 
       {/* V3.15.7 — BYOK decrypt panel. Surfaces right under the severity
@@ -308,6 +302,6 @@ export function IncidentDetailPage({ data }: Props) {
           </pre>
         </div>
       )}
-    </div>
+    </WidgetShell>
   );
 }

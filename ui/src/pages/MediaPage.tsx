@@ -1,5 +1,6 @@
 import React from 'react';
-import { AppWrapper } from '../App';
+import { WidgetShell } from '../components/WidgetShell';
+import { CardHeader } from '../components/primitives';
 import { RiskGauge } from '../components/RiskGauge';
 import { SeverityBadge } from '../components/SeverityBadge';
 import { TimelineFindings } from '../components/TimelineFindings';
@@ -128,7 +129,7 @@ function DocumentView({ result }: { result: DocumentAnalysisResult }) {
         </div>
         <div style={{ background: colors.bg.secondary, padding: 10, borderRadius: 8 }}>
           <div style={{ fontSize: 10, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Failed</div>
-          <div style={{ fontSize: 18, fontWeight: 600, color: extraction.failed_pages > 0 ? colors.severity?.high || '#E76F51' : colors.text.primary }}>{extraction.failed_pages}</div>
+          <div style={{ fontSize: 18, fontWeight: 600, color: extraction.failed_pages > 0 ? colors.severity.high : colors.text.primary }}>{extraction.failed_pages}</div>
         </div>
       </div>
 
@@ -182,19 +183,21 @@ function DocumentView({ result }: { result: DocumentAnalysisResult }) {
 export function MediaPage({ data, viewUUID }: { data: ToolResultPayload; viewUUID?: string }) {
   const { toolName, result } = data;
 
-  const titleMap: Record<string, string> = {
-    analyze_voice: 'Voice Analysis',
-    analyze_image: 'Image Analysis',
-    analyze_video: 'Video Analysis',
-    analyze_document: 'Document Analysis',
+  const titleMap: Record<string, { title: string; subtitle: string }> = {
+    analyze_voice: { title: 'Voice Analysis', subtitle: 'Speech, sentiment and acoustic signals' },
+    analyze_image: { title: 'Image Analysis', subtitle: 'Visual content and safety classification' },
+    analyze_video: { title: 'Video Analysis', subtitle: 'Frame-level content and safety classification' },
+    analyze_document: { title: 'Document Analysis', subtitle: 'Page-level content and safety classification' },
   };
+  const meta = titleMap[toolName] || { title: 'Media Analysis', subtitle: 'Content and safety classification' };
 
   return (
-    <AppWrapper title={titleMap[toolName] || 'Media Analysis'}>
+    <WidgetShell tool={toolName}>
+      <CardHeader title={meta.title} subtitle={meta.subtitle} />
       {toolName === 'analyze_voice' && <VoiceView result={result as VoiceAnalysisResult} />}
       {toolName === 'analyze_image' && <ImageView result={result as ImageAnalysisResult} />}
       {toolName === 'analyze_video' && <VideoView result={result as VideoAnalysisResult} />}
       {toolName === 'analyze_document' && <DocumentView result={result as DocumentAnalysisResult} />}
-    </AppWrapper>
+    </WidgetShell>
   );
 }

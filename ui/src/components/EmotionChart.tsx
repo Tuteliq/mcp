@@ -1,50 +1,33 @@
 import React from 'react';
-import { colors } from '../theme';
+import { Panel, MetricBar } from './primitives';
 
 interface EmotionChartProps {
   scores: Record<string, number>;
-  trend?: string;
 }
 
-const trendLabels: Record<string, string> = {
-  improving: '\u2191 Improving',
-  stable: '\u2192 Stable',
-  worsening: '\u2193 Worsening',
-};
+const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ');
 
-export function EmotionChart({ scores, trend }: EmotionChartProps) {
-  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+/**
+ * Emotion scores, strongest first.
+ *
+ * No trend line here any more — the banner above already states it, and having
+ * both meant the page said "Worsening" twice in the space of two elements.
+ * Scores are scaled to 100%, not to the top score: these are independent
+ * probabilities, so a 0.81 anxiety reading should look like 81% of the track
+ * regardless of what else fired.
+ */
+export function EmotionChart({ scores }: EmotionChartProps) {
+  const sorted = Object.entries(scores || {}).sort((a, b) => b[1] - a[1]);
+  if (sorted.length === 0) return null;
 
   return (
-    <div style={{ margin: '12px 0' }}>
-      {trend && (
-        <div style={{ fontSize: 12, color: colors.text.secondary, marginBottom: 8 }}>
-          Trend: <strong>{trendLabels[trend] || trend}</strong>
-        </div>
-      )}
-      {sorted.map(([emotion, score]) => {
-        const pct = Math.round(score * 100);
-        return (
-          <div key={emotion} style={{ marginBottom: 6 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
-              <span style={{ textTransform: 'capitalize', color: colors.text.secondary }}>{emotion}</span>
-              <span style={{ color: colors.text.muted }}>{pct}%</span>
-            </div>
-            <div style={{ height: 8, borderRadius: 4, background: colors.bg.tertiary }}>
-              <div
-                style={{
-                  height: '100%',
-                  borderRadius: 4,
-                  background: `linear-gradient(90deg, ${colors.brand.primary}, ${colors.brand.primaryLight})`,
-
-                  width: `${pct}%`,
-                  transition: 'width 0.4s ease',
-                }}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
+    <Panel title="Emotion scores">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {sorted.map(([emotion, score]) => {
+          const pct = Math.round(Math.max(0, Math.min(1, score)) * 100);
+          return <MetricBar key={emotion} label={titleCase(emotion)} value={`${pct}%`} pct={pct} />;
+        })}
+      </div>
+    </Panel>
   );
 }

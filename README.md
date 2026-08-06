@@ -17,6 +17,7 @@
   <a href="https://docs.tuteliq.ai">API Docs</a> •
   <a href="https://tuteliq.ai">Dashboard</a> •
   <a href="https://trust.tuteliq.ai">Trust</a> •
+  <a href="./CHANGELOG.md">Changelog</a> •
   <a href="https://discord.gg/7kbTeRYRXD">Discord</a>
 </p>
 
@@ -29,6 +30,68 @@ Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cu
 **Reads context, not just keywords.** Every detector understands coded slang, emoji, leetspeak, algospeak, and deliberate filter evasion, and weighs the conversation around a message — so it tells gaming trash-talk apart from targeted harassment instead of drowning your team in false positives. This coded-language resilience is platform-wide (it applies to grooming, fraud, radicalisation, and the rest, not just bullying) and is built from our own research into how bad actors evade moderation. In an internal benchmark of coded-language and filter-evasion cases, Tuteliq detected roughly **1.7x more** of them than leading general-purpose moderation APIs (319-case evasion set; vendors unnamed).
 
 **Fast mode.** Pass `verdict_only: true` on `detect_grooming` or `detect_bullying` to get just the verdict (risk level, flags, recommended action) without the per-message breakdown — lower latency for real-time screening. The verdict itself is unchanged.
+
+**Interactive results.** In hosts that support MCP Apps, results render as interactive cards rather than walls of JSON — see [Interactive widgets](#interactive-widgets) below.
+
+## Interactive widgets
+
+Eleven tools return a rendered card instead of raw text in hosts that support MCP
+Apps (Claude desktop and web, and other MCP-compatible clients). Everywhere else
+the same data arrives as `structuredContent`, so nothing depends on the UI.
+
+Every card carries the same frame: a chrome bar naming the tool that produced the
+result, the result itself, and a footer with the data-handling note and a Trust
+Center link. In a transcript holding a dozen results, the chrome bar is what tells
+you which is which.
+
+| Widget | Tools |
+|--------|-------|
+| Detection result | `detect_bullying`, `detect_grooming`, `detect_unsafe`, `analyze`, and the other `detect_*` tools |
+| Multi-endpoint | `analyse_multi` |
+| Emotions | `analyze_emotions` |
+| Media | `analyze_voice`, `analyze_image`, `analyze_video`, `analyze_document` |
+| Synthetic media | `detect_synthetic_text`, `detect_synthetic_image`, `detect_synthetic_audio`, `detect_synthetic_video` |
+| Action plan | `get_action_plan` |
+| Incident report | `generate_report` |
+| Incidents overview | `get_incidents_overview` |
+| Incidents list | `list_incidents` |
+| Incident detail | `get_incident` |
+| Incident trends | `get_incident_trends` |
+
+**Severity is rankable by colour.** The ramp runs monotonically from safe to
+critical, so two chips can be compared without reading their labels:
+
+| Level | Colour | |
+|---|---|---|
+| `critical` | `#9C3A29` | ![#9C3A29](https://placehold.co/12x12/9C3A29/9C3A29.png) |
+| `high` | `#C2543A` | ![#C2543A](https://placehold.co/12x12/C2543A/C2543A.png) |
+| `medium` | `#D98A3D` | ![#D98A3D](https://placehold.co/12x12/D98A3D/D98A3D.png) |
+| `low` | `#B7C2D4` | ![#B7C2D4](https://placehold.co/12x12/B7C2D4/B7C2D4.png) |
+| `safe` | `#19B79A` | ![#19B79A](https://placehold.co/12x12/19B79A/19B79A.png) |
+
+**Design notes.** The widgets are deliberately calm. They report on grooming,
+self-harm, and abuse, and a card that animates or pulses at the reader turns
+material that is already distressing into an alarm they cannot dismiss. Severity
+is carried by a rule and a glyph, not by motion. The crisis-support card leads
+with reassurance rather than the severity colour, and its helpline numbers are the
+largest targets on the card because transcribing digits under stress is where
+people fail.
+
+Widgets are read-only renderers by design. Selecting incidents in the list widget
+assembles the ID list for a `batch_review_incidents` call you fire yourself — the
+mutating call still goes through your host's approval step, so the
+human-in-the-loop stays in the loop.
+
+### Working on the widgets
+
+```bash
+npm run preview:ui   # builds every widget against fixture data
+open dist-preview/__preview.html
+```
+
+Widget source lives in `ui/src`. Design tokens are centralised in
+`ui/src/theme.ts`; prefer them over colour literals so the palette stays in one
+place.
 
 ## Available Tools (80 MCP)
 

@@ -48,7 +48,7 @@ export function AudioStatsPanel({ stats, spectralSignals, transcription }: Audio
       value: Math.abs(stats.rms_mean),
       max: 1,
       unit: '',
-      color: '#6366F1',
+      color: colors.teal.base,
       description: 'Average signal energy',
     });
   }
@@ -68,7 +68,7 @@ export function AudioStatsPanel({ stats, spectralSignals, transcription }: Audio
       value: stats.flat_factor,
       max: 1,
       unit: '',
-      color: stats.flat_factor > 0.5 ? colors.severity.high : '#8B5CF6',
+      color: stats.flat_factor > 0.5 ? colors.severity.high : colors.teal.base,
       description: 'Spectral flatness (high = synthetic-like)',
     });
   }

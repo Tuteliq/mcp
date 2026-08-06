@@ -2,25 +2,50 @@ import React from 'react';
 import { colors } from '../theme';
 
 interface ConfidenceBarProps {
-  value: number; // 0-1
+  /** 0–1. */
+  value: number;
   label?: string;
 }
 
-export function ConfidenceBar({ value, label = 'Confidence' }: ConfidenceBarProps) {
-  const pct = Math.round(value * 100);
+/**
+ * How sure the model is — always teal, never the severity colour.
+ *
+ * Confidence and severity are independent axes: a high-confidence "safe" and a
+ * low-confidence "critical" are different situations, and colouring this bar
+ * by severity would collapse them. Teal means "this is a measurement", the
+ * ramp means "this is a risk".
+ */
+export function ConfidenceBar({ value, label = 'Detection confidence' }: ConfidenceBarProps) {
+  const pct = Math.round(Math.max(0, Math.min(1, value || 0)) * 100);
   return (
-    <div style={{ marginBottom: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: colors.text.secondary, marginBottom: 4 }}>
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: 13.5,
+          fontWeight: 600,
+          color: colors.text.primary,
+          marginBottom: 8,
+        }}
+      >
         <span>{label}</span>
-        <span>{pct}%</span>
+        <span className="tq-tabular">{pct}%</span>
       </div>
-      <div style={{ height: 6, borderRadius: 3, background: colors.bg.tertiary }}>
+      <div
+        style={{ height: 8, background: colors.bg.track, borderRadius: 4 }}
+        role="meter"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={label}
+      >
         <div
           style={{
             height: '100%',
-            borderRadius: 3,
-            background: colors.brand.primaryLight,
             width: `${pct}%`,
+            background: colors.teal.base,
+            borderRadius: 4,
             transition: 'width 0.4s ease',
           }}
         />

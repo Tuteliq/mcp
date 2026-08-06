@@ -5,6 +5,9 @@ node_modules/
 dist/
 dist-ui/
 
+# Local design harness output (npm run preview:ui)
+dist-preview/
+
 # IDE
 .idea/
 .vscode/

@@ -1,5 +1,6 @@
 import React from 'react';
-import { colors, fontFamily } from '../theme';
+import { colors, severityColor } from '../theme';
+import { StatTile } from './primitives';
 
 interface KpiCardProps {
   label: string;
@@ -8,52 +9,14 @@ interface KpiCardProps {
   emphasis?: 'safe' | 'low' | 'medium' | 'high' | 'critical' | 'neutral';
 }
 
-const accentForEmphasis = (e: KpiCardProps['emphasis']) => {
-  switch (e) {
-    case 'safe': return colors.severity.safe;
-    case 'low': return colors.severity.low;
-    case 'medium': return colors.severity.medium;
-    case 'high': return colors.severity.high;
-    case 'critical': return colors.severity.critical;
-    default: return colors.brand.primaryLight;
-  }
-};
-
+/**
+ * Dashboard KPI — a `StatTile` with severity-driven accent.
+ *
+ * Kept as a distinct name because callers think in terms of "how alarming is
+ * this metric", not "what colour is the rule"; `emphasis` maps that intent
+ * onto the ramp in one place.
+ */
 export function KpiCard({ label, value, hint, emphasis = 'neutral' }: KpiCardProps) {
-  const accent = accentForEmphasis(emphasis);
-  const displayValue = typeof value === 'number' ? value.toLocaleString() : value;
-
-  return (
-    <div
-      style={{
-        background: '#fff',
-        border: `1px solid ${colors.border}`,
-        borderRadius: 12,
-        padding: '12px 14px',
-        position: 'relative',
-        overflow: 'hidden',
-        fontFamily,
-      }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: 3,
-          bottom: 0,
-          background: accent,
-        }}
-      />
-      <div style={{ fontSize: 10, color: colors.text.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: colors.text.primary, marginTop: 4, lineHeight: 1.1 }}>
-        {displayValue}
-      </div>
-      {hint && (
-        <div style={{ fontSize: 10, color: colors.text.muted, marginTop: 2 }}>{hint}</div>
-      )}
-    </div>
-  );
+  const accent = emphasis === 'neutral' ? colors.ink.base : severityColor(emphasis);
+  return <StatTile label={label} value={value} hint={hint} accent={accent} />;
 }

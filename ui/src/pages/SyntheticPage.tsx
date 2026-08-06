@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { AppWrapper } from '../App';
+import { WidgetShell } from '../components/WidgetShell';
+import { CardHeader, Callout } from '../components/primitives';
+import { ActionCard } from '../components/ActionCard';
 import { colors, fontFamily, severityColor } from '../theme';
 import { RiskGauge } from '../components/RiskGauge';
 import { ConfidenceBar } from '../components/ConfidenceBar';
@@ -36,10 +38,6 @@ const syntheticKeyframes = `
   0%, 100% { box-shadow: 0 0 0 0 rgba(217,79,61,0.4); }
   50% { box-shadow: 0 0 8px 3px rgba(217,79,61,0.25); }
 }
-@keyframes synth-bannerPulse {
-  0%, 100% { box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
-  50% { box-shadow: 0 4px 24px rgba(0,0,0,0.25); }
-}
 @keyframes synth-dotAppear {
   from { transform: scale(0); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
@@ -56,7 +54,6 @@ const syntheticKeyframes = `
   from { opacity: 0; transform: translateX(-8px); }
   to { opacity: 1; transform: translateX(0); }
 }
-.synth-banner-pulse { animation: synth-bannerPulse 3s ease-in-out infinite !important; }
 `;
 
 const cardStyle: React.CSSProperties = {
@@ -117,9 +114,9 @@ function AnimatedCategoryChips({ categories }: { categories: Array<{ tag: string
               borderRadius: 10,
               fontSize: 11,
               fontWeight: 500,
-              color: colors.brand.primary,
-              background: '#E6F5F3',
-              border: '1px solid #A7DDD5',
+              color: colors.teal.deep,
+              background: 'rgba(25,183,155,0.10)',
+              border: '1px solid rgba(25,183,155,0.25)',
               fontFamily,
               animation: `synth-chipSlide 0.3s ease ${0.3 + i * 0.06}s both`,
             }}
@@ -146,23 +143,48 @@ function AnimatedCategoryChips({ categories }: { categories: Array<{ tag: string
 
 // ── Score Panel (Gauge + Confidence side by side) ──────────────────────────────
 
-function ScorePanel({ risk_score, confidence, level }: { risk_score: number; confidence: number; level: string }) {
+/**
+ * Gauge + confidence.
+ *
+ * Every field is optional. Not all synthetic tools return a risk score or a
+ * severity level — the forensic ones report a classification instead — and
+ * rendering a 0% grey gauge or an unlabelled empty pill for those reads as a
+ * broken result rather than an absent field.
+ */
+function ScorePanel({
+  risk_score,
+  confidence,
+  level,
+}: {
+  risk_score?: number;
+  confidence?: number;
+  level?: string;
+}) {
+  const hasScore = typeof risk_score === 'number';
+  const hasConfidence = typeof confidence === 'number';
+  const hasLevel = Boolean(level);
+
+  if (!hasScore && !hasConfidence && !hasLevel) return null;
+
   return (
     <div
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 16,
-        marginBottom: 14,
+        gap: 32,
+        marginBottom: 24,
+        flexWrap: 'wrap',
         animation: 'synth-fadeSlideUp 0.5s ease 0.15s both',
       }}
     >
-      <RiskGauge score={risk_score} level={level} />
-      <div style={{ flex: 1 }}>
-        <ConfidenceBar value={confidence} label="Detection Confidence" />
-        <div style={{ marginTop: 8 }}>
-          <SeverityBadge level={level} />
-        </div>
+      {hasScore && <RiskGauge score={risk_score!} level={level || 'none'} />}
+      <div style={{ flex: 1, minWidth: 220 }}>
+        {hasConfidence && <ConfidenceBar value={confidence!} label="Detection confidence" />}
+        {hasLevel && (
+          <div style={{ marginTop: 10 }}>
+            <SeverityBadge level={level!} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -170,64 +192,27 @@ function ScorePanel({ risk_score, confidence, level }: { risk_score: number; con
 
 // ── Rationale Card ─────────────────────────────────────────────────────────────
 
-function RationaleCard({ rationale, delay = 0.5 }: { rationale: string; delay?: number }) {
+/**
+ * Guards on empty. The unguarded version rendered a headed card with no body
+ * whenever the tool returned no rationale, which reads as a failed analysis.
+ */
+function RationaleCard({ rationale, delay = 0.5 }: { rationale?: string; delay?: number }) {
+  if (!rationale) return null;
   return (
-    <div style={{ ...cardStyle, animation: `synth-fadeSlideUp 0.5s ease ${delay}s both` }}>
-      <div style={sectionLabelStyle}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={colors.brand.primaryLight} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="16" x2="12" y2="12" />
-          <line x1="12" y1="8" x2="12.01" y2="8" />
-        </svg>
-        Analysis Rationale
-      </div>
-      <p style={{ fontSize: 12, color: colors.text.secondary, lineHeight: 1.7, fontFamily, margin: 0 }}>
-        {rationale}
-      </p>
+    <div style={{ marginBottom: 20, animation: `synth-fadeSlideUp 0.5s ease ${delay}s both` }}>
+      <Callout title="Analysis rationale">{rationale}</Callout>
     </div>
   );
 }
 
 // ── Action Badge ───────────────────────────────────────────────────────────────
 
-function ActionBadge({ action, delay = 0.6 }: { action: string; delay?: number }) {
+/** Thin wrapper over the shared ActionCard, which already guards on empty. */
+function ActionBadge({ action, delay = 0.6 }: { action?: string; delay?: number }) {
+  if (!action) return null;
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        padding: '10px 14px',
-        borderRadius: 10,
-        background: `linear-gradient(135deg, ${colors.brand.primary}08, ${colors.brand.primaryLight}12)`,
-        border: `1px solid ${colors.brand.primaryLight}30`,
-        marginBottom: 12,
-        animation: `synth-fadeSlideUp 0.5s ease ${delay}s both`,
-      }}
-    >
-      <div
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: 8,
-          background: `linear-gradient(135deg, ${colors.brand.primary}, ${colors.brand.primaryLight})`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="9 11 12 14 22 4" />
-          <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
-        </svg>
-      </div>
-      <div>
-        <div style={{ fontSize: 10, fontWeight: 600, color: colors.text.muted, fontFamily, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-          Recommended Action
-        </div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: colors.text.primary, fontFamily }}>{action}</div>
-      </div>
+    <div style={{ marginBottom: 20, animation: `synth-fadeSlideUp 0.5s ease ${delay}s both` }}>
+      <ActionCard action={action} />
     </div>
   );
 }
@@ -820,9 +805,10 @@ export function SyntheticPage({ data }: SyntheticPageProps) {
   }
 
   return (
-    <AppWrapper title={toolTitle(toolName)}>
+    <WidgetShell tool={toolName}>
       <style>{syntheticKeyframes}</style>
+      <CardHeader title={toolTitle(toolName)} subtitle="Synthetic media forensics" />
       {content}
-    </AppWrapper>
+    </WidgetShell>
   );
 }

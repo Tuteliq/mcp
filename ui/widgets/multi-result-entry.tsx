@@ -1,18 +1,23 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { useToolResult } from '@ui/hooks/useToolResult';
+import { AppProvider } from '@ui/context/AppContext';
 import { MultiPage } from '@ui/pages/MultiPage';
 import { BrandedLoader } from '@ui/components/BrandedLoader';
 import { baseStyles } from '@ui/theme';
 
 function Widget() {
-  const { data, viewUUID, loading } = useToolResult();
+  const { data, viewUUID, loading, app } = useToolResult();
 
   if (loading || !data) {
     return <BrandedLoader message="Running multi-endpoint analysis..." />;
   }
 
-  return <MultiPage data={data} viewUUID={viewUUID} />;
+  return (
+    <AppProvider app={app}>
+      <MultiPage data={data} viewUUID={viewUUID} />
+    </AppProvider>
+  );
 }
 
 const style = document.createElement('style');
