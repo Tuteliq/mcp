@@ -229,38 +229,61 @@ The `analyse_multi` tool accepts up to 10 endpoints per call. Valid endpoint val
 
 ## Installation
 
-### Claude Desktop (Recommended)
+Tuteliq is a hosted MCP server at `https://api.tuteliq.ai/mcp`. Most clients
+should connect with OAuth and install nothing.
 
-1. Open Claude Desktop and go to **Settings > Connectors**
-2. Click **Add custom connector**
-3. Set the name to **Tuteliq** and the URL to:
-   ```
-   https://api.tuteliq.ai/mcp
-   ```
-4. When prompted, enter your Tuteliq API key
+### Connect with OAuth (recommended)
 
-That's it — Tuteliq tools will be available in your next conversation.
+Point the client at the URL with no credentials and sign in through the browser.
+Tuteliq implements OAuth 2.1 with dynamic client registration and PKCE, so the
+client registers itself. Nothing is pasted into a config file, and access is
+revoked from the dashboard rather than by editing your machine.
 
-### Cursor
+**Claude Desktop:** **Settings > Connectors**, **Add custom connector**, name it
+**Tuteliq**, URL `https://api.tuteliq.ai/mcp`, then **Connect** and approve in
+the browser.
 
-Add to your Cursor MCP settings:
+**Claude Code, Cursor, Windsurf and other clients supporting remote servers:**
 
 ```json
 {
   "mcpServers": {
     "tuteliq": {
+      "type": "http",
+      "url": "https://api.tuteliq.ai/mcp"
+    }
+  }
+}
+```
+
+In Claude Code, run `/mcp` to start the sign-in if it does not open on its own.
+
+### Static token (headless and automation)
+
+OAuth needs a browser, so a CI pipeline, cron job or container cannot complete
+it. Send a token in the `Authorization` header instead, generated in the
+dashboard under **Settings > Plugins**. This is a long-lived credential: keep it
+out of version control, and prefer OAuth wherever a browser exists.
+
+```json
+{
+  "mcpServers": {
+    "tuteliq": {
+      "type": "http",
       "url": "https://api.tuteliq.ai/mcp",
       "headers": {
-        "Authorization": "Bearer your-api-key"
+        "Authorization": "Bearer your-secure-token"
       }
     }
   }
 }
 ```
 
-### Other MCP clients (npx)
+### stdio (clients without remote server support)
 
-For clients that support stdio transport:
+For clients that only speak stdio. This runs a local process that calls the same
+hosted API, so the tools are identical; only the transport and authentication
+differ.
 
 ```json
 {
