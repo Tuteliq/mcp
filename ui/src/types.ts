@@ -34,7 +34,10 @@ export interface DetectionResult {
   evidence?: DetectionEvidence[];
   age_calibration?: AgeCalibration;
   message_analysis?: MessageAnalysis[];
+  /** Routing key: none | monitor | flag_for_review | block | immediate_intervention */
   recommended_action: string;
+  /** Human-readable expansion of recommended_action. Free text; do not branch on it. */
+  action_detail?: string;
   rationale: string;
 }
 
@@ -44,7 +47,10 @@ export interface BullyingResult {
   confidence: number;
   severity: string;
   rationale: string;
+  /** Routing key: none | monitor | flag_for_review | block | immediate_intervention */
   recommended_action: string;
+  /** Human-readable expansion of recommended_action. Free text; do not branch on it. */
+  action_detail?: string;
   risk_score: number;
 }
 
@@ -54,7 +60,10 @@ export interface GroomingResult {
   flags: string[];
   rationale: string;
   risk_score: number;
+  /** Routing key: none | monitor | flag_for_review | block | immediate_intervention */
   recommended_action: string;
+  /** Human-readable expansion of recommended_action. Free text; do not branch on it. */
+  action_detail?: string;
   message_analysis?: MessageAnalysis[];
 }
 
@@ -65,7 +74,10 @@ export interface UnsafeResult {
   confidence: number;
   risk_score: number;
   rationale: string;
+  /** Routing key: none | monitor | flag_for_review | block | immediate_intervention */
   recommended_action: string;
+  /** Human-readable expansion of recommended_action. Free text; do not branch on it. */
+  action_detail?: string;
 }
 
 export interface AnalyzeResult {
@@ -74,7 +86,10 @@ export interface AnalyzeResult {
   summary: string;
   bullying?: BullyingResult;
   unsafe?: UnsafeResult;
+  /** Routing key: none | monitor | flag_for_review | block | immediate_intervention */
   recommended_action: string;
+  /** Human-readable expansion of recommended_action. Free text; do not branch on it. */
+  action_detail?: string;
 }
 
 export interface EmotionsResult {

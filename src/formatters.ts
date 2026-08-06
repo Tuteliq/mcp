@@ -75,7 +75,7 @@ ${categories}
 ${result.rationale}
 
 ### Recommended Action
-\`${result.recommended_action}\`
+\`${result.recommended_action}\`${(result as any).action_detail ? `\n${(result as any).action_detail}` : ''}
 
 ${evidence}
 ${messageAnalysis}
@@ -160,11 +160,16 @@ export function formatSupportText(support: {
 export function formatVideoResult(result: VideoAnalysisResult): string {
   const emoji = severityEmoji[result.overall_severity] || '\u2705';
 
-  const findingsSection = result.safety_findings.length > 0
-    ? result.safety_findings
+  // The API returns flagged_timestamps (points above the reporting threshold)
+  // and frame_results (per-frame detail). An earlier version of this formatter
+  // read `safety_findings`, which the API has never returned — so this section
+  // was always empty.
+  const flagged = result.flagged_timestamps ?? [];
+  const findingsSection = flagged.length > 0
+    ? flagged
         .map(f => {
-          const fEmoji = severityEmoji[f.severity <= 0.3 ? 'low' : f.severity <= 0.6 ? 'medium' : f.severity <= 0.85 ? 'high' : 'critical'] || '\u26AA';
-          return `- \`${f.timestamp.toFixed(1)}s\` (frame ${f.frame_index}) ${fEmoji} ${f.description}\n  Categories: ${f.categories.join(', ')} | Severity: ${(f.severity * 100).toFixed(0)}%`;
+          const fEmoji = severityEmoji[f.severity] || '\u26AA';
+          return `- \`${f.timestamp_s.toFixed(1)}s\` ${fEmoji} ${f.reason} (${f.severity})`;
         })
         .join('\n')
     : '_No safety findings._';
@@ -174,6 +179,7 @@ export function formatVideoResult(result: VideoAnalysisResult): string {
 **Overall Severity:** ${emoji} ${result.overall_severity}
 **Overall Risk Score:** ${(result.overall_risk_score * 100).toFixed(0)}%
 **Frames Analyzed:** ${result.frames_analyzed}
+**Recommended Action:** \`${result.recommended_action}\`${result.action_detail ? `\n${result.action_detail}` : ''}
 
 ### Safety Findings
 ${findingsSection}`;
@@ -268,7 +274,7 @@ ${categories}
 ${result.rationale}
 
 ### Recommended Action
-\`${result.recommended_action}\`
+\`${result.recommended_action}\`${(result as any).action_detail ? `\n${(result as any).action_detail}` : ''}
 ${result.credits_used != null ? `\n**Credits Used:** ${result.credits_used}` : ''}`.trim();
 }
 
@@ -329,7 +335,7 @@ ${matchSection}
 ${result.rationale}
 
 ### Recommended Action
-\`${result.recommended_action}\`
+\`${result.recommended_action}\`${(result as any).action_detail ? `\n${(result as any).action_detail}` : ''}
 ${result.credits_used != null ? `\n**Credits Used:** ${result.credits_used}` : ''}`.replace(/\n{3,}/g, '\n\n').trim();
 }
 
@@ -373,7 +379,7 @@ ${spectralSection}
 ${result.rationale}
 
 ### Recommended Action
-\`${result.recommended_action}\`
+\`${result.recommended_action}\`${(result as any).action_detail ? `\n${(result as any).action_detail}` : ''}
 ${result.credits_used != null ? `\n**Credits Used:** ${result.credits_used}` : ''}`.replace(/\n{3,}/g, '\n\n').trim();
 }
 
@@ -424,7 +430,7 @@ ${spectralSection}
 ${result.rationale}
 
 ### Recommended Action
-\`${result.recommended_action}\`
+\`${result.recommended_action}\`${(result as any).action_detail ? `\n${(result as any).action_detail}` : ''}
 ${result.credits_used != null ? `\n**Credits Used:** ${result.credits_used}` : ''}`.replace(/\n{3,}/g, '\n\n').trim();
 }
 

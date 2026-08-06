@@ -3,9 +3,11 @@ import { colors, fontFamily } from '../theme';
 
 interface ActionCardProps {
   action: string;
+  /** Human-readable expansion of the action, when the API supplies one. */
+  detail?: string;
 }
 
-export function ActionCard({ action }: ActionCardProps) {
+export function ActionCard({ action, detail }: ActionCardProps) {
   // Don't render for empty or "none" actions
   if (!action || action.toLowerCase() === 'none') return null;
 
@@ -55,6 +57,11 @@ export function ActionCard({ action }: ActionCardProps) {
         <div style={{ fontSize: 12, fontWeight: 600, color: colors.text.primary, fontFamily }}>
           {action}
         </div>
+        {detail && (
+          <div style={{ fontSize: 11, color: colors.text.muted, fontFamily, marginTop: 3, lineHeight: 1.4 }}>
+            {detail}
+          </div>
+        )}
       </div>
     </div>
   );

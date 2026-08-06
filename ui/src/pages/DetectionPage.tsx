@@ -349,7 +349,7 @@ export function DetectionPage({ data }: DetectionPageProps) {
       {/* Action */}
       {showAction && (
         <div style={{ animation: 'det-fadeSlideUp 0.5s ease 0.55s both' }}>
-          <ActionCard action={action} />
+          <ActionCard action={action} detail={result.action_detail} />
         </div>
       )}
 

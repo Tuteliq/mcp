@@ -216,16 +216,18 @@ ${result.rationale}
         content: z.string().describe('The text content to analyze for unsafe content'),
         context: contextSchema,
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
+                verdict_only: z.boolean().optional().describe('Fast mode. Skips generating the rationale, the only free-text field this endpoint produces. Lower latency and a smaller response; the verdict itself is unchanged.'),
         ...trackingSchema,
       },
       _meta: uiMeta('Shows unsafe content detection results', 'Analyzing content for safety concerns...', 'Safety analysis complete.'),
     },
-    async ({ content, context, support_threshold, external_id, customer_id, metadata }) => {
+    async ({ content, context, support_threshold, verdict_only, external_id, customer_id, metadata }) => {
       try {
         const result = await client.detectUnsafe({
           content,
           context: context as Record<string, string> | undefined,
           supportThreshold: support_threshold,
+          verdictOnly: verdict_only,
           external_id,
           customer_id,
           metadata,
