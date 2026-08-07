@@ -8,6 +8,14 @@ dist-ui/
 # Local design harness output (npm run preview:ui)
 dist-preview/
 
+# Design sources are internal and must not be published to this repo.
+# Widget markup lives in ui/widgets/; anything matching these is a design
+# export that was dropped in by accident.
+*UI Kit*.html
+*ui-kit*.html
+/design/
+/*.design.html
+
 # IDE
 .idea/
 .vscode/
