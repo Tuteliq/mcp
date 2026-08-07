@@ -54,30 +54,57 @@ export function RiskGauge({ score, level, size = 96 }: RiskGaugeProps) {
           }}
         />
       </svg>
+      {/*
+        Clamped to the ring's inner disc, not the full box.
+        `inset: 0` let the label run the whole width of the gauge, so
+        "RISK SCORE" crossed the coloured stroke on both sides. The stroke
+        occupies 10 of the 100 viewBox units centred on r=42, so the first
+        clear unit is at 100 - 2*47 = 6%; 15% leaves a real margin inside that
+        and keeps the text off the ring even when the webfont falls back to a
+        wider system face.
+      */}
       <div
         style={{
           position: 'absolute',
-          inset: 0,
+          inset: '15%',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          textAlign: 'center',
+          overflow: 'hidden',
           pointerEvents: 'none',
         }}
       >
         <span
           className="tq-tabular"
-          style={{ fontFamily: fonts.display, fontWeight: 800, fontSize: 22, color, lineHeight: 1 }}
+          style={{
+            fontFamily: fonts.display,
+            fontWeight: 800,
+            // 0.23 fitted "85%" but left a 100% score all but touching the
+            // ring, and 100% is a value this gauge can genuinely show.
+            fontSize: Math.round(size * 0.205),
+            color,
+            lineHeight: 1,
+          }}
         >
           {pct}%
         </span>
+        {/*
+          The label is the widest thing in the disc and sits below centre,
+          where the circle has already narrowed — so its bottom corners, not
+          its width, are what collide with the ring. No letter-spacing, a
+          tighter top margin and a smaller face keep those corners clear.
+        */}
         <span
           style={{
-            fontSize: 10,
+            fontSize: Math.max(8, Math.round(size * 0.086)),
+            lineHeight: 1.05,
             color: colors.text.muted,
-            letterSpacing: 0.4,
+            letterSpacing: 0,
             textTransform: 'uppercase',
-            marginTop: 3,
+            marginTop: 2,
+            maxWidth: '100%',
           }}
         >
           Risk score

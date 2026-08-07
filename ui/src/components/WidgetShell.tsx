@@ -69,7 +69,11 @@ function ChromeBar({ tool, version }: { tool: React.ReactNode; version: string }
     <div
       style={{
         background: colors.ink.black,
-        padding: '14px 0',
+        // Longhand, NOT `padding: '14px 0'`. The shorthand sets all four sides
+        // inline, which beats the horizontal padding the gutter class supplies
+        // — that is what left the logo flush against the card edge.
+        paddingTop: 14,
+        paddingBottom: 14,
         display: 'flex',
         alignItems: 'center',
         gap: 10,
@@ -146,7 +150,8 @@ function FooterBar({
   return (
     <div
       style={{
-        padding: '14px 0',
+        paddingTop: 14,
+        paddingBottom: 14,
         borderTop: `1px solid ${colors.bg.track}`,
         display: 'flex',
         justifyContent: 'space-between',
@@ -269,6 +274,17 @@ interface WidgetShellProps {
   tool: React.ReactNode;
   /** Tool schema version shown in the chrome pill. */
   version?: string;
+  /**
+   * Render the dark chrome bar naming the tool.
+   *
+   * On by default, as the design specifies.
+   *
+   * Note that MCP hosts also draw their own header above the widget iframe,
+   * naming the server and the tool, so both are visible at once. There is no
+   * way to ask the host whether it has chrome; set this to false where that
+   * duplication is unwanted.
+   */
+  showChrome?: boolean;
   /** Footer left slot. Defaults to the standing data-handling assurance. */
   footerNote?: React.ReactNode;
   /** Trust Center deep link — point it at the section relevant to this tool. */
@@ -282,13 +298,14 @@ interface WidgetShellProps {
  *
  * Previously each page brought its own header — `AppWrapper` for detection
  * widgets, `IncidentHeader` for the dashboard ones — so two cards in the same
- * transcript looked like two products. This is the single shell: dark chrome
- * naming the tool, white body, footer carrying the data-handling assurance and
- * a route out to the Trust Center.
+ * transcript looked like two products. This is the single shell: white body and
+ * a footer carrying the data-handling assurance and a route out to the Trust
+ * Center, with the tool-naming chrome left to the host.
  */
 export function WidgetShell({
   tool,
   version = 'v1',
+  showChrome = true,
   footerNote = 'Encrypted · SOC-aligned handling',
   trustHref = DEFAULT_TRUST_HREF,
   trustLabel = 'View Trust Center →',
@@ -312,8 +329,11 @@ export function WidgetShell({
         margin: '0 auto',
       }}
     >
-      <ChromeBar tool={tool} version={version} />
-      <div className="tq-gutter" style={{ paddingTop: 32, paddingBottom: 34 }}>
+      {showChrome && <ChromeBar tool={tool} version={version} />}
+      <div
+        className="tq-gutter"
+        style={{ paddingTop: showChrome ? 32 : 30, paddingBottom: 34 }}
+      >
         {children}
       </div>
       <FooterBar note={footerNote} trustHref={trustHref} trustLabel={trustLabel} />

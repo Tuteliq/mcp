@@ -7,6 +7,36 @@ The MCP tool surface — tool names, input schemas, and `structuredContent` shap
 is the public API. Changes to the interactive widgets are user-visible but do not
 break programmatic callers.
 
+## [3.21.1] — 2026-08-07
+
+### Fixed
+
+- **The chrome bar and footer had no left or right padding**, so the Tuteliq
+  mark sat flush against the card's left edge and the `</>` glyph against the
+  right. Introduced in 3.20.1 along with the responsive gutters: both elements
+  set `padding: '14px 0'` inline, and that shorthand overrides the horizontal
+  padding the gutter class supplies. The card body escaped it only because it
+  uses `paddingTop`/`paddingBottom` longhand. Both now use longhand.
+
+  Verified at 920px, 750px and 400px: the mark and the `</>` glyph are inset
+  23px at full width and 15px on narrow hosts, matching the body gutter.
+
+- **The risk gauge's centre text overlapped the ring.** Its overlay was pinned
+  to the full square (`inset: 0`), so "RISK SCORE" ran the whole width of the
+  gauge and crossed the coloured stroke on both sides. The overlay is now
+  clamped to the ring's inner disc, the label has lost its letter-spacing, and
+  both faces scale with the gauge.
+
+  Measured rather than eyeballed — worst-corner distance from the centre versus
+  the inner clear radius, since the label sits below centre where the circle
+  has already narrowed. Every value from 0% to 100% now clears the ring, worst
+  case 5.4px at "100%", and the label holds 6px of clearance even when the
+  webfont is blocked and it falls back to a system face.
+
+- `WidgetShell` gained a `showChrome` prop (default on). MCP hosts draw their
+  own header above the widget iframe naming the server and tool, so both are
+  visible at once; set it to false where that duplication is unwanted.
+
 ## [3.21.0] — 2026-08-07
 
 ### Added
@@ -16,10 +46,8 @@ break programmatic callers.
   renders the calling assistant's own analysis trace, reasoning and recommended
   decision alongside it for a human to sign off.
 
-  It is **read-only**. It renders a recommendation; it never applies one.
-  Applying a decision remains `review_incident`, so the host's approval step
-  stays in the path and the human-in-the-loop is preserved. The action buttons
-  copy the exact `review_incident` call rather than firing it.
+  The tool itself is read-only — it reads the queue and renders a
+  recommendation. Applying a decision is always `review_incident`.
 
   The card keeps API-derived facts and assistant-supplied claims visually
   distinct, and labels the latter "Assistant reasoning" — a moderator signing an
