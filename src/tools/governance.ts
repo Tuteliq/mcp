@@ -29,7 +29,9 @@ const DESTRUCTIVE = { readOnlyHint: false, destructiveHint: true, openWorldHint:
 
 // Enums mirrored from the API contract — kept in sync with what
 // /api/v1/incidents/:id/review and /api/v1/incidents/batch-review accept.
-const MODERATOR_ACTIONS = ['confirm', 'downgrade', 'escalate', 'reclassify', 'dismiss'] as const;
+// Mirrors ModeratorAction in the API and the dashboard incident-actions
+// contract, so an agent can perform every move a human moderator can.
+const MODERATOR_ACTIONS = ['confirm', 'downgrade', 'escalate', 'reclassify', 'dismiss', 'resolve', 'reopen'] as const;
 const REASON_CODES = [
   'confirmed_accurate',
   'false_positive',
@@ -220,7 +222,7 @@ ${receipt.canonical}
       annotations: DESTRUCTIVE,
       inputSchema: {
         incident_id: z.string().describe('Incident ID to review'),
-        action: z.enum(['confirm', 'downgrade', 'escalate', 'reclassify', 'dismiss']).describe('Moderator decision'),
+        action: z.enum(['confirm', 'downgrade', 'escalate', 'reclassify', 'dismiss', 'resolve', 'reopen']).describe('Moderator decision. `escalate` sets status escalated; `resolve` sets resolved and stamps resolved_at, which drives the turnaround-time metric, and marks linked notifications read; `reopen` returns the incident to new while preserving resolved_at as history.'),
         reason_code: z
           .enum([
             'confirmed_accurate',
@@ -353,7 +355,10 @@ ${result.failed === 0 ? '_All reviews recorded with signed Art 12 receipts._' : 
       inputSchema: {
         category: z.string().optional().describe('Filter by risk_category (e.g. "bullying", "grooming", "synthetic_content")'),
         severity: z.enum(['low', 'medium', 'high', 'critical']).optional(),
-        status: z.enum(['new', 'reviewing', 'escalated', 'resolved', 'dismissed']).optional(),
+        // Must match IncidentStatus in the API exactly. This previously offered
+        // "reviewing", which the API never writes, so filtering by it returned
+        // an empty queue forever with no error.
+        status: z.enum(['new', 'reviewed', 'escalated', 'resolved', 'dismissed']).optional(),
         source: z.enum(['text', 'voice', 'image', 'video', 'video_stream']).optional(),
         from: z.string().optional().describe('ISO 8601 inclusive lower bound on created_at'),
         to: z.string().optional().describe('ISO 8601 exclusive upper bound on created_at'),
@@ -591,7 +596,7 @@ ${rows || '_(no incidents in window)_'}`;
         severity: z.enum(['low', 'medium', 'high', 'critical']).optional(),
         platform: z.string().optional(),
         status: z
-          .enum(['new', 'reviewing', 'escalated'])
+          .enum(['new', 'reviewed', 'escalated'])
           .optional()
           .describe('Queue status to triage. Default "new".'),
         include_content: z
