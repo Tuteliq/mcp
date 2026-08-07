@@ -7,6 +7,37 @@ The MCP tool surface — tool names, input schemas, and `structuredContent` shap
 is the public API. Changes to the interactive widgets are user-visible but do not
 break programmatic callers.
 
+## [3.21.0] — 2026-08-07
+
+### Added
+
+- **`moderation_queue`** — a moderator triage console, with a paired widget.
+  Reads the unreviewed queue and the next item from the incident store, and
+  renders the calling assistant's own analysis trace, reasoning and recommended
+  decision alongside it for a human to sign off.
+
+  It is **read-only**. It renders a recommendation; it never applies one.
+  Applying a decision remains `review_incident`, so the host's approval step
+  stays in the path and the human-in-the-loop is preserved. The action buttons
+  copy the exact `review_incident` call rather than firing it.
+
+  The card keeps API-derived facts and assistant-supplied claims visually
+  distinct, and labels the latter "Assistant reasoning" — a moderator signing an
+  escalation needs to know which half is a measurement and which is an argument.
+
+  `operator_name` is an optional parameter, never defaulted. There is no
+  account- or organisation-name field anywhere in the Tuteliq SDK, so the name
+  cannot be retrieved; supplying it is the caller's job, and omitting it yields
+  an unbranded header rather than an invented one.
+
+  Queue depth beyond one page is reported as a floor (`47+`) rather than an
+  exact count, since the list endpoint returns a page, not a total.
+
+### Changed
+
+- The README now documents the incident and moderation tools, which had never
+  appeared in the tool tables despite shipping since 3.15.3.
+
 ## [3.20.1] — 2026-08-07
 
 Layout fixes found by running 3.20.0 in a real MCP host. Presentation only.

@@ -18,6 +18,7 @@ import { EmotionsPage } from '@ui/pages/EmotionsPage';
 import { MediaPage } from '@ui/pages/MediaPage';
 import { IncidentDetailPage } from '@ui/pages/IncidentDetailPage';
 import { SyntheticPage } from '@ui/pages/SyntheticPage';
+import { ModerationQueuePage } from '@ui/pages/ModerationQueuePage';
 import { BrandedLoader } from '@ui/components/BrandedLoader';
 import { baseStyles } from '@ui/theme';
 
@@ -299,6 +300,39 @@ const synthetic = {
   },
 };
 
+const moderationQueue = {
+  result: {
+    operator_name: 'Acme Trust & Safety',
+    in_queue: 47,
+    in_queue_is_partial: false,
+    reviewed_count: 312,
+    avg_review_seconds: 2.3,
+    next_item: {
+      id: 'INC-29847',
+      content: "I've been thinking about ending it all. Nobody would even notice if I disappeared. I feel so isolated and hopeless.",
+      user: 'teens_support_group',
+      platform: 'Discord',
+      age_group: '16',
+      status: 'pending analysis',
+      risk_category: 'self_harm',
+      risk_level: 'critical',
+      encrypted: false,
+    },
+    analysis: [
+      { tool: 'detect_distress_signals', note: 'Isolation language detected, hopelessness phrases found', status: 'complete' },
+      { tool: 'detect_unsafe', note: 'Self-harm language, suicide ideation patterns', status: 'complete' },
+      { tool: 'get_action_plan', note: 'Generated crisis response guidance for teen', status: 'complete' },
+      { tool: 'severity assessment', note: 'Determining severity and recommended action', status: 'running' },
+    ],
+    reasoning:
+      'Multiple critical distress signals detected: suicidal ideation ("ending it all"), isolation ("nobody would notice"), and hopelessness ("feel so isolated and hopeless"). Combined with explicit self-harm language and teen age group, this requires immediate human review and crisis intervention.',
+    recommended_action: 'escalate',
+    confidence: 0.94,
+    risk_level: 'critical',
+    pattern_match: '3/3',
+  },
+};
+
 const Backdrop: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div
     style={{
@@ -333,6 +367,7 @@ function Preview() {
       <MediaPage data={media as never} />
       <IncidentDetailPage data={incidentDetail as never} />
       <SyntheticPage data={synthetic as never} />
+      <ModerationQueuePage data={moderationQueue as never} />
       <BrandedLoader message="Analysing content…" />
     </Backdrop>
   );

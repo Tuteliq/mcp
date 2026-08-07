@@ -45,6 +45,7 @@ const INCIDENTS_OVERVIEW_WIDGET_URI = 'ui://tuteliq/incidents-overview.html';
 const INCIDENTS_LIST_WIDGET_URI = 'ui://tuteliq/incidents-list.html';
 const INCIDENT_DETAIL_WIDGET_URI = 'ui://tuteliq/incident-detail.html';
 const INCIDENT_TRENDS_WIDGET_URI = 'ui://tuteliq/incident-trends.html';
+const MODERATION_QUEUE_WIDGET_URI = 'ui://tuteliq/moderation-queue.html';
 
 function loadWidget(name: string): string {
   return readFileSync(resolve(__dirname, '../../../dist-ui', name), 'utf-8');
@@ -60,6 +61,7 @@ export function registerGovernanceTools(server: McpServer, client: Tuteliq): voi
     { uri: INCIDENTS_LIST_WIDGET_URI, file: 'incidents-list.html' },
     { uri: INCIDENT_DETAIL_WIDGET_URI, file: 'incident-detail.html' },
     { uri: INCIDENT_TRENDS_WIDGET_URI, file: 'incident-trends.html' },
+    { uri: MODERATION_QUEUE_WIDGET_URI, file: 'moderation-queue.html' },
   ]) {
     registerAppResource(
       server as any,
@@ -552,6 +554,146 @@ ${topPlatforms}`;
 ${rows || '_(no incidents in window)_'}`;
       return {
         structuredContent: { toolName: 'get_incident_trends', result: t, branding: { appName: 'Tuteliq' } },
+        content: [{ type: 'text' as const, text }],
+      };
+    },
+  );
+
+  // =========================================================================
+  // v3.21.0 — moderator triage console.
+  //
+  // Two sources meet in one card. The queue and the item under review are read
+  // from the API; the analysis trace, reasoning and recommendation are the
+  // calling assistant's own working, passed in as parameters. The widget keeps
+  // the two visually distinct, because a moderator signing off on an escalation
+  // needs to know which half is a measurement and which is an argument.
+  //
+  // Read-only: it renders a decision, it does not apply one. Applying a
+  // decision stays with `review_incident` so the host's approval step is
+  // preserved.
+  // =========================================================================
+  server.registerTool(
+    'moderation_queue',
+    {
+      title: 'Moderation Queue',
+      description:
+        'Render a moderator triage console: the oldest unreviewed incidents, the next item to review, and — optionally — your own analysis trace and recommended decision for that item. '
+        + 'Read-only. It does NOT apply a decision; call `review_incident` for that so the human stays in the loop. '
+        + 'Pass `operator_name` to brand the header with the customer or team name; omit it and the card is unbranded. Never invent one. '
+        + 'The assistant-supplied fields (`analysis`, `reasoning`, `recommended_action`, `confidence`, `risk_level`, `pattern_match`) are rendered as your reasoning, clearly separated from Tuteliq measurements. Omit any you have not actually determined.',
+      annotations: READ_ONLY,
+      inputSchema: {
+        operator_name: z
+          .string()
+          .optional()
+          .describe('Customer or team name for the header, e.g. "Acme Trust & Safety". Supply only if the user has told you their name — never guess or use a placeholder.'),
+        category: z.string().optional().describe('Restrict the queue to one risk category'),
+        severity: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+        platform: z.string().optional(),
+        status: z
+          .enum(['new', 'reviewing', 'escalated'])
+          .optional()
+          .describe('Queue status to triage. Default "new".'),
+        include_content: z
+          .boolean()
+          .optional()
+          .describe('Decrypt the summary text for the item under review so it can be shown (costs an extra credit)'),
+        reviewed_count: z.number().int().min(0).optional().describe('How many items you have reviewed this session'),
+        avg_review_seconds: z.number().min(0).optional().describe('Mean seconds per review this session'),
+        analysis: z
+          .array(
+            z.object({
+              tool: z.string().describe('Tool you ran, e.g. "detect_distress_signals"'),
+              note: z.string().optional().describe('One line on what it found'),
+              status: z.enum(['complete', 'running', 'pending']),
+            }),
+          )
+          .optional()
+          .describe('The tools you ran against this item, in order'),
+        reasoning: z.string().optional().describe('Your reasoning for the recommended decision'),
+        recommended_action: z
+          .enum(MODERATOR_ACTIONS)
+          .optional()
+          .describe('The `review_incident` action you would recommend'),
+        confidence: z.number().min(0).max(1).optional().describe('Your confidence, 0-1'),
+        risk_level: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+        pattern_match: z.string().optional().describe('e.g. "3/3" — how many expected patterns matched'),
+      },
+      _meta: {
+        ui: { resourceUri: MODERATION_QUEUE_WIDGET_URI },
+        'openai/widgetDescription':
+          'Renders a moderator triage console with queue stats, the next item for review, the analysis trace, and a recommended decision',
+        'openai/toolInvocation/invoking': 'Loading moderation queue...',
+        'openai/toolInvocation/invoked': 'Moderation queue loaded.',
+      },
+    },
+    async (input) => {
+      const QUEUE_PAGE = 100;
+      const page = await client.listIncidents({
+        status: (input.status ?? 'new') as 'new' | 'reviewing' | 'escalated',
+        category: input.category,
+        severity: input.severity,
+        platform: input.platform,
+        limit: QUEUE_PAGE,
+        includeSummary: input.include_content,
+      });
+
+      const head = page.incidents[0];
+      const encrypted = Boolean(head?._e2e_envelope_fields?.includes('summary'));
+
+      const next_item = head
+        ? {
+            id: head.id,
+            content: encrypted || typeof head.summary !== 'string' ? null : head.summary,
+            user: head.customer_id,
+            platform: head.platform,
+            age_group: null,
+            status: head.status,
+            risk_category: head.risk_category,
+            risk_level: head.risk_level,
+            encrypted,
+          }
+        : null;
+
+      const result = {
+        operator_name: input.operator_name ?? null,
+        // `total_returned` is a page count, not the true queue depth. When a
+        // cursor comes back there are more behind it, so the widget shows
+        // "100+" rather than implying the queue is exactly one page long.
+        in_queue: page.total_returned,
+        in_queue_is_partial: page.next_cursor != null,
+        reviewed_count: input.reviewed_count ?? null,
+        avg_review_seconds: input.avg_review_seconds ?? null,
+        next_item,
+        analysis: input.analysis ?? [],
+        reasoning: input.reasoning ?? null,
+        recommended_action: input.recommended_action ?? null,
+        confidence: input.confidence ?? null,
+        risk_level: input.risk_level ?? null,
+        pattern_match: input.pattern_match ?? null,
+      };
+
+      const depth = `${page.total_returned}${page.next_cursor ? '+' : ''}`;
+      const text = head
+        ? `## Moderation queue${input.operator_name ? ` — ${input.operator_name}` : ''}
+
+**In queue:** ${depth}${input.reviewed_count != null ? ` · **Reviewed this session:** ${input.reviewed_count}` : ''}
+
+### Next item
+| field | value |
+|---|---|
+| id | \`${head.id}\` |
+| category | ${head.risk_category} |
+| severity | ${head.risk_level} |
+| platform | ${head.platform ?? '—'} |
+| status | ${head.status} |
+${encrypted ? '\n_Content is encrypted under your customer-managed key; decrypt client-side to review it._' : ''}
+${input.analysis?.length ? `\n### Analysis run\n${input.analysis.map((a) => `- \`${a.tool}\` — ${a.status}${a.note ? `: ${a.note}` : ''}`).join('\n')}` : ''}
+${input.recommended_action ? `\n### Recommended\n**${input.recommended_action}**${input.confidence != null ? ` (confidence ${Math.round(input.confidence * 100)}%)` : ''}\n\nApply it with \`review_incident(incident_id="${head.id}", action="${input.recommended_action}")\` — this tool does not apply decisions.` : ''}`
+        : `## Moderation queue${input.operator_name ? ` — ${input.operator_name}` : ''}\n\nQueue is clear — nothing is waiting for review.`;
+
+      return {
+        structuredContent: { toolName: 'moderation_queue', result, branding: { appName: 'Tuteliq' } },
         content: [{ type: 'text' as const, text }],
       };
     },

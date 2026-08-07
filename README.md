@@ -35,7 +35,7 @@ Tuteliq MCP Server brings AI-powered child safety tools directly into Claude, Cu
 
 ## Interactive widgets
 
-Eleven tools return a rendered card instead of raw text in hosts that support MCP
+Twelve widgets return a rendered card instead of raw text in hosts that support MCP
 Apps (Claude desktop and web, and other MCP-compatible clients). Everywhere else
 the same data arrives as `structuredContent`, so nothing depends on the UI.
 
@@ -57,6 +57,7 @@ you which is which.
 | Incidents list | `list_incidents` |
 | Incident detail | `get_incident` |
 | Incident trends | `get_incident_trends` |
+| Moderation queue | `moderation_queue` |
 
 **Severity is rankable by colour.** The ramp runs monotonically from safe to
 critical, so two chips can be compared without reading their labels:
@@ -93,7 +94,7 @@ Widget source lives in `ui/src`. Design tokens are centralised in
 `ui/src/theme.ts`; prefer them over colour literals so the palette stays in one
 place.
 
-## Available Tools (80 MCP)
+## Available Tools (81 MCP)
 
 ### Safety Detection
 
@@ -147,6 +148,33 @@ place.
 | `create_verification_session` | Create a session for age or identity verification — returns a URL for the user to complete the flow |
 | `get_verification_session` | Poll session status — returns full document intelligence (MRZ, barcode, authenticity, face match, liveness) |
 | `cancel_verification_session` | Cancel an active session (no credits consumed) |
+
+### Incidents & Moderation
+
+Read the incident store, triage a queue, and record moderator decisions. The
+review tools emit signed receipts for EU AI Act Art 14 human-oversight evidence.
+
+| Tool | Description |
+|------|-------------|
+| `get_incidents_overview` | Counts by category, severity, source, status and platform over a window |
+| `list_incidents` | Paginated, filterable incident list |
+| `get_incident` | Full detail for one incident, including the risk trajectory across messages |
+| `get_incident_trends` | Incident volume bucketed by hour, day or week, split by severity |
+| `moderation_queue` | Moderator triage console: the unreviewed queue, the next item, and — optionally — your own analysis trace and recommended decision, rendered for human sign-off. Read-only |
+| `review_incident` | Record a moderator decision (confirm / downgrade / escalate / reclassify / dismiss) with a signed receipt |
+| `batch_review_incidents` | Apply one decision across many incidents in a single call |
+| `get_audit_receipt` | Fetch the signed receipt for a past inference |
+| `get_audit_logs` | Query the audit log |
+
+**`moderation_queue` is a renderer, not a decision-maker.** It shows the queue
+and lays out a recommendation for a human to accept or reject; it never writes
+one. Applying a decision is `review_incident`, so your host's approval step
+stays in the path. The reasoning, confidence and analysis trace it displays are
+supplied by the calling assistant and are labelled as such on the card — they
+are an argument for a human to weigh, not a Tuteliq measurement.
+
+Pass `operator_name` to brand the header with the customer or team name. Omit it
+and the card is unbranded — it is never defaulted to a placeholder.
 
 ### Webhook Management
 
