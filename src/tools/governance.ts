@@ -32,6 +32,24 @@ const DESTRUCTIVE = { readOnlyHint: false, destructiveHint: true, openWorldHint:
 // Mirrors ModeratorAction in the API and the dashboard incident-actions
 // contract, so an agent can perform every move a human moderator can.
 const MODERATOR_ACTIONS = ['confirm', 'downgrade', 'escalate', 'reclassify', 'dismiss', 'resolve', 'reopen'] as const;
+/**
+ * Normalise the agent identifier the API requires on moderation calls.
+ *
+ * Calls made with an MCP token must carry moderator_external_id as
+ * "mcp:<agent-name>": the API refuses the prefix from any other credential and
+ * refuses its absence from an MCP one, so human and agent decisions stay
+ * distinguishable in the audit trail. Passing the caller's value straight
+ * through meant every agent review was rejected, since the field was optional
+ * here and unprefixed when supplied.
+ *
+ * Prefixing here rather than asking the model to remember: an identifier the
+ * agent can get wrong is one it will get wrong.
+ */
+function agentActorId(supplied?: string): string {
+  const name = (supplied ?? '').trim().replace(/^mcp:/, '');
+  return `mcp:${name || 'agent'}`;
+}
+
 const REASON_CODES = [
   'confirmed_accurate',
   'false_positive',
@@ -238,7 +256,7 @@ ${receipt.canonical}
         reason_comment: z.string().optional().describe('Free-form comment; encrypted at rest'),
         new_risk_level: z.string().optional().describe('Required for downgrade / escalate'),
         new_risk_category: z.string().optional().describe('Required for reclassify'),
-        moderator_external_id: z.string().optional().describe('Opaque deployer-side moderator id; surfaces in the receipt'),
+        moderator_external_id: z.string().optional().describe('Name of the acting agent. Sent to the API as "mcp:<name>" and defaults to "mcp:agent"; the mcp: prefix is added for you.'),
         retention_class: z
           .enum(['biometric-high-risk', 'safety-high-risk', 'limited-risk', 'minimal-risk'])
           .optional()
@@ -252,7 +270,7 @@ ${receipt.canonical}
         reason_comment: input.reason_comment,
         new_risk_level: input.new_risk_level,
         new_risk_category: input.new_risk_category,
-        moderator_external_id: input.moderator_external_id,
+        moderator_external_id: agentActorId(input.moderator_external_id),
         retention_class: input.retention_class as RetentionClass | undefined,
       });
       const text = `## ✅ Moderator Review Recorded
@@ -307,7 +325,7 @@ ${result.audit_receipt ? `### Audit receipt\n**Request ID:** \`${result.audit_re
         reason_comment: input.reason_comment,
         new_risk_level: input.new_risk_level,
         new_risk_category: input.new_risk_category,
-        moderator_external_id: input.moderator_external_id,
+        moderator_external_id: agentActorId(input.moderator_external_id),
         retention_class: input.retention_class as RetentionClass | undefined,
       });
 
