@@ -618,6 +618,12 @@ ${rows || '_(no incidents in window)_'}`;
         confidence: z.number().min(0).max(1).optional().describe('Your confidence, 0-1'),
         risk_level: z.enum(['low', 'medium', 'high', 'critical']).optional(),
         pattern_match: z.string().optional().describe('e.g. "3/3" — how many expected patterns matched'),
+        skip: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe('Advance past the first N items in the queue. Used by the widget\'s "Skip to next"; nothing is mutated.'),
       },
       _meta: {
         ui: { resourceUri: MODERATION_QUEUE_WIDGET_URI },
@@ -638,7 +644,8 @@ ${rows || '_(no incidents in window)_'}`;
         includeSummary: input.include_content,
       });
 
-      const head = page.incidents[0];
+      const skip = input.skip ?? 0;
+      const head = page.incidents[skip];
       const encrypted = Boolean(head?._e2e_envelope_fields?.includes('summary'));
 
       const next_item = head
@@ -671,6 +678,15 @@ ${rows || '_(no incidents in window)_'}`;
         confidence: input.confidence ?? null,
         risk_level: input.risk_level ?? null,
         pattern_match: input.pattern_match ?? null,
+        // Echoed so the widget's "Skip to next" can re-invoke this tool with
+        // the same queue and a higher offset, instead of silently widening it.
+        skip,
+        filters: {
+          status: input.status ?? 'new',
+          category: input.category ?? null,
+          severity: input.severity ?? null,
+          platform: input.platform ?? null,
+        },
       };
 
       const depth = `${page.total_returned}${page.next_cursor ? '+' : ''}`;

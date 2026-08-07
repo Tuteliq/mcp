@@ -316,6 +316,16 @@ export const baseStyles = `
     .tq-kpi-grid { grid-template-columns: 1fr; }
   }
 
+  /* Three-up summary row (moderation console counters). */
+  .tq-stat-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  @media (max-width: 520px) {
+    .tq-stat-grid-3 { grid-template-columns: 1fr; }
+  }
+
   /* Two-up analysis panels, collapsing to one column on narrow hosts. */
   .tq-split-grid {
     display: grid;

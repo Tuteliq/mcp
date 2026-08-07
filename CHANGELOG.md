@@ -33,6 +33,17 @@ break programmatic callers.
   Queue depth beyond one page is reported as a floor (`47+`) rather than an
   exact count, since the list endpoint returns a page, not a total.
 
+  **The decision buttons act.** "Escalate" calls `review_incident` through the
+  host — the moderator clicking the button *is* the human decision, and routing
+  that through copy-and-paste would have added friction without adding
+  oversight. It does not fire on a single click: `review_incident` persists an
+  override and emits a signed Art 12 audit receipt, and it requires a
+  `reason_code`. Defaulting that silently would write a value the moderator
+  never chose into a document that is legal evidence, so the button opens a
+  reason picker and a second click commits. "View full analysis" calls
+  `get_incident`; "Skip to next" re-invokes `moderation_queue` at a higher
+  offset via the new `skip` parameter, mutating nothing.
+
 ### Changed
 
 - The README now documents the incident and moderation tools, which had never

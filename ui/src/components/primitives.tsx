@@ -80,11 +80,20 @@ export function StatTile({
   value,
   hint,
   accent = colors.ink.base,
+  /**
+   * Centred variant: no accent rule, smaller value. Used where the tiles are a
+   * balanced summary row rather than a ranked set — the moderation console's
+   * queue counters, where no single tile is the one to look at first.
+   */
+  centered = false,
+  valueColor,
 }: {
   label: React.ReactNode;
   value: number | string;
   hint?: React.ReactNode;
   accent?: string;
+  centered?: boolean;
+  valueColor?: string;
 }) {
   const display = typeof value === 'number' ? value.toLocaleString() : value;
   return (
@@ -93,7 +102,9 @@ export function StatTile({
         border: `1px solid ${colors.border}`,
         borderRadius: radius.tile,
         padding: 16,
-        borderLeft: `3px solid ${accent}`,
+        ...(centered
+          ? { textAlign: 'center' as const }
+          : { borderLeft: `3px solid ${accent}` }),
       }}
     >
       <Eyebrow tight style={{ marginBottom: 8 }}>
@@ -104,8 +115,8 @@ export function StatTile({
         style={{
           fontFamily: fonts.display,
           fontWeight: 700,
-          fontSize: 25,
-          color: colors.text.primary,
+          fontSize: centered ? 20 : 25,
+          color: valueColor ?? colors.text.primary,
           lineHeight: 1.1,
         }}
       >

@@ -166,12 +166,17 @@ review tools emit signed receipts for EU AI Act Art 14 human-oversight evidence.
 | `get_audit_receipt` | Fetch the signed receipt for a past inference |
 | `get_audit_logs` | Query the audit log |
 
-**`moderation_queue` is a renderer, not a decision-maker.** It shows the queue
-and lays out a recommendation for a human to accept or reject; it never writes
-one. Applying a decision is `review_incident`, so your host's approval step
-stays in the path. The reasoning, confidence and analysis trace it displays are
-supplied by the calling assistant and are labelled as such on the card — they
-are an argument for a human to weigh, not a Tuteliq measurement.
+**The decision is the moderator's, and the card makes them take it.** The
+action buttons call `review_incident` through the host, because a moderator
+clicking "Escalate" *is* the human decision. They do not fire on one click:
+`review_incident` persists an override and emits a signed Art 12 audit receipt
+and requires a `reason_code`, so the button opens a reason picker and a second
+click commits. Nothing is ever defaulted into that receipt on the moderator's
+behalf.
+
+The reasoning, confidence and analysis trace on the card are supplied by the
+calling assistant and are labelled as such — an argument for a human to weigh,
+not a Tuteliq measurement.
 
 Pass `operator_name` to brand the header with the customer or team name. Omit it
 and the card is unbranded — it is never defaulted to a placeholder.

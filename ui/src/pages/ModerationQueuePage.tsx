@@ -1,6 +1,7 @@
 import React from 'react';
 import { colors, fonts, radius, severityColor } from '../theme';
 import { WidgetShell } from '../components/WidgetShell';
+import { useAppContext } from '../context/AppContext';
 import {
   CardHeader,
   BrandLockup,
@@ -21,6 +22,8 @@ import {
  * escalation needs to know which parts are measurements and which are an
  * assistant's argument.
  */
+
+const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ');
 
 interface AnalysisStep {
   tool: string;
@@ -55,6 +58,8 @@ interface ModerationQueueResult {
   confidence?: number | null;
   risk_level?: string | null;
   pattern_match?: string | null;
+  skip?: number;
+  filters?: Record<string, unknown>;
 }
 
 interface Props {
@@ -66,7 +71,7 @@ interface Props {
 function StepIndicator({ status }: { status: AnalysisStep['status'] }) {
   if (status === 'complete') {
     return (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-label="complete" role="img">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-label="complete" role="img" style={{ flex: '0 0 auto' }}>
         <path
           d="M20 6L9 17l-5-5"
           stroke={colors.teal.base}
@@ -77,27 +82,21 @@ function StepIndicator({ status }: { status: AnalysisStep['status'] }) {
       </svg>
     );
   }
-  if (status === 'running') {
-    // Three dots rather than a spinner: the transcript is static by the time a
-    // human reads it, so a spinning element would imply live progress that
-    // isn't happening.
-    return (
-      <span
-        aria-label="running"
-        role="img"
-        style={{ color: colors.warningOnDark, fontWeight: 700, letterSpacing: 1, fontSize: 14 }}
-      >
-        •••
-      </span>
-    );
-  }
+  // An ellipsis rather than a spinner: by the time a human reads the
+  // transcript the work has stopped, so an animation would imply live progress
+  // that isn't happening.
   return (
     <span
-      aria-label="pending"
+      aria-label={status}
       role="img"
-      style={{ color: colors.chrome.dim, fontWeight: 700, letterSpacing: 1, fontSize: 14 }}
+      style={{
+        fontSize: 16,
+        letterSpacing: 1,
+        flex: '0 0 auto',
+        color: status === 'running' ? colors.severity.medium : colors.chrome.dim,
+      }}
     >
-      •••
+      …
     </span>
   );
 }
@@ -114,9 +113,10 @@ function AnalysisTrace({ steps }: { steps: AnalysisStep[] }) {
             style={{
               background: colors.ink.base,
               borderRadius: radius.inset,
-              padding: '14px 18px',
+              padding: '12px 16px',
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'space-between',
               gap: 16,
             }}
           >
@@ -126,14 +126,14 @@ function AnalysisTrace({ steps }: { steps: AnalysisStep[] }) {
                 style={{
                   fontFamily: fonts.mono,
                   fontWeight: 600,
-                  fontSize: 14,
+                  fontSize: 13.5,
                   color: colors.text.onDark,
                 }}
               >
                 {s.tool}
               </div>
               {s.note && (
-                <div style={{ fontSize: 13, color: colors.text.onDarkMuted, marginTop: 3 }}>
+                <div style={{ fontSize: 12, color: colors.text.onDarkMuted, marginTop: 2 }}>
                   {s.note}
                 </div>
               )}
@@ -156,12 +156,12 @@ function StatusChip({ status }: { status: string }) {
       style={{
         fontSize: 11,
         fontWeight: 700,
-        letterSpacing: 0.6,
+        letterSpacing: 0.4,
         textTransform: 'uppercase',
-        color: colors.locked,
-        background: 'rgba(180,134,63,0.10)',
-        border: '1px solid rgba(180,134,63,0.30)',
-        padding: '4px 12px',
+        color: '#7E6524',
+        background: '#FCF3E4',
+        border: '1px solid #EEDCBB',
+        padding: '3px 10px',
         borderRadius: radius.pill,
         whiteSpace: 'nowrap',
       }}
@@ -184,9 +184,9 @@ function NextItem({ item }: { item: QueueItem }) {
       <div
         style={{
           background: colors.bg.secondary,
-          borderRadius: radius.inset,
+          borderRadius: radius.tile,
           padding: '18px 20px',
-          marginBottom: 22,
+          marginBottom: 18,
         }}
       >
         <div
@@ -232,93 +232,254 @@ function NextItem({ item }: { item: QueueItem }) {
 // ── Decision ─────────────────────────────────────────────────────────────────
 
 /**
- * Action buttons.
- *
- * Rendered as buttons because the design calls for them, but they do not
- * mutate anything — widgets are read-only renderers, and a moderation decision
- * must go through the host so the human-in-the-loop approval step is preserved.
- * Each copies the exact `review_incident` call to run instead.
+ * Reason codes accepted by `review_incident`, in the order a moderator is most
+ * likely to want them for an escalation.
  */
-function DecisionActions({ incidentId, action }: { incidentId?: string; action?: string | null }) {
-  const [copied, setCopied] = React.useState<string | null>(null);
+const REASON_CODES: Array<{ value: string; label: string }> = [
+  { value: 'confirmed_accurate', label: 'Confirmed accurate' },
+  { value: 'requires_law_enforcement', label: 'Requires law enforcement' },
+  { value: 'parent_notified', label: 'Parent notified' },
+  { value: 'false_positive', label: 'False positive' },
+  { value: 'out_of_context', label: 'Out of context' },
+  { value: 'insufficient_severity', label: 'Insufficient severity' },
+  { value: 'incorrect_category', label: 'Incorrect category' },
+  { value: 'other', label: 'Other' },
+];
+
+const buttonBase: React.CSSProperties = {
+  flex: 1,
+  minWidth: 150,
+  borderRadius: radius.inset,
+  padding: '13px 0',
+  fontSize: 14,
+  fontWeight: 700,
+  fontFamily: fonts.body,
+  cursor: 'pointer',
+};
+
+/**
+ * Moderator decision controls.
+ *
+ * These really do call `review_incident` — the moderator clicking the button is
+ * the human decision, and routing that through copy-and-paste would have added
+ * friction without adding oversight.
+ *
+ * What it will not do is fire on a single click. `review_incident` is a
+ * destructive call that persists an override and emits a signed Art 12 audit
+ * receipt, and it requires a `reason_code`. Defaulting that silently would put
+ * a value the moderator never chose into a document that is legal evidence, so
+ * the button opens a reason picker and the second click commits.
+ */
+function DecisionActions({
+  incidentId,
+  action,
+  riskLevel,
+  onSkip,
+}: {
+  incidentId?: string;
+  action?: string | null;
+  riskLevel?: string | null;
+  onSkip?: () => void;
+}) {
+  // The app from context — NOT useToolResult(), which would open a second
+  // connection to the host for the same widget.
+  const app = useAppContext();
+  const callTool = React.useCallback(
+    (name: string, args: Record<string, unknown>) =>
+      app
+        ? app.callServerTool({ name, arguments: args })
+        : Promise.reject(new Error('Not connected to the MCP host.')),
+    [app],
+  );
+  const [pendingAction, setPendingAction] = React.useState<string | null>(null);
+  const [reason, setReason] = React.useState(REASON_CODES[0].value);
+  const [state, setState] = React.useState<'idle' | 'sending' | 'done' | 'error'>('idle');
+  const [error, setError] = React.useState<string | null>(null);
 
   if (!incidentId) return null;
 
-  const call = (a: string) =>
-    `review_incident(incident_id="${incidentId}", action="${a}")`;
+  const primaryAction = action || 'escalate';
 
-  const copy = (a: string) => {
-    navigator.clipboard
-      ?.writeText(call(a))
-      .then(() => {
-        setCopied(a);
-        setTimeout(() => setCopied(null), 1800);
-      })
-      .catch(() => {});
+  const commit = async () => {
+    if (!pendingAction) return;
+    setState('sending');
+    setError(null);
+    try {
+      const args: Record<string, unknown> = {
+        incident_id: incidentId,
+        action: pendingAction,
+        reason_code: reason,
+      };
+      // The API requires a target level for these two.
+      if (pendingAction === 'escalate' || pendingAction === 'downgrade') {
+        args.new_risk_level = riskLevel || 'critical';
+      }
+      await callTool('review_incident', args);
+      setState('done');
+    } catch (e) {
+      setState('error');
+      setError(e instanceof Error ? e.message : 'The review could not be submitted.');
+    }
   };
 
-  const primary = action || 'escalate';
-  const options: Array<{ key: string; label: string; primary?: boolean }> = [
-    { key: primary, label: `Copy ${primary} call`, primary: true },
-    { key: 'confirm', label: 'Copy confirm call' },
-    { key: 'dismiss', label: 'Copy dismiss call' },
-  ];
+  if (state === 'done') {
+    return (
+      <div
+        style={{
+          marginTop: 20,
+          padding: '14px 18px',
+          borderRadius: radius.inset,
+          background: 'rgba(25,183,155,0.10)',
+          border: '1px solid rgba(25,183,155,0.25)',
+          fontSize: 13.5,
+          fontWeight: 600,
+          color: colors.teal.deep,
+        }}
+        role="status"
+      >
+        Recorded — {pendingAction} submitted with a signed audit receipt.
+      </div>
+    );
+  }
 
   return (
     <>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: 12,
-          marginTop: 20,
-        }}
-      >
-        {options.map((o) => {
-          const isCopied = copied === o.key;
-          return (
+      <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={() => setPendingAction(primaryAction)}
+          style={{
+            ...buttonBase,
+            border: 'none',
+            background: pendingAction === primaryAction ? colors.ink.base : severityColor('critical'),
+            color: '#fff',
+          }}
+        >
+          {titleCase(primaryAction)}
+        </button>
+        <button
+          type="button"
+          onClick={() => callTool('get_incident', { incident_id: incidentId })}
+          style={{
+            ...buttonBase,
+            border: `1px solid ${colors.border}`,
+            background: colors.bg.primary,
+            color: colors.text.primary,
+          }}
+        >
+          View full analysis
+        </button>
+        <button
+          type="button"
+          onClick={onSkip}
+          disabled={!onSkip}
+          style={{
+            ...buttonBase,
+            border: `1px solid ${colors.border}`,
+            background: colors.bg.primary,
+            color: onSkip ? colors.text.primary : colors.text.faint,
+            cursor: onSkip ? 'pointer' : 'not-allowed',
+          }}
+        >
+          Skip to next
+        </button>
+      </div>
+
+      {pendingAction && (
+        <div
+          style={{
+            marginTop: 14,
+            padding: '16px 18px',
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.inset,
+            background: colors.bg.secondary,
+          }}
+        >
+          <Eyebrow style={{ marginBottom: 8 }}>Reason for {pendingAction}</Eyebrow>
+          <p style={{ fontSize: 12.5, color: colors.text.muted, margin: '0 0 12px', lineHeight: 1.5 }}>
+            This is recorded on a signed audit receipt, so it has to be your choice rather than a
+            default.
+          </p>
+          <select
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            aria-label="Reason code"
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: radius.chip,
+              border: `1px solid ${colors.border}`,
+              background: colors.bg.primary,
+              color: colors.text.primary,
+              fontSize: 13.5,
+              fontFamily: fonts.body,
+              marginBottom: 12,
+            }}
+          >
+            {REASON_CODES.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button
-              key={o.key}
               type="button"
-              onClick={() => copy(o.key)}
+              onClick={commit}
+              disabled={state === 'sending'}
               style={{
-                padding: '13px 18px',
-                borderRadius: radius.inset,
-                fontSize: 14,
-                fontWeight: 700,
-                fontFamily: fonts.body,
-                cursor: 'pointer',
-                border: o.primary ? 'none' : `1px solid ${colors.border}`,
-                background: o.primary
-                  ? isCopied
-                    ? colors.teal.deep
-                    : severityColor('high')
-                  : isCopied
-                    ? colors.bg.tertiary
-                    : colors.bg.primary,
-                color: o.primary ? '#fff' : colors.text.primary,
-                transition: 'background 0.15s',
+                ...buttonBase,
+                flex: '0 0 auto',
+                minWidth: 0,
+                padding: '10px 18px',
+                border: 'none',
+                background: severityColor('critical'),
+                color: '#fff',
+                opacity: state === 'sending' ? 0.7 : 1,
               }}
             >
-              {isCopied ? 'Copied' : o.label}
+              {state === 'sending' ? 'Submitting…' : `Confirm ${pendingAction}`}
             </button>
-          );
-        })}
-      </div>
-      <div style={{ fontSize: 12, color: colors.text.muted, marginTop: 10, lineHeight: 1.5 }}>
-        Decisions are not applied from this card. Copying runs nothing — paste the call so your
-        host can ask you to approve it.
-      </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPendingAction(null);
+                setState('idle');
+              }}
+              style={{
+                ...buttonBase,
+                flex: '0 0 auto',
+                minWidth: 0,
+                padding: '10px 18px',
+                border: `1px solid ${colors.border}`,
+                background: colors.bg.primary,
+                color: colors.text.primary,
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+          {error && (
+            <div style={{ marginTop: 10, fontSize: 12.5, color: severityColor('high') }} role="alert">
+              {error}
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ');
-
 export function ModerationQueuePage({ data }: Props) {
   const r = data.result;
+  const app = useAppContext();
+  const callTool = React.useCallback(
+    (name: string, args: Record<string, unknown>) =>
+      app ? app.callServerTool({ name, arguments: args }) : Promise.resolve(null),
+    [app],
+  );
   const item = r.next_item;
 
   // The operator name is caller-supplied and frequently absent. It is never
@@ -342,20 +503,16 @@ export function ModerationQueuePage({ data }: Props) {
         right={<BrandLockup />}
       />
 
-      <div className="tq-kpi-grid" style={{ marginBottom: 26 }}>
+      <div className="tq-stat-grid-3" style={{ marginBottom: 22 }}>
         {/* A deeper-than-one-page queue reports its floor, not a false exact count. */}
         <StatTile
+          centered
           label="In queue"
           value={r.in_queue_is_partial ? `${r.in_queue}+` : r.in_queue}
           hint={r.in_queue_is_partial ? 'more behind this page' : undefined}
-          accent={colors.ink.base}
         />
-        <StatTile
-          label="Reviewed"
-          value={r.reviewed_count ?? '—'}
-          accent={colors.ink.base}
-        />
-        <StatTile label="Avg time" value={avgTime} accent={colors.teal.base} />
+        <StatTile centered label="Reviewed" value={r.reviewed_count ?? '—'} />
+        <StatTile centered label="Avg time" value={avgTime} valueColor={colors.teal.deep} />
       </div>
 
       {item ? (
@@ -374,19 +531,19 @@ export function ModerationQueuePage({ data }: Props) {
           {r.recommended_action && (
             <div
               style={{
-                background: 'rgba(194,84,58,0.07)',
-                border: '1px solid rgba(194,84,58,0.20)',
-                borderRadius: radius.inset,
-                padding: '18px 22px',
-                marginBottom: 16,
+                background: '#FBEDE8',
+                border: '1px solid #F2D6CC',
+                borderRadius: radius.tile,
+                padding: '16px 20px',
+                marginBottom: 12,
               }}
             >
               <div
                 style={{
                   fontFamily: fonts.display,
                   fontWeight: 700,
-                  fontSize: 19,
-                  color: severityColor(r.risk_level || 'high'),
+                  fontSize: 16,
+                  color: severityColor(r.risk_level || 'critical'),
                 }}
               >
                 {titleCase(r.recommended_action)}
@@ -461,7 +618,18 @@ export function ModerationQueuePage({ data }: Props) {
             )}
           </div>
 
-          <DecisionActions incidentId={item?.id} action={r.recommended_action} />
+          <DecisionActions
+            incidentId={item?.id}
+            action={r.recommended_action}
+            riskLevel={r.risk_level}
+            onSkip={() =>
+              callTool('moderation_queue', {
+                ...(r.filters ?? {}),
+                operator_name: r.operator_name ?? undefined,
+                skip: (r.skip ?? 0) + 1,
+              })
+            }
+          />
         </>
       )}
     </WidgetShell>
