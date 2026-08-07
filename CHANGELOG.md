@@ -7,6 +7,35 @@ The MCP tool surface — tool names, input schemas, and `structuredContent` shap
 is the public API. Changes to the interactive widgets are user-visible but do not
 break programmatic callers.
 
+## [3.20.1] — 2026-08-07
+
+Layout fixes found by running 3.20.0 in a real MCP host. Presentation only.
+
+### Fixed
+
+- **The KPI row on the incidents overview wrapped to 4+1** instead of the five
+  columns it is designed as. It used `auto-fit, minmax(150px, 1fr)`, which fits
+  five at the 920px design width but silently drops to four below ~810px — and
+  hosts render the card narrower than that. Now a fixed five-column grid that
+  collapses only below 700px.
+- **"Last 24 hours" was painted as volume rather than needs-attention**, which
+  made the card's own legend wrong. An earlier revision coloured the recency
+  tiles by whether they were running above the 30-day average, but the legend
+  declares three fixed meanings (volume, needs attention, recent window) and
+  each tile belongs to exactly one of them. Tile accents are fixed again:
+
+  | Tile | Accent |
+  |---|---|
+  | Total incidents | `#1D1D33` volume |
+  | Needs review | `#C2543A` needs attention |
+  | Last 24 hours | `#C2543A` needs attention |
+  | Last 7 days | `#19B79A` recent window |
+  | Last 30 days | `#19B79A` recent window |
+
+- The analysis panels below the KPI row are now an explicit two-column grid
+  collapsing to one, rather than relying on a min-width that behaved
+  inconsistently across host widths.
+
 ## [3.20.0] — 2026-08-06
 
 Complete redesign of the interactive widgets against the Tuteliq MCP UI Kit. No

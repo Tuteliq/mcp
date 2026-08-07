@@ -36,12 +36,6 @@ export function IncidentsOverviewPage({ data }: Props) {
   const reviewPct =
     o.total_incidents > 0 ? Math.round((o.requires_review_count / o.total_incidents) * 100) : 0;
 
-  // Rising volume is the signal worth flagging, so the recency tiles only turn
-  // warm when the short window is running hot relative to the 30-day average.
-  const dailyAverage = o.last_30d_count / 30;
-  const spiking24h = dailyAverage > 0 && o.last_24h_count > dailyAverage * 2;
-  const spiking7d = dailyAverage > 0 && o.last_7d_count > dailyAverage * 7 * 1.5;
-
   return (
     <WidgetShell tool="get_incidents_overview">
       <CardHeader
@@ -57,33 +51,23 @@ export function IncidentsOverviewPage({ data }: Props) {
         ]}
       />
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-          gap: 14,
-          marginBottom: 26,
-        }}
-      >
+      {/*
+        Tile accents are fixed, not data-driven, because they are what the
+        legend above is describing: ink = volume, red = needs attention,
+        teal = recent window. An earlier revision coloured the recency tiles by
+        whether they were running above trend, which left "Last 24 hours" ink on
+        a quiet day and quietly made the legend a lie.
+      */}
+      <div className="tq-kpi-grid" style={{ marginBottom: 26 }}>
         <KpiCard label="Total incidents" value={o.total_incidents} emphasis="neutral" />
         <KpiCard
           label="Needs review"
           value={o.requires_review_count}
           hint={`${reviewPct}% · auto-escalated, pending sign-off`}
-          emphasis={reviewPct > 30 ? 'high' : reviewPct > 10 ? 'medium' : 'neutral'}
+          emphasis="high"
         />
-        <KpiCard
-          label="Last 24 hours"
-          value={o.last_24h_count}
-          hint={spiking24h ? 'above trend' : undefined}
-          emphasis={spiking24h ? 'high' : 'neutral'}
-        />
-        <KpiCard
-          label="Last 7 days"
-          value={o.last_7d_count}
-          hint={spiking7d ? 'above trend' : undefined}
-          emphasis={spiking7d ? 'medium' : 'safe'}
-        />
+        <KpiCard label="Last 24 hours" value={o.last_24h_count} emphasis="high" />
+        <KpiCard label="Last 7 days" value={o.last_7d_count} emphasis="safe" />
         <KpiCard
           label="Last 30 days"
           value={o.last_30d_count}
@@ -92,7 +76,7 @@ export function IncidentsOverviewPage({ data }: Props) {
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
+      <div className="tq-split-grid">
         <BarChart title="By category" data={o.counts_by_category} maxRows={5} />
         <BarChart title="By severity" data={o.counts_by_severity} colorBySeverity />
         <BarChart title="By source" data={o.counts_by_source} />

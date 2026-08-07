@@ -298,6 +298,34 @@ export const baseStyles = `
    */
   .tq-break { overflow-wrap: anywhere; word-break: break-word; }
 
+  /*
+   * KPI row: five across, as designed. Previously this used
+   * \`auto-fit, minmax(150px, 1fr)\`, which silently dropped to 4+1 whenever the
+   * host gave the card less than ~810px — which Claude does. The breakpoints
+   * below only kick in where five columns genuinely cannot fit.
+   */
+  .tq-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+  }
+  @media (max-width: 700px) {
+    .tq-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 420px) {
+    .tq-kpi-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Two-up analysis panels, collapsing to one column on narrow hosts. */
+  .tq-split-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 700px) {
+    .tq-split-grid { grid-template-columns: 1fr; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
