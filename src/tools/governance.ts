@@ -16,7 +16,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { Tuteliq, ModeratorAction, ModeratorReasonCode, RetentionClass, CustomerKeyAlgorithm } from '@tuteliq/sdk';
+import type { Tuteliq, ModeratorAction, CustomerKeyAlgorithm } from '@tuteliq/sdk';
 import { RiskLevel, RiskCategory } from '@tuteliq/sdk';
 import { registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 
@@ -265,13 +265,13 @@ ${receipt.canonical}
     },
     async (input) => {
       const result = await client.reviewIncident(input.incident_id, {
-        action: input.action as ModeratorAction,
-        reason_code: input.reason_code as ModeratorReasonCode,
+        action: input.action,
+        reason_code: input.reason_code,
         reason_comment: input.reason_comment,
         new_risk_level: input.new_risk_level,
         new_risk_category: input.new_risk_category,
         moderator_external_id: agentActorId(input.moderator_external_id),
-        retention_class: input.retention_class as RetentionClass | undefined,
+        retention_class: input.retention_class,
       });
       const text = `## ✅ Moderator Review Recorded
 
@@ -320,13 +320,13 @@ ${result.audit_receipt ? `### Audit receipt\n**Request ID:** \`${result.audit_re
     async (input) => {
       const result = await client.batchReviewIncidents({
         incident_ids: input.incident_ids,
-        action: input.action as ModeratorAction,
-        reason_code: input.reason_code as ModeratorReasonCode,
+        action: input.action,
+        reason_code: input.reason_code,
         reason_comment: input.reason_comment,
         new_risk_level: input.new_risk_level,
         new_risk_category: input.new_risk_category,
         moderator_external_id: agentActorId(input.moderator_external_id),
-        retention_class: input.retention_class as RetentionClass | undefined,
+        retention_class: input.retention_class,
       });
 
       const rows = result.results.map((r: { incident_id: string; ok: boolean; original?: { risk_level: string }; revised?: { risk_level: string }; audit_receipt?: unknown; error?: string }) => {
