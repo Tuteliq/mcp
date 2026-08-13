@@ -12,6 +12,30 @@ import { widgetUri } from '../widget-uri.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+/**
+ * Endpoint ids accepted by POST /api/v1/analyse/multi.
+ *
+ * Hyphenated, and deliberately not the MCP tool names — `social-engineering`
+ * here is `detect_social_engineering` as a tool. Kept as a closed list so the
+ * schema can advertise the valid values instead of accepting any string and
+ * failing at the API on a typo.
+ *
+ * Mirrors the table in README.md; update both together.
+ */
+const ANALYSE_MULTI_ENDPOINTS = [
+  'bullying',
+  'grooming',
+  'unsafe',
+  'social-engineering',
+  'app-fraud',
+  'romance-scam',
+  'mule-recruitment',
+  'gambling-harm',
+  'coercive-control',
+  'vulnerability-exploitation',
+  'radicalisation',
+] as const;
+
 const EMOTIONS_WIDGET_URI = widgetUri('emotions-result');
 const ACTION_PLAN_WIDGET_URI = widgetUri('action-plan');
 const REPORT_WIDGET_URI = widgetUri('report-result');
@@ -242,11 +266,26 @@ ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
     'analyse_multi',
     {
       title: 'Multi-Endpoint Analysis',
-      description: 'Run multiple detection endpoints on a single piece of text.',
+      description:
+        'Run several detection endpoints against one piece of text in a single call, returning each verdict plus a combined risk level. '
+        + 'Prefer this over `analyze` when the threat is not child-safety-specific: `analyze` only ever runs bullying and unsafe, so a financial scam analysed with it comes back labelled from the child-safety taxonomy rather than as fraud. '
+        + 'Endpoint ids are hyphenated and are NOT the tool names — `social-engineering`, not `detect_social_engineering`. Maximum 10 per call.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
         content: z.string().describe('Text content to analyze'),
-        endpoints: z.array(z.string()).describe('Detection endpoints to run'),
+        // A closed enum, not `z.array(z.string())`. The ids are hyphenated and
+        // differ from the tool names, so a free-form array left the model
+        // guessing and a wrong guess only failed at the API. The cap mirrors
+        // the limit the endpoint itself enforces.
+        endpoints: z
+          .array(z.enum(ANALYSE_MULTI_ENDPOINTS))
+          .min(1)
+          .max(10)
+          .describe(
+            'Detection endpoints to run (1-10). One of: '
+            + ANALYSE_MULTI_ENDPOINTS.join(', ')
+            + '.',
+          ),
         context: z.record(z.string(), z.unknown()).optional().describe('Optional analysis context'),
         include_evidence: z.boolean().optional().describe('Include supporting evidence'),
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),

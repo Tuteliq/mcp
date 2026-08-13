@@ -7,6 +7,23 @@ The MCP tool surface — tool names, input schemas, and `structuredContent` shap
 is the public API. Changes to the interactive widgets are user-visible but do not
 break programmatic callers.
 
+## [3.22.2] — 2026-08-13
+
+### Fixed
+
+- **`analyse_multi` accepted any string as an endpoint id.** The schema was
+  `z.array(z.string())` with the description "Detection endpoints to run" and no
+  list of valid values, so a caller had to guess them — and they are hyphenated
+  and deliberately *not* the tool names (`social-engineering`, not
+  `detect_social_engineering`). A wrong guess only surfaced as an API error.
+
+  It is now a closed enum of the 11 documented endpoints, bounded to the 1-10
+  the endpoint itself enforces, with the values listed in the description. The
+  tool description also points callers here from `analyze`, which only ever runs
+  bullying and unsafe — analysing a financial scam with `analyze` returns
+  categories from the child-safety taxonomy because no fraud detector was run,
+  which reads as a misclassification and is not one.
+
 ## [3.22.1] — 2026-08-13
 
 ### Fixed
