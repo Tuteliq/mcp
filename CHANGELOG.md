@@ -7,6 +7,25 @@ The MCP tool surface — tool names, input schemas, and `structuredContent` shap
 is the public API. Changes to the interactive widgets are user-visible but do not
 break programmatic callers.
 
+## [3.22.1] — 2026-08-13
+
+### Fixed
+
+- **`analyze` showed a restatement of its own chips as the analysis summary.**
+  The card read `rationale || summary`, but `analyze` has no top-level
+  `rationale` — it fans out to the bullying and unsafe detectors and only those
+  sub-calls produce free text, while its top-level `summary` is a terse derived
+  line ("Unsafe content: sexual_exploitation, illegal_activity"). Every
+  `analyze` result therefore displayed the categories back to the reader
+  instead of the reasoning behind them.
+
+  The summary now prefers real prose wherever it lives: top-level `rationale`,
+  then the nested sub-detector rationales, and `summary` only as a last resort
+  — which is also the correct answer for `verdict_only` responses, since those
+  skip rationale generation entirely. Where more than one detector explains
+  itself, each paragraph is attributed, because two unlabelled paragraphs leave
+  the reader guessing which detector said what.
+
 ## [3.22.0] — 2026-08-13
 
 ### Added

@@ -91,10 +91,10 @@ const detectionNested = {
     risk_level: 'critical',
     risk_score: 0.95,
     confidence: 0.95,
-    summary: 'Bullying detected at critical severity, with sexual exploitation present in the same exchange.',
+    summary: 'Unsafe content: sexual_exploitation, illegal_activity',
     recommended_action: 'immediate_intervention',
     bullying: { is_bullying: true, bullying_type: ['bullying'], confidence: 0.95, severity: 'critical' },
-    unsafe: { unsafe: true, categories: ['sexual_exploitation'], severity: 'critical', confidence: 0.95, risk_score: 0.95 },
+    unsafe: { unsafe: true, categories: ['sexual_exploitation', 'illegal_activity'], severity: 'critical', confidence: 0.95, risk_score: 0.95, rationale: 'Explicit solicitation to trade sexualised material depicting minors, using community slang to evade keyword filters. Illegal under distribution statutes irrespective of the fictional framing.' },
   },
 };
 

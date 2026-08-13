@@ -1,4 +1,5 @@
 import React from 'react';
+import { colors } from '../theme';
 import { WidgetShell, AnalysisProvenance, DATA_HANDLING_NOTE } from '../components/WidgetShell';
 import { StatusBanner } from '../components/StatusBanner';
 import { RiskGauge } from '../components/RiskGauge';
@@ -83,7 +84,40 @@ export function DetectionPage({ data }: DetectionPageProps) {
   const shownLevel = detected ? level : 'safe';
   const copy = verdict[shownLevel] || verdict.none;
 
-  const rationale = result.rationale || result.summary || '';
+  /**
+   * The model's actual explanation, in order of preference.
+   *
+   * `analyze` fans out to the bullying and unsafe detectors and only those
+   * sub-calls produce free text; its top-level `summary` is a terse derived
+   * line ("Unsafe content: sexual_exploitation, illegal_activity"). Reading
+   * `rationale || summary` therefore showed the restatement of the chips
+   * instead of the reasoning behind them. Prefer real prose wherever it lives,
+   * and keep `summary` only as the last resort — which is also what
+   * `verdict_only` responses legitimately return, since they skip rationale
+   * generation entirely.
+   */
+  const rationales: Array<{ source?: string; text: string }> = (() => {
+    const own = typeof result.rationale === 'string' ? result.rationale.trim() : '';
+    if (own) return [{ text: own }];
+
+    const nested = [
+      { source: 'Unsafe', text: result.unsafe?.rationale },
+      { source: 'Bullying', text: result.bullying?.rationale },
+      { source: 'Grooming', text: result.grooming?.rationale },
+    ].filter((r): r is { source: string; text: string } => typeof r.text === 'string' && r.text.trim().length > 0);
+
+    // De-duplicate: sub-detectors sometimes return the same sentence.
+    const seen = new Set<string>();
+    const unique = nested.filter((r) => !seen.has(r.text) && seen.add(r.text));
+    if (unique.length > 0) {
+      // A single explanation needs no attribution; two unlabelled paragraphs
+      // would leave the reader guessing which detector said what.
+      return unique.length === 1 ? [{ text: unique[0].text }] : unique;
+    }
+
+    const summary = typeof result.summary === 'string' ? result.summary.trim() : '';
+    return summary ? [{ text: summary }] : [];
+  })();
   const action = result.recommended_action || '';
   /**
    * Categories, gathered from wherever this tool happens to put them.
@@ -153,7 +187,18 @@ export function DetectionPage({ data }: DetectionPageProps) {
             indistinguishable from a section that failed to render. */}
         <CategoryChips categories={categories} tone={shownLevel} showEmpty divider />
 
-        {rationale && <Callout title="Analysis summary">{rationale}</Callout>}
+        {rationales.length > 0 && (
+          <Callout title="Analysis summary">
+            {rationales.map((r, i) => (
+              <p key={i} style={{ margin: i === 0 ? 0 : '10px 0 0' }}>
+                {r.source && (
+                  <strong style={{ color: colors.text.primary }}>{r.source}: </strong>
+                )}
+                {r.text}
+              </p>
+            ))}
+          </Callout>
+        )}
 
         {evidence.length > 0 && <EvidenceCard evidence={evidence} />}
 
