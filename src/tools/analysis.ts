@@ -7,14 +7,15 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { trendEmoji, riskEmoji, formatMultiResult } from '../formatters.js';
 import { withViewId } from '../view-id.js';
+import { widgetUri } from '../widget-uri.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const EMOTIONS_WIDGET_URI = 'ui://tuteliq/emotions-result.html';
-const ACTION_PLAN_WIDGET_URI = 'ui://tuteliq/action-plan.html';
-const REPORT_WIDGET_URI = 'ui://tuteliq/report-result.html';
-const MULTI_WIDGET_URI = 'ui://tuteliq/multi-result.html';
+const EMOTIONS_WIDGET_URI = widgetUri('emotions-result');
+const ACTION_PLAN_WIDGET_URI = widgetUri('action-plan');
+const REPORT_WIDGET_URI = widgetUri('report-result');
+const MULTI_WIDGET_URI = widgetUri('multi-result');
 
 function loadWidget(name: string): string {
   return readFileSync(resolve(__dirname, '../../../dist-ui', name), 'utf-8');
@@ -82,15 +83,13 @@ export function registerAnalysisTools(server: McpServer, client: Tuteliq): void 
         external_id: z.string().optional().describe('Your unique identifier for this request. Echoed in the response and included in webhooks.'),
         customer_id: z.string().optional().describe('Your end-customer identifier for multi-tenant scenarios.'),
         metadata: z.record(z.string(), z.unknown()).optional().describe('Custom key-value pairs stored with results.'),
+        incident_moderation_enabled: z.boolean().optional().describe('Per-call override of account incident logging: true forces persistence, false suppresses it. Omit for account default.'),
       },
       _meta: {
         ui: { resourceUri: EMOTIONS_WIDGET_URI },
-        'openai/widgetDescription': 'Shows emotion analysis results with charts and trends',
-        'openai/toolInvocation/invoking': 'Analyzing emotional content...',
-        'openai/toolInvocation/invoked': 'Emotion analysis complete.',
       },
     },
-    async ({ content, messages, context, external_id, customer_id, metadata }) => {
+    async ({ content, messages, context, external_id, customer_id, metadata, incident_moderation_enabled }) => {
       try {
         if (!content && !messages?.length) {
           return {
@@ -105,6 +104,7 @@ export function registerAnalysisTools(server: McpServer, client: Tuteliq): void 
           external_id,
           customer_id,
           metadata,
+          incident_moderation_enabled,
         });
 
         const emoji = trendEmoji[result.trend] || '\u27A1\uFE0F';
@@ -155,9 +155,6 @@ ${result.recommended_followup}`;
       },
       _meta: {
         ui: { resourceUri: ACTION_PLAN_WIDGET_URI },
-        'openai/widgetDescription': 'Shows age-appropriate action plan with step-by-step guidance',
-        'openai/toolInvocation/invoking': 'Generating action plan...',
-        'openai/toolInvocation/invoked': 'Action plan ready.',
       },
     },
     async ({ situation, childAge, audience, severity }) => {
@@ -203,9 +200,6 @@ ${result.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}`;
       },
       _meta: {
         ui: { resourceUri: REPORT_WIDGET_URI },
-        'openai/widgetDescription': 'Shows comprehensive incident report with risk assessment',
-        'openai/toolInvocation/invoking': 'Generating incident report...',
-        'openai/toolInvocation/invoked': 'Incident report ready.',
       },
     },
     async ({ messages, childAge, incidentType }) => {
@@ -261,9 +255,6 @@ ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
       },
       _meta: {
         ui: { resourceUri: MULTI_WIDGET_URI },
-        'openai/widgetDescription': 'Shows multi-endpoint analysis with aggregated risk assessment',
-        'openai/toolInvocation/invoking': 'Running multi-endpoint analysis...',
-        'openai/toolInvocation/invoked': 'Multi-endpoint analysis complete.',
       },
     },
     async ({ content, endpoints, context, include_evidence, support_threshold, external_id, customer_id }) => {

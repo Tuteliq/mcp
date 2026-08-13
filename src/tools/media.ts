@@ -8,11 +8,12 @@ import { fileURLToPath } from 'url';
 import { severityEmoji, trendEmoji, formatVideoResult, formatDocumentResult } from '../formatters.js';
 import { withViewId } from '../view-id.js';
 import { resolveFile } from '../resolveFile.js';
+import { widgetUri } from '../widget-uri.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const MEDIA_WIDGET_URI = 'ui://tuteliq/media-result.html';
+const MEDIA_WIDGET_URI = widgetUri('media-result');
 
 function loadWidget(name: string): string {
   return readFileSync(resolve(__dirname, '../../../dist-ui', name), 'utf-8');
@@ -68,9 +69,6 @@ export function registerMediaTools(server: McpServer, client: Tuteliq): void {
       },
       _meta: {
         ui: { resourceUri: MEDIA_WIDGET_URI },
-        'openai/widgetDescription': 'Shows voice analysis results with transcript and safety findings',
-        'openai/toolInvocation/invoking': 'Transcribing and analyzing audio...',
-        'openai/toolInvocation/invoked': 'Voice analysis complete.',
       },
     },
     async ({ file_path, url, base64, filename: filenameHint, analysis_type, child_age, language }) => {
@@ -150,9 +148,6 @@ ${analysisLines.join('\n')}`;
       },
       _meta: {
         ui: { resourceUri: MEDIA_WIDGET_URI },
-        'openai/widgetDescription': 'Shows image analysis results with visual and text safety findings',
-        'openai/toolInvocation/invoking': 'Analyzing image for safety concerns...',
-        'openai/toolInvocation/invoked': 'Image analysis complete.',
       },
     },
     async ({ file_path, url, base64, filename: filenameHint, analysis_type }) => {
@@ -223,9 +218,6 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
       },
       _meta: {
         ui: { resourceUri: MEDIA_WIDGET_URI },
-        'openai/widgetDescription': 'Shows video analysis results with timestamped safety findings',
-        'openai/toolInvocation/invoking': 'Analyzing video for safety concerns...',
-        'openai/toolInvocation/invoked': 'Video analysis complete.',
       },
     },
     async ({ file_path, url, base64, filename: filenameHint, age_group }) => {
@@ -270,9 +262,6 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
       },
       _meta: {
         ui: { resourceUri: MEDIA_WIDGET_URI },
-        'openai/widgetDescription': 'Shows document analysis results with per-page safety findings',
-        'openai/toolInvocation/invoking': 'Extracting text and analyzing document for safety concerns...',
-        'openai/toolInvocation/invoked': 'Document analysis complete.',
       },
     },
     async ({ file_path, url, base64, filename: filenameHint, endpoints, age_group, language, support_threshold }) => {

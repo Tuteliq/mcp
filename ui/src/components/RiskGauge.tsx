@@ -22,10 +22,82 @@ interface RiskGaugeProps {
  * with the same weight as every other headline number in the system — SVG text
  * ignores the display stack in several of the hosts we render inside.
  */
+/**
+ * Nothing to plot.
+ *
+ * A ring is a comparison — it reads as "this much of the whole". At zero there
+ * is no arc to compare against, so the scored treatment renders an empty grey
+ * track that looks like a component that failed to load rather than a clean
+ * result. A cleared result is not a small amount of risk; it is a different
+ * kind of answer, so it gets its own mark: a filled disc and a tick.
+ */
+function ClearedDisc({ size }: { size: number }) {
+  return (
+    <div
+      role="img"
+      aria-label="Risk score 0 percent, cleared"
+      style={{
+        width: size,
+        height: size,
+        flex: '0 0 auto',
+        borderRadius: '50%',
+        background: 'rgba(25,183,155,0.06)',
+        border: `1px solid rgba(25,183,155,0.30)`,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 1,
+      }}
+    >
+      <svg
+        width={Math.round(size * 0.29)}
+        height={Math.round(size * 0.29)}
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M20 6L9 17l-5-5"
+          stroke={colors.teal.deep}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <span
+        style={{
+          fontFamily: fonts.display,
+          fontWeight: 700,
+          fontSize: Math.round(size * 0.15),
+          color: colors.teal.deep,
+          lineHeight: 1.1,
+        }}
+      >
+        0% risk
+      </span>
+      <span
+        style={{
+          fontSize: Math.max(7, Math.round(size * 0.082)),
+          letterSpacing: 0.6,
+          textTransform: 'uppercase',
+          color: colors.text.muted,
+          lineHeight: 1,
+        }}
+      >
+        Cleared
+      </span>
+    </div>
+  );
+}
+
 export function RiskGauge({ score, level, size = 96 }: RiskGaugeProps) {
   const clamped = Math.max(0, Math.min(1, score || 0));
   const pct = Math.round(clamped * 100);
   const color = severityColor(level);
+
+  // No arc to draw. See ClearedDisc.
+  if (pct === 0) return <ClearedDisc size={size} />;
 
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
@@ -98,13 +170,22 @@ export function RiskGauge({ score, level, size = 96 }: RiskGaugeProps) {
         */}
         <span
           style={{
-            fontSize: Math.max(8, Math.round(size * 0.086)),
+            // Measured in the preview at size 96: the label rendered 47px wide
+            // against a 68px chord. Inside the MCP host it renders materially
+            // wider, close enough to touch the stroke, because the display
+            // stack is not guaranteed there and the fallback face is broader.
+            // Sizing down buys clearance that survives that substitution.
+            fontSize: Math.max(7, Math.round(size * 0.076)),
             lineHeight: 1.05,
             color: colors.text.muted,
             letterSpacing: 0,
             textTransform: 'uppercase',
             marginTop: 2,
-            maxWidth: '100%',
+            // Belt and braces: even a very wide fallback cannot reach the ring.
+            maxWidth: '86%',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}
         >
           Risk score

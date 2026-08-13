@@ -22,7 +22,7 @@ import type { SupportData } from '../types';
 
 const warmMessages: Record<string, string> = {
   self_harm: "You're not alone. Reaching out is a sign of strength, and help is always available.",
-  mental_health: "It's okay to not be okay. Support is just a call away — you matter.",
+  mental_health: "It's okay to not be okay. Support is just a call away. You matter.",
   eating_disorder: 'Recovery is possible, and you deserve support on this journey.',
   substance_abuse: 'Asking for help takes courage. There are people who care and want to help.',
   violence: 'You deserve to feel safe. Confidential support is available right now.',

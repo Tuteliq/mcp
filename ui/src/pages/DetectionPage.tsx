@@ -1,5 +1,5 @@
 import React from 'react';
-import { WidgetShell, AnalysisProvenance } from '../components/WidgetShell';
+import { WidgetShell, AnalysisProvenance, DATA_HANDLING_NOTE } from '../components/WidgetShell';
 import { StatusBanner } from '../components/StatusBanner';
 import { RiskGauge } from '../components/RiskGauge';
 import { SeverityBadge } from '../components/SeverityBadge';
@@ -33,9 +33,9 @@ const normalize = (level: unknown) => String(level || 'none').toLowerCase();
 const verdict: Record<string, { title: string; subtitle: string }> = {
   none: { title: 'All clear', subtitle: 'No threats detected in this content' },
   safe: { title: 'All clear', subtitle: 'No threats detected in this content' },
-  low: { title: 'Low risk detected', subtitle: 'Minor concerns identified — no action required' },
+  low: { title: 'Low risk detected', subtitle: 'Minor concerns identified. No action required' },
   medium: { title: 'Medium risk detected', subtitle: 'Moderate concerns require attention' },
-  high: { title: 'High risk detected', subtitle: 'Significant threats identified — review promptly' },
+  high: { title: 'High risk detected', subtitle: 'Significant threats identified. Review promptly' },
   critical: { title: 'Critical threat detected', subtitle: 'Immediate action recommended' },
 };
 
@@ -85,7 +85,30 @@ export function DetectionPage({ data }: DetectionPageProps) {
 
   const rationale = result.rationale || result.summary || '';
   const action = result.recommended_action || '';
-  const categories = result.categories || result.bullying_type || result.flags || [];
+  /**
+   * Categories, gathered from wherever this tool happens to put them.
+   *
+   * `analyze` has no top-level `categories` at all — it nests a `bullying` and
+   * an `unsafe` result, each carrying its own list under a different name. That
+   * is why the Analyze card showed no chips and the finding only ever surfaced
+   * buried in the summary prose. Collect from every shape and de-duplicate,
+   * since a category can legitimately appear in more than one sub-result.
+   */
+  const categories: string[] = Array.from(
+    new Set(
+      [
+        result.categories,
+        result.bullying_type,
+        result.flags,
+        result.unsafe?.categories,
+        result.bullying?.bullying_type,
+        result.grooming?.flags,
+      ]
+        .filter(Array.isArray)
+        .flat()
+        .filter((c: unknown): c is string => typeof c === 'string' && c.length > 0),
+    ),
+  );
   const evidence = result.evidence || [];
   const support = result.support;
 
@@ -99,7 +122,7 @@ export function DetectionPage({ data }: DetectionPageProps) {
         result.analysis_id || result.model_version ? (
           <AnalysisProvenance model={result.model_version} analysisId={result.analysis_id} />
         ) : (
-          'Encrypted · SOC-aligned handling'
+          DATA_HANDLING_NOTE
         )
       }
     >
@@ -126,7 +149,9 @@ export function DetectionPage({ data }: DetectionPageProps) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {categories.length > 0 && <CategoryChips categories={categories} />}
+        {/* Always shown: "none" is a finding, and an absent section is
+            indistinguishable from a section that failed to render. */}
+        <CategoryChips categories={categories} tone={shownLevel} showEmpty divider />
 
         {rationale && <Callout title="Analysis summary">{rationale}</Callout>}
 

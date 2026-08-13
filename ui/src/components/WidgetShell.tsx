@@ -137,6 +137,13 @@ function ChromeBar({ tool, version }: { tool: React.ReactNode; version: string }
  */
 const DEFAULT_TRUST_HREF = 'https://trust.tuteliq.ai/';
 
+/**
+ * The standing data-handling assurance, in one place so the wording cannot
+ * drift between the widgets that state it. Every widget footer carries it, so
+ * a change here is a change to a claim made across the whole surface.
+ */
+export const DATA_HANDLING_NOTE = 'End-to-end encrypted · SOC-aligned handling';
+
 function FooterBar({
   note,
   trustHref,
@@ -181,25 +188,28 @@ function FooterBar({
 }
 
 /**
- * Provenance line for the footer's left slot: which model produced this result
- * and the ID to quote in a support ticket. The ID is one click to copy because
- * transcribing a hex string by hand is where support threads go to die.
+ * An identifier with a one-click copy control.
+ *
+ * Every ID a user might quote back to support goes through here, so the
+ * affordance and the copied-state feedback stay identical wherever an ID is
+ * shown. Transcribing a hex string by hand is where support threads go to die.
  */
-export function AnalysisProvenance({
-  model,
-  analysisId,
+export function CopyableId({
+  label,
+  value,
+  describe,
 }: {
-  model?: string;
-  analysisId?: string;
+  /** Rendered before the value, e.g. `analysis_id`. */
+  label: string;
+  value: string;
+  /** Human phrasing for the button's tooltip and screen-reader label. */
+  describe: string;
 }) {
   const [copied, setCopied] = React.useState(false);
 
-  if (!model && !analysisId) return null;
-
   const copy = () => {
-    if (!analysisId) return;
     navigator.clipboard
-      ?.writeText(analysisId)
+      ?.writeText(value)
       .then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
@@ -208,34 +218,26 @@ export function AnalysisProvenance({
   };
 
   return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 7,
-        fontFamily: fonts.mono,
-        fontSize: 11,
-      }}
-    >
-      {model && <span>Model {model}</span>}
-      {model && analysisId && <span aria-hidden="true">·</span>}
-      {analysisId && (
-        <>
-          <span>analysis_id: {analysisId}</span>
-          <button
-            type="button"
-            onClick={copy}
-            title="Copy analysis ID"
-            aria-label="Copy analysis ID"
-            style={{
-              border: 'none',
-              background: 'none',
-              padding: 2,
-              cursor: 'pointer',
-              color: copied ? colors.teal.deep : colors.text.muted,
-              display: 'inline-flex',
-            }}
-          >
+    <>
+      <span className="tq-break">
+        {label}: {value}
+      </span>
+      <button
+        type="button"
+        onClick={copy}
+        title={copied ? 'Copied' : `Copy ${describe}`}
+        aria-label={`Copy ${describe}`}
+        aria-live="polite"
+        style={{
+          border: 'none',
+          background: 'none',
+          padding: 2,
+          cursor: 'pointer',
+          color: copied ? colors.teal.deep : colors.text.muted,
+          display: 'inline-flex',
+          flex: '0 0 auto',
+        }}
+      >
             {copied ? (
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path
@@ -255,11 +257,72 @@ export function AnalysisProvenance({
                   strokeWidth="2"
                 />
               </svg>
-            )}
-          </button>
+        )}
+      </button>
+    </>
+  );
+}
+
+/** Shared wrapper so every footer provenance line sits on the same baseline. */
+function ProvenanceLine({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 7,
+        flexWrap: 'wrap',
+        fontFamily: fonts.mono,
+        fontSize: 11,
+        minWidth: 0,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/**
+ * Footer provenance for a detection: which model produced the result, and the
+ * ID to quote in a support ticket.
+ */
+export function AnalysisProvenance({
+  model,
+  analysisId,
+}: {
+  model?: string;
+  analysisId?: string;
+}) {
+  if (!model && !analysisId) return null;
+  return (
+    <ProvenanceLine>
+      {model && <span>Model {model}</span>}
+      {model && analysisId && <span aria-hidden="true">·</span>}
+      {analysisId && <CopyableId label="analysis_id" value={analysisId} describe="analysis ID" />}
+    </ProvenanceLine>
+  );
+}
+
+/**
+ * Footer provenance for an incident.
+ *
+ * The incident ID is the one string a moderator actually needs to carry out of
+ * the widget: into a ticket, a colleague's message, or a `get_incident` call.
+ * It sits beside the data-handling note rather than replacing it, because the
+ * assurance and the identifier answer different questions about the same
+ * record.
+ */
+export function IncidentProvenance({ incidentId }: { incidentId?: string }) {
+  return (
+    <ProvenanceLine>
+      <span>{DATA_HANDLING_NOTE}</span>
+      {incidentId && (
+        <>
+          <span aria-hidden="true">·</span>
+          <CopyableId label="incident_id" value={incidentId} describe="incident ID" />
         </>
       )}
-    </span>
+    </ProvenanceLine>
   );
 }
 
@@ -277,12 +340,14 @@ interface WidgetShellProps {
   /**
    * Render the dark chrome bar naming the tool.
    *
-   * On by default, as the design specifies.
+   * Off by default.
    *
-   * Note that MCP hosts also draw their own header above the widget iframe,
-   * naming the server and the tool, so both are visible at once. There is no
-   * way to ask the host whether it has chrome; set this to false where that
-   * duplication is unwanted.
+   * MCP hosts draw their own header above the widget iframe, naming the server
+   * and the tool, so rendering ours too showed "Tuteliq analyze" twice: once in
+   * host chrome, again inside the card. There is no way to ask the host whether
+   * it has chrome, and these widgets only ever render inside one, so the naming
+   * is left to the host. Set true for standalone rendering (preview build,
+   * documentation captures) where nothing else names the tool.
    */
   showChrome?: boolean;
   /** Footer left slot. Defaults to the standing data-handling assurance. */
@@ -305,8 +370,8 @@ interface WidgetShellProps {
 export function WidgetShell({
   tool,
   version = 'v1',
-  showChrome = true,
-  footerNote = 'Encrypted · SOC-aligned handling',
+  showChrome = false,
+  footerNote = DATA_HANDLING_NOTE,
   trustHref = DEFAULT_TRUST_HREF,
   trustLabel = 'View Trust Center →',
   children,
@@ -329,7 +394,23 @@ export function WidgetShell({
         margin: '0 auto',
       }}
     >
-      {showChrome && <ChromeBar tool={tool} version={version} />}
+      {showChrome ? (
+        <ChromeBar tool={tool} version={version} />
+      ) : (
+        /*
+          All the card keeps of its own identity once the tool naming is left to
+          the host: a 4px brand rule along the top edge. It carries no
+          information, which is the point — the host already says what ran, and
+          this only has to make the card read as ours at a glance.
+        */
+        <div
+          aria-hidden="true"
+          style={{
+            height: 4,
+            background: `linear-gradient(90deg, ${colors.teal.base}, ${colors.teal.deep})`,
+          }}
+        />
+      )}
       <div
         className="tq-gutter"
         style={{ paddingTop: showChrome ? 32 : 30, paddingBottom: 34 }}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { colors, fonts, radius } from '../theme';
-import { WidgetShell } from './WidgetShell';
+import { WidgetShell, DATA_HANDLING_NOTE } from './WidgetShell';
 
 const loaderKeyframes = `
 @keyframes tq-skeleton {
@@ -45,7 +45,7 @@ export function BrandedLoader({ message = 'Analysing…' }: BrandedLoaderProps) 
   return (
     <>
       <style>{loaderKeyframes}</style>
-      <WidgetShell tool={<Skeleton width={110} height={11} />} footerNote="Encrypted · SOC-aligned handling">
+      <WidgetShell tool={<Skeleton width={110} height={11} />} footerNote={DATA_HANDLING_NOTE}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}>
           <div
             style={{
@@ -87,7 +87,7 @@ export function BrandedLoader({ message = 'Analysing…' }: BrandedLoaderProps) 
               {message}
             </div>
             <div style={{ fontSize: 13, color: colors.text.muted, marginTop: 3 }}>
-              Tuteliq — Guardian Intelligence
+              Tuteliq · Guardian Intelligence
             </div>
           </div>
         </div>

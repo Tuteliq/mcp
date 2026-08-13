@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { colors, fontFamily, severityColor } from '../theme';
-import { WidgetShell } from '../components/WidgetShell';
+import { WidgetShell, IncidentProvenance } from '../components/WidgetShell';
 import { CardHeader, StatTile } from '../components/primitives';
 import { StatusBanner } from '../components/StatusBanner';
 import { TrajectoryCurve } from '../components/TrajectoryCurve';
@@ -145,7 +145,7 @@ export function IncidentDetailPage({ data }: Props) {
   };
 
   return (
-    <WidgetShell tool="get_incident">
+    <WidgetShell tool="get_incident" footerNote={<IncidentProvenance incidentId={i.id} />}>
       <CardHeader
         title={i.risk_category}
         subtitle={`Incident ${i.id}`}

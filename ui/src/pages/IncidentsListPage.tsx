@@ -87,7 +87,7 @@ function SummaryCell({ summary, envelopeFields }: { summary: IncidentRow['summar
   if (envelopeFields?.includes('summary')) {
     return (
       <div style={{ fontSize: 13, color: colors.locked, fontStyle: 'italic' }}>
-        Encrypted — decrypt client-side
+        Encrypted, decrypt client-side
       </div>
     );
   }

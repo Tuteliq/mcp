@@ -4,8 +4,9 @@ import { registerAppTool } from '@modelcontextprotocol/ext-apps/server';
 import type { Tuteliq, ContextInput } from '@tuteliq/sdk';
 import { formatDetectionResult } from '../formatters.js';
 import { withViewId } from '../view-id.js';
+import { widgetUri } from '../widget-uri.js';
 
-const DETECTION_WIDGET_URI = 'ui://tuteliq/detection-result.html';
+const DETECTION_WIDGET_URI = widgetUri('detection-result');
 
 interface FraudToolDef {
   name: string;
@@ -128,9 +129,6 @@ export function registerFraudTools(server: McpServer, client: Tuteliq): void {
         inputSchema: fraudInputSchema,
         _meta: {
           ui: { resourceUri: DETECTION_WIDGET_URI },
-          'openai/widgetDescription': `Shows ${tool.title.toLowerCase()} results with risk indicators`,
-          'openai/toolInvocation/invoking': tool.invoking,
-          'openai/toolInvocation/invoked': tool.invoked,
         },
       },
       async ({ content, context, include_evidence, support_threshold, external_id, customer_id }) => {

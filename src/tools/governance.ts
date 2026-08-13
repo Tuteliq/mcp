@@ -19,6 +19,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Tuteliq, ModeratorAction, CustomerKeyAlgorithm } from '@tuteliq/sdk';
 import { RiskLevel, RiskCategory } from '@tuteliq/sdk';
 import { registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
+import { widgetUri } from '../widget-uri.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -61,11 +62,11 @@ const REASON_CODES = [
   'other',
 ] as const;
 
-const INCIDENTS_OVERVIEW_WIDGET_URI = 'ui://tuteliq/incidents-overview.html';
-const INCIDENTS_LIST_WIDGET_URI = 'ui://tuteliq/incidents-list.html';
-const INCIDENT_DETAIL_WIDGET_URI = 'ui://tuteliq/incident-detail.html';
-const INCIDENT_TRENDS_WIDGET_URI = 'ui://tuteliq/incident-trends.html';
-const MODERATION_QUEUE_WIDGET_URI = 'ui://tuteliq/moderation-queue.html';
+const INCIDENTS_OVERVIEW_WIDGET_URI = widgetUri('incidents-overview');
+const INCIDENTS_LIST_WIDGET_URI = widgetUri('incidents-list');
+const INCIDENT_DETAIL_WIDGET_URI = widgetUri('incident-detail');
+const INCIDENT_TRENDS_WIDGET_URI = widgetUri('incident-trends');
+const MODERATION_QUEUE_WIDGET_URI = widgetUri('moderation-queue');
 
 function loadWidget(name: string): string {
   return readFileSync(resolve(__dirname, '../../../dist-ui', name), 'utf-8');
@@ -389,9 +390,6 @@ ${result.failed === 0 ? '_All reviews recorded with signed Art 12 receipts._' : 
       },
       _meta: {
         ui: { resourceUri: INCIDENTS_LIST_WIDGET_URI },
-        'openai/widgetDescription': 'Renders a paginated, filterable list of incidents with severity, status, and source chips',
-        'openai/toolInvocation/invoking': 'Loading incidents...',
-        'openai/toolInvocation/invoked': 'Incidents loaded.',
       },
     },
     async (input) => {
@@ -443,9 +441,6 @@ ${input.include_summary ? '\n_Encrypted-with-customer-key fields are noted as ðŸ
       },
       _meta: {
         ui: { resourceUri: INCIDENT_DETAIL_WIDGET_URI },
-        'openai/widgetDescription': 'Renders the full incident detail with severity banner, summary, vision signals, and review history',
-        'openai/toolInvocation/invoking': 'Fetching incident detail...',
-        'openai/toolInvocation/invoked': 'Incident detail loaded.',
       },
     },
     async ({ incident_id }) => {
@@ -497,9 +492,6 @@ ${summaryPreview}${envelopeNote}`;
       },
       _meta: {
         ui: { resourceUri: INCIDENTS_OVERVIEW_WIDGET_URI },
-        'openai/widgetDescription': 'KPI dashboard with severity/category/source/status breakdowns and top platforms',
-        'openai/toolInvocation/invoking': 'Computing incident overview...',
-        'openai/toolInvocation/invoked': 'Overview ready.',
       },
     },
     async ({ from, to }) => {
@@ -556,9 +548,6 @@ ${topPlatforms}`;
       },
       _meta: {
         ui: { resourceUri: INCIDENT_TRENDS_WIDGET_URI },
-        'openai/widgetDescription': 'Stacked bar chart of incidents over time, broken down by severity',
-        'openai/toolInvocation/invoking': 'Computing incident trends...',
-        'openai/toolInvocation/invoked': 'Trends ready.',
       },
     },
     async ({ bucket, from, to }) => {
@@ -650,10 +639,6 @@ ${rows || '_(no incidents in window)_'}`;
       },
       _meta: {
         ui: { resourceUri: MODERATION_QUEUE_WIDGET_URI },
-        'openai/widgetDescription':
-          'Renders a moderator triage console with queue stats, the next item for review, the analysis trace, and a recommended decision',
-        'openai/toolInvocation/invoking': 'Loading moderation queue...',
-        'openai/toolInvocation/invoked': 'Moderation queue loaded.',
       },
     },
     async (input) => {

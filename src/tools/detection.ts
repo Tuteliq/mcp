@@ -7,11 +7,12 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { severityEmoji, riskEmoji, formatSupportText } from '../formatters.js';
 import { withViewId } from '../view-id.js';
+import { widgetUri } from '../widget-uri.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const DETECTION_WIDGET_URI = 'ui://tuteliq/detection-result.html';
+const DETECTION_WIDGET_URI = widgetUri('detection-result');
 
 function loadWidget(name: string): string {
   return readFileSync(resolve(__dirname, '../../../dist-ui', name), 'utf-8');
@@ -49,13 +50,23 @@ const trackingSchema = {
   external_id: z.string().optional().describe('Your unique identifier for this request (e.g., message ID). Echoed in the response, stored on incidents, and included in webhooks.'),
   customer_id: z.string().optional().describe('Your end-customer identifier for multi-tenant scenarios. Enables routing alerts to the correct customer from a single webhook.'),
   metadata: z.record(z.string(), z.unknown()).optional().describe('Custom key-value pairs stored with detection results and included in webhooks.'),
+  incident_moderation_enabled: z.boolean().optional().describe('Per-call override of account incident logging: true forces persistence, false suppresses it. Omit for account default.'),
 };
 
-const uiMeta = (desc: string, invoking: string, invoked: string) => ({
+/**
+ * Tool `_meta` for the detection widgets.
+ *
+ * This used to carry `openai/widgetDescription` and the two
+ * `openai/toolInvocation/*` strings alongside the resource URI. Those are
+ * OpenAI Apps SDK conventions; Claude ignores them, and unrecognised
+ * vendor-namespaced keys are a candidate for the directory submission's
+ * schema rejecting our tool snapshot. Restore them if these widgets are ever
+ * shipped to an OpenAI host.
+ *
+ * The parameters are kept so call sites still read as self-documenting.
+ */
+const uiMeta = (_desc: string, _invoking: string, _invoked: string) => ({
   ui: { resourceUri: DETECTION_WIDGET_URI },
-  'openai/widgetDescription': desc,
-  'openai/toolInvocation/invoking': invoking,
-  'openai/toolInvocation/invoked': invoked,
 });
 
 export function registerDetectionTools(server: McpServer, client: Tuteliq): void {
@@ -93,7 +104,7 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
       },
       _meta: uiMeta('Shows bullying detection results with risk indicators', 'Analyzing content for bullying...', 'Bullying analysis complete.'),
     },
-    async ({ content, context, support_threshold, continuation_token, reset_conversation, verdict_only, external_id, customer_id, metadata }) => {
+    async ({ content, context, support_threshold, continuation_token, reset_conversation, verdict_only, external_id, customer_id, metadata, incident_moderation_enabled }) => {
       try {
         const result = await client.detectBullying({
           content,
@@ -105,6 +116,7 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
           external_id,
           customer_id,
           metadata,
+          incident_moderation_enabled,
         });
 
         const emoji = severityEmoji[result.severity] || '\u26AA';
@@ -160,7 +172,7 @@ ${result.rationale}
       },
       _meta: uiMeta('Shows grooming detection results with risk indicators', 'Analyzing conversation for grooming patterns...', 'Grooming analysis complete.'),
     },
-    async ({ messages, childAge, participantAge, support_threshold, continuation_token, reset_conversation, verdict_only, external_id, customer_id, metadata }) => {
+    async ({ messages, childAge, participantAge, support_threshold, continuation_token, reset_conversation, verdict_only, external_id, customer_id, metadata, incident_moderation_enabled }) => {
       try {
         const result = await client.detectGrooming({
           messages,
@@ -173,6 +185,7 @@ ${result.rationale}
           external_id,
           customer_id,
           metadata,
+          incident_moderation_enabled,
         });
 
         const emoji = riskEmoji[result.grooming_risk] || '\u26AA';
@@ -221,7 +234,7 @@ ${result.rationale}
       },
       _meta: uiMeta('Shows unsafe content detection results', 'Analyzing content for safety concerns...', 'Safety analysis complete.'),
     },
-    async ({ content, context, support_threshold, verdict_only, external_id, customer_id, metadata }) => {
+    async ({ content, context, support_threshold, verdict_only, external_id, customer_id, metadata, incident_moderation_enabled }) => {
       try {
         const result = await client.detectUnsafe({
           content,
@@ -231,6 +244,7 @@ ${result.rationale}
           external_id,
           customer_id,
           metadata,
+          incident_moderation_enabled,
         });
 
         const emoji = severityEmoji[result.severity] || '\u26AA';

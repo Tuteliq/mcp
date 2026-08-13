@@ -455,11 +455,11 @@ function CsamPanel({ csam }: { csam: any }) {
     level === 'low'      ? colors.severity.low      :
                            colors.severity.safe;
   const labelText = {
-    critical: 'CSAM risk — CRITICAL',
-    high:     'CSAM risk — HIGH',
-    elevated: 'CSAM risk — Elevated',
-    low:      'CSAM signals — Low',
-    none:     'CSAM screening — Clear',
+    critical: 'CSAM risk: CRITICAL',
+    high:     'CSAM risk: HIGH',
+    elevated: 'CSAM risk: Elevated',
+    low:      'CSAM signals: Low',
+    none:     'CSAM screening: Clear',
   }[level] || 'CSAM screening';
 
   return (
@@ -534,7 +534,7 @@ function CsamPanel({ csam }: { csam: any }) {
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
           <div style={{ flex: 1, fontSize: 11, color: colors.text.primary, lineHeight: 1.5 }}>
-            Report suspected CSAM to the Internet Watch Foundation —{' '}
+            Report suspected CSAM to the Internet Watch Foundation:{' '}
             <a
               href="https://report.iwf.org.uk/org/report"
               target="_blank"

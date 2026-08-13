@@ -262,19 +262,56 @@ export function Tag({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Larger teal chip for detection categories. */
-export function CategoryChip({ children }: { children: React.ReactNode }) {
+/**
+ * A category the detector matched.
+ *
+ * Set in mono because these are literal API enum values (`sexual_exploitation`,
+ * not "Sexual exploitation") that a moderator may paste into a filter or a
+ * ticket, and the dot gives the row a scannable left edge so a reader counts
+ * findings without reading them.
+ *
+ * `tone` follows the result: findings inherit the severity colour so the chip
+ * row is readable at a glance, and a cleared result gets the teal "none" chip
+ * rather than an absent section, which is indistinguishable from a bug.
+ */
+export function CategoryChip({
+  children,
+  tone = 'neutral',
+}: {
+  children: React.ReactNode;
+  tone?: 'neutral' | 'clear' | string;
+}) {
+  const clear = tone === 'clear';
+  const accent = clear ? colors.teal.deep : tone === 'neutral' ? colors.teal.deep : severityColor(tone);
+  const tint = clear || tone === 'neutral' ? 'rgba(25,183,155,0.08)' : `${accent}14`;
+  const edge = clear || tone === 'neutral' ? 'rgba(25,183,155,0.28)' : `${accent}55`;
+
   return (
     <span
       style={{
-        fontSize: 13,
-        fontWeight: 600,
-        color: colors.teal.deep,
-        background: 'rgba(25,183,155,0.10)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        fontFamily: fonts.mono,
+        fontSize: 12.5,
+        fontWeight: 500,
+        color: accent,
+        background: tint,
+        border: `1px solid ${edge}`,
         padding: '6px 14px',
         borderRadius: radius.pill,
       }}
     >
+      <span
+        aria-hidden="true"
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          background: accent,
+          flex: '0 0 auto',
+        }}
+      />
       {children}
     </span>
   );

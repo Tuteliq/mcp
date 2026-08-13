@@ -44,7 +44,7 @@ const trendConfig: Record<
   worsening: {
     level: 'medium',
     label: 'Worsening trend',
-    subtitle: 'Emotional state is trending more negative — worth a closer look',
+    subtitle: 'Emotional state is trending more negative. Worth a closer look',
     arrow: 'down',
   },
 };

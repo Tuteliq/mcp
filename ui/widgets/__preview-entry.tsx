@@ -66,6 +66,38 @@ const detection = {
   },
 };
 
+// Cleared result: exercises the 0%-risk disc and the "none" category chip.
+const detectionSafe = {
+  toolName: 'detect_unsafe',
+  branding: { appName: 'Tuteliq' },
+  result: {
+    detected: false,
+    unsafe: false,
+    level: 'none',
+    risk_score: 0,
+    confidence: 0.95,
+    categories: [],
+    rationale:
+      'The message contains protective speech warning about potential grooming indicators, specifically advising against meeting alone and keeping secrets from parents. No harmful content is present.',
+    recommended_action: 'none',
+  },
+};
+
+// analyze(): categories live only in the nested sub-results.
+const detectionNested = {
+  toolName: 'analyze',
+  branding: { appName: 'Tuteliq' },
+  result: {
+    risk_level: 'critical',
+    risk_score: 0.95,
+    confidence: 0.95,
+    summary: 'Bullying detected at critical severity, with sexual exploitation present in the same exchange.',
+    recommended_action: 'immediate_intervention',
+    bullying: { is_bullying: true, bullying_type: ['bullying'], confidence: 0.95, severity: 'critical' },
+    unsafe: { unsafe: true, categories: ['sexual_exploitation'], severity: 'critical', confidence: 0.95, risk_score: 0.95 },
+  },
+};
+
 const overview = {
   result: {
     timeframe: { from: '2026-07-07T00:00:00Z', to: '2026-08-06T00:00:00Z' },
@@ -359,6 +391,8 @@ function Preview() {
       <IncidentsOverviewPage data={overview as never} />
       <IncidentsListPage data={list as never} />
       <DetectionPage data={detection as never} />
+      <DetectionPage data={detectionSafe as never} />
+      <DetectionPage data={detectionNested as never} />
       <IncidentTrendsPage data={trends as never} />
       <ReportPage data={report as never} />
       <ActionPlanPage data={actionPlan as never} />

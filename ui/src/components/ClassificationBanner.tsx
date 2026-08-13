@@ -35,7 +35,7 @@ const config: Record<
   suspected_synthetic: {
     level: 'medium',
     label: 'Suspected synthetic',
-    subtitle: 'Some signals suggest manipulation — review before relying on this media',
+    subtitle: 'Some signals suggest manipulation. Review before relying on this media',
     icon: WarningIcon,
   },
   unknown: {

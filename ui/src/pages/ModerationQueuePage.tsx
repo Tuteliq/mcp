@@ -1,6 +1,6 @@
 import React from 'react';
 import { colors, fonts, radius, severityColor } from '../theme';
-import { WidgetShell } from '../components/WidgetShell';
+import { WidgetShell, IncidentProvenance } from '../components/WidgetShell';
 import { useAppContext } from '../context/AppContext';
 import {
   CardHeader,
@@ -495,7 +495,7 @@ export function ModerationQueuePage({ data }: Props) {
       : '—';
 
   return (
-    <WidgetShell tool="moderation_queue">
+    <WidgetShell tool="moderation_queue" footerNote={<IncidentProvenance incidentId={item?.id} />}>
       <CardHeader
         title={title}
         subtitle="Powered by Tuteliq MCP for content safety analysis"
@@ -558,7 +558,7 @@ export function ModerationQueuePage({ data }: Props) {
 
           {/* Labelled as the assistant's argument, not a Tuteliq measurement. */}
           {r.reasoning && (
-            <Callout title="Assistant reasoning" style={{ marginBottom: 20 }}>
+            <Callout title="Detection reasoning" style={{ marginBottom: 20 }}>
               {r.reasoning}
             </Callout>
           )}

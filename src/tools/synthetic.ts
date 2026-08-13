@@ -14,6 +14,7 @@ import {
 } from '../formatters.js';
 import { resolveFile } from '../resolveFile.js';
 import { withViewId } from '../view-id.js';
+import { widgetUri } from '../widget-uri.js';
 
 /**
  * V3.15.4 — permissive boolean parser.
@@ -43,7 +44,7 @@ const bypassCacheInput = z.preprocess((v) => {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const SYNTHETIC_WIDGET_URI = 'ui://tuteliq/synthetic-result.html';
+const SYNTHETIC_WIDGET_URI = widgetUri('synthetic-result');
 
 function loadWidget(name: string): string {
   return readFileSync(resolve(__dirname, '../../../dist-ui', name), 'utf-8');
@@ -98,9 +99,6 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
       },
       _meta: {
         ui: { resourceUri: SYNTHETIC_WIDGET_URI },
-        'openai/widgetDescription': 'Shows synthetic text detection results with classification and forensic analysis',
-        'openai/toolInvocation/invoking': 'Analyzing text for synthetic indicators...',
-        'openai/toolInvocation/invoked': 'Synthetic text analysis complete.',
       },
     },
     async ({ content, context, support_threshold, external_id, customer_id, bypass_cache }) => {
@@ -148,9 +146,6 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
       },
       _meta: {
         ui: { resourceUri: SYNTHETIC_WIDGET_URI },
-        'openai/widgetDescription': 'Shows synthetic image detection with multi-signal forensic analysis',
-        'openai/toolInvocation/invoking': 'Running 6-signal forensic analysis on image...',
-        'openai/toolInvocation/invoked': 'Synthetic image analysis complete.',
       },
     },
     async ({ file_path, url, base64, filename: filenameHint, age_group, language, platform, external_id, customer_id, bypass_cache }) => {
@@ -202,9 +197,6 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
       },
       _meta: {
         ui: { resourceUri: SYNTHETIC_WIDGET_URI },
-        'openai/widgetDescription': 'Shows synthetic audio detection with spectral forensics',
-        'openai/toolInvocation/invoking': 'Analyzing audio with spectral forensics...',
-        'openai/toolInvocation/invoked': 'Synthetic audio analysis complete.',
       },
     },
     async ({ file_path, url, base64, filename: filenameHint, age_group, language, platform, external_id, customer_id, bypass_cache }) => {
@@ -257,9 +249,6 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
       },
       _meta: {
         ui: { resourceUri: SYNTHETIC_WIDGET_URI },
-        'openai/widgetDescription': 'Shows deepfake video detection with temporal and lip-sync analysis',
-        'openai/toolInvocation/invoking': 'Running 5-track deepfake analysis on video...',
-        'openai/toolInvocation/invoked': 'Synthetic video analysis complete.',
       },
     },
     async ({ file_path, url, base64, filename: filenameHint, max_frames, age_group, language, platform, external_id, customer_id, bypass_cache }) => {

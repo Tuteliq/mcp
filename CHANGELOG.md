@@ -7,6 +7,51 @@ The MCP tool surface — tool names, input schemas, and `structuredContent` shap
 is the public API. Changes to the interactive widgets are user-visible but do not
 break programmatic callers.
 
+## [3.22.0] — 2026-08-13
+
+### Added
+
+- **A cleared state for the risk gauge.** At 0% the ring had nothing to draw, so
+  it rendered an empty grey track that read as a component that had failed to
+  load. A cleared result is not a small amount of risk, it is a different kind
+  of answer, so it now gets its own mark: a tinted disc, a tick, and a
+  `0% risk / CLEARED` label. The scored ring is untouched.
+
+- **A `DETECTED CATEGORIES` row on detection results**, above the analysis
+  summary and separated by a rule. Chips are mono — these are literal API enum
+  values a moderator may paste into a filter — with a leading dot for a
+  scannable left edge, tinted by the result's severity.
+
+  The section always renders. An absent section cannot be told apart from one
+  that failed to load, and "none" is a finding worth stating, so a cleared
+  result shows a teal `none` chip.
+
+### Fixed
+
+- **`analyze` never showed its categories.** It has no top-level `categories`
+  field — it nests a `bullying` and an `unsafe` result, each carrying its own
+  list under a different name (`bullying_type`, `categories`). The card read
+  only the top level, so the chip row was empty and the finding surfaced only
+  buried in the summary prose. Categories are now collected from every known
+  shape, including the nested ones, and de-duplicated.
+
+- **`server.json` had drifted to 3.21.2 while the package was at 3.21.7.** The
+  MCP registry manifest and the published package now carry the same version.
+
+### Changed
+
+- The card keeps a 4px brand rule along its top edge in place of the chrome bar,
+  per the updated UI kit. Hosts draw their own header naming the server and
+  tool, so the card no longer repeats it.
+- The moderation console's reasoning block is titled "Detection reasoning". No
+  vendor or agent name appears anywhere in the widget surface.
+
+## [3.21.7] — 2026-08-12
+
+### Added
+
+- **Per-call incident logging control** — `detect_bullying`, `detect_grooming`, `detect_unsafe` and `analyze_emotions` now accept an optional `incident_moderation_enabled`. It overrides your account-level incident-logging setting for that single call: `true` forces the incident to be persisted, `false` suppresses persistence, and omitting it defers to your account default (which itself defaults to enabled). Passed through to the API via `@tuteliq/sdk` 2.23.0.
+
 ## [3.21.1] — 2026-08-07
 
 ### Fixed
