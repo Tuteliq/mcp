@@ -7,6 +7,48 @@ The MCP tool surface — tool names, input schemas, and `structuredContent` shap
 is the public API. Changes to the interactive widgets are user-visible but do not
 break programmatic callers.
 
+## [3.23.0] — 2026-08-18
+
+### Fixed
+
+- **Ambiguous file input was resolved silently instead of rejected.** Every
+  file-taking tool accepts `file_path`, `url` and `base64` as three optional
+  strings, of which exactly one is required. Nothing said so, and `resolveFile`
+  returned on the first one it found. A caller supplying two had the others
+  discarded with nothing thrown and nothing warned, so an agent hedging with
+  both `url` and `base64` received a confident analysis of one file. Where the
+  two pointed at different content, the answer described the wrong file.
+
+  Supplying more than one source is now an error naming what was received.
+  Empty strings count as absent, so a caller filling every field with `""` gets
+  "no source" rather than "ambiguous". Supplying exactly one is unchanged.
+
+  **Potentially breaking.** A caller that previously sent two sources received a
+  successful response; it now receives an error. That response was describing a
+  file the caller did not choose, so the previous behaviour was not safe to rely
+  on, but the change is visible and is why this is a minor rather than a patch.
+
+### Changed
+
+- **The exactly-one constraint is now stated in the schema descriptions.** 28
+  parameter descriptions and 7 tool descriptions across the media and synthetic
+  tools. "Provide a file_path, url, or base64" read as a menu of things a caller
+  may supply rather than a choice between them.
+
+- **`analyze` now says when not to use it.** Its description was "Quick
+  comprehensive safety analysis that checks for both bullying and unsafe
+  content", which gave an agent nothing to choose it by. It now states that
+  `detect_bullying` and `detect_unsafe` return richer per-category detail when
+  the harm is known, and that multi-turn conversations belong to
+  `detect_grooming` or `analyse_multi` because this endpoint scores one message
+  at a time and does not reason across a conversation.
+
+### Notes
+
+- This package has no test runner. File-input behaviour is verified by a
+  runnable script, `npm run verify:file-inputs`, rather than a test file that
+  nothing would execute.
+
 ## [3.22.2] — 2026-08-13
 
 ### Fixed
