@@ -29,9 +29,34 @@ function filenameFromUrl(url: string): string {
 
 /**
  * Resolve a file from a local path, URL, or base64 string.
- * At least one of file_path, url, or base64 must be provided.
+ *
+ * EXACTLY ONE of file_path, url or base64 must be provided.
+ *
+ * This previously returned on the first source it found, so a caller supplying
+ * two silently had the others discarded. An agent hedging with both `url` and
+ * `base64` received a confident analysis of one file and no indication the
+ * other was ignored; where the two differed, the answer was about the wrong
+ * file. A silent wrong answer is worse than a loud failure, so supplying more
+ * than one source is now an error that names what was received.
  */
 export async function resolveFile(input: ResolveFileInput): Promise<ResolvedFile> {
+  const supplied = (['file_path', 'url', 'base64'] as const).filter((k) => {
+    const v = input[k];
+    return typeof v === 'string' && v.trim() !== '';
+  });
+
+  if (supplied.length === 0) {
+    throw new Error(
+      'No file source provided. Supply exactly one of file_path, url or base64.',
+    );
+  }
+  if (supplied.length > 1) {
+    throw new Error(
+      `Ambiguous file source: received ${supplied.join(' and ')}. `
+      + 'Supply exactly one of file_path, url or base64, so it is unambiguous which file is analysed.',
+    );
+  }
+
   if (input.file_path) {
     return {
       buffer: readFileSync(input.file_path),
@@ -62,5 +87,6 @@ export async function resolveFile(input: ResolveFileInput): Promise<ResolvedFile
     };
   }
 
-  throw new Error('Either file_path, url, or base64 must be provided');
+  // Unreachable: the guard above proves exactly one source is present.
+  throw new Error('No file source provided. Supply exactly one of file_path, url or base64.');
 }

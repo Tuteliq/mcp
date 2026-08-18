@@ -282,7 +282,7 @@ ${result.rationale}
     'analyze',
     {
       title: 'Quick Safety Analysis',
-      description: 'Quick comprehensive safety analysis that checks for both bullying and unsafe content.',
+      description: 'Run bullying and unsafe-content detection on a single piece of text in one call. Use this when you want a general safety read and do not know which harm to look for. Prefer detect_bullying or detect_unsafe when you already know, since those return richer per-category detail. For multi-turn conversations use detect_grooming or analyse_multi instead: this endpoint scores one message at a time and does not reason across a conversation.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
         content: z.string().describe('The text content to analyze'),
