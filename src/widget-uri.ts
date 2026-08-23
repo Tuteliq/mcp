@@ -1,9 +1,4 @@
-import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf-8'));
+import { PACKAGE_VERSION } from './package-root.js';
 
 /**
  * Resource URI for a widget, carrying the package version.
@@ -21,5 +16,5 @@ const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'u
  * `name` is the widget's basename in `dist-ui`, without the extension.
  */
 export function widgetUri(name: string): string {
-  return `ui://tuteliq/${pkg.version}/${name}.html`;
+  return `ui://tuteliq/${PACKAGE_VERSION}/${name}.html`;
 }

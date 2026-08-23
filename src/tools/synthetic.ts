@@ -2,9 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import type { Tuteliq } from '@tuteliq/sdk';
-import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { loadWidget } from '../package-root.js';
 import {
   formatSyntheticTextResult,
   formatSyntheticImageResult,
@@ -41,14 +39,7 @@ const bypassCacheInput = z.preprocess((v) => {
   return v;
 }, z.boolean().optional());
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 const SYNTHETIC_WIDGET_URI = widgetUri('synthetic-result');
-
-function loadWidget(name: string): string {
-  return readFileSync(resolve(__dirname, '../../../dist-ui', name), 'utf-8');
-}
 
 function handleTierError(err: any, toolName: string, featureLabel: string) {
   if (err?.status === 403 || err?.response?.status === 403) {

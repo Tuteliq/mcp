@@ -7,6 +7,195 @@ The MCP tool surface — tool names, input schemas, and `structuredContent` shap
 is the public API. Changes to the interactive widgets are user-visible but do not
 break programmatic callers.
 
+## [3.25.0] — 2026-08-20
+
+The second half of the connector-review finding. 3.24.0 made the
+`continuation_token` readable; this release makes the thing the token exists to
+carry readable too.
+
+### Added
+
+- **A "Conversation risk" section in the text block.** The reviewer fed a
+  six-turn bullying escalation and the scores came back 5, 10, 65, 5, 75, 5 —
+  the final "see you tomorrow :)", sent immediately after two flagged messages,
+  reported as a positive social interaction. Every one of those per-message
+  scores was right. `risk_score` scores the message; nothing was scoring the
+  conversation.
+
+  The API now returns `trajectory_risk` (0-1 for the conversation, anchored on
+  the worst turn seen and decaying only slowly), `trajectory`
+  (`rising`/`stable`/`declining`/`none`) and `severity_series` (per-turn
+  severity, oldest first). `detect_bullying`, `detect_grooming`,
+  `detect_coercive_control`, `detect_vulnerability_exploitation` and
+  `detect_distress_signals` now render all three in the text block an MCP host
+  actually shows, not only in `structuredContent`.
+
+  The section is built for the case that matters — `risk_score` low,
+  `trajectory_risk` high — which is precisely the case a moderator misreads. It
+  gets its own heading at its own severity, states both numbers side by side
+  (`This message: 10%. This conversation: 74%.`), says outright not to stop at
+  the low one, and draws the per-turn series as an aligned table with a
+  sparkline so the 74% is explainable from the evidence rather than asserted.
+  The sparkline is on an absolute 0-1 scale, never normalised to the series'
+  own peak — normalising would draw a full-height bar for the worst turn of an
+  entirely benign conversation, which is the same mistake in a different place.
+
+  Nothing is rendered on the first turn of a fresh conversation, where the API
+  omits the fields because they would only restate `risk_score`. The
+  `Risk Score` line picks up a `_(this message only)_` scope note when, and only
+  when, a conversation-level number follows it.
+
+- **Tool descriptions describe what the tools now return.** The five
+  conversational tools listed the token and stopped there. They now name
+  `trajectory_risk`, `trajectory` and `severity_series`, say that `risk_score`
+  covers only the content in the current call, and say to act on the higher of
+  the two.
+
+### Fixed
+
+- **`---` under the last line of a result rendered as a heading, not a rule.**
+  The `Conversation state` footer and the crisis-support block each began with a
+  single newline followed by `---`. In Markdown that is a setext H2, so the line
+  above — usually the `recommended_action` — was rendered as a large heading
+  wherever either block was appended. Both now open with a blank line. Runs of
+  three or more newlines left by an empty optional section are also collapsed,
+  so a result with no `bullying_type` no longer opens with a gap.
+
+## [3.24.0] — 2026-08-20
+
+Connector-review fixes. Every item below was reproduced through the live
+connector before being changed.
+
+### Fixed
+
+- **`batch_analyze` could not succeed with any input.** The tool sent items
+  shaped `{ type, content, external_id }`; the API requires `{ id, type, data }`.
+  `id` was not in the tool's input schema at all, so Zod stripped it even when a
+  caller supplied one, and every call came back
+  `body/items/0 must have required property 'id'`. `content` vs `data` was a
+  second, independent mismatch. Items now take an optional `id` (generated as
+  `item-N` when omitted) and are mapped to the API's shape by the SDK.
+
+  `id` and `external_id` remain different things and are both shown in the
+  result: `id` addresses the item inside this batch, `external_id` is your own
+  record's identifier.
+
+- **`continuation_token` was returned but invisible.** It was present in
+  `structuredContent` and nowhere in the text block, which is what an MCP host
+  renders — so through a connector the token could not be read, could not be
+  carried into the next call, and conversation-level detection could not be used
+  at all despite being what the tool descriptions promised. Every tool that
+  returns one now ends its text output with a `Conversation state` section
+  carrying the token verbatim in a fenced block, its `state_source`, and its
+  expiry.
+
+- **`verdict_only: true` rendered `Rationale: undefined`.** The mode suppresses
+  rationale generation server-side, and the text block interpolated the field
+  regardless. It now falls back to the endpoint's other free-text field
+  (`action_detail`, which `verdict_only` does return) and otherwise says the
+  rationale was not generated and why.
+
+- **Crisis helplines were not matched to the harm.** When the API cannot map a
+  detection onto a helpline topic it falls back to returning the first five
+  lines for the country, so a phishing verdict and a weapon threat both arrived
+  carrying a domestic-violence line, a fraud line and a gambling line together.
+  Topical lines that contradict the detected harm are now dropped at render
+  time, in both the text block and the widget. The filter is conservative: only
+  `domesticViolence`, `fraudPrevention` and `gambling` are ever removed, general
+  and crisis lines are always kept, and the list is never emptied. The
+  underlying fallback is an API-side fix.
+
+- **Support resources read as if they were local.** Helplines are correctly
+  localised to `context.country`, but the resource links below them are a single
+  global list per category that still leans US (StopBullying.gov, 988). The
+  helpline section is now labelled with the country it belongs to and the
+  resource section is labelled as general rather than country-specific.
+
+- **Widget and version paths only resolved from `dist/`.** `package.json` and
+  `dist-ui` were located by hard-coded relative hops counted from the compiled
+  layout, so running the same modules from source — `tsx`, or a test — read a
+  manifest belonging to a different package. Both are now found by walking up to
+  this package's own manifest.
+
+### Added
+
+- **`continuation_token` and `reset_conversation` on
+  `detect_coercive_control`, `detect_vulnerability_exploitation` and
+  `detect_distress_signals`.** These endpoints have always issued a token; the
+  tools never accepted one back, so their multi-turn support was unreachable.
+  The inputs are deliberately not added to endpoints that issue no token.
+
+- **All twelve `batch_analyze` types.** Previously four (`bullying`, `unsafe`,
+  `emotions`, `grooming`); now also `social_engineering`, `app_fraud`,
+  `romance_scam`, `mule_recruitment`, `gambling_harm`, `coercive_control`,
+  `vulnerability_exploitation` and `radicalisation` — the exact set the batch
+  route accepts. Emotions items may now pass `messages` with a `sender`.
+
+- **`context.country` is advertised on the fraud and extended detection
+  tools.** Their `context` was an unlabelled free-form record, so nothing told a
+  caller that `country` existed even though it worked. `language`, `ageGroup`,
+  `platform` and `country` are now named; other keys still pass through.
+
+- **A test suite.** `npm test` (vitest) covers the formatters, the
+  helpline-relevance filter, and the registered tool contract — input schemas,
+  descriptions and annotations — read back over an in-memory MCP transport.
+
+### Changed
+
+- **`detect_emotional_distress` is retained but unmistakably deprecated.**
+  Removing it would break integrations already calling it, so it stays listed;
+  its title is now `DEPRECATED — use detect_distress_signals`, its description
+  opens with `DEPRECATED ALIAS — DO NOT USE FOR NEW WORK`, and every result it
+  returns is prefixed with a deprecation notice naming the replacement. It will
+  be removed in the next major version.
+
+### Requires
+
+- `@tuteliq/sdk` >= 2.24.0. The batch and continuation fixes are implemented
+  there; the dependency range has been raised accordingly.
+
+## [3.23.0] — 2026-08-18
+
+### Fixed
+
+- **Ambiguous file input was resolved silently instead of rejected.** Every
+  file-taking tool accepts `file_path`, `url` and `base64` as three optional
+  strings, of which exactly one is required. Nothing said so, and `resolveFile`
+  returned on the first one it found. A caller supplying two had the others
+  discarded with nothing thrown and nothing warned, so an agent hedging with
+  both `url` and `base64` received a confident analysis of one file. Where the
+  two pointed at different content, the answer described the wrong file.
+
+  Supplying more than one source is now an error naming what was received.
+  Empty strings count as absent, so a caller filling every field with `""` gets
+  "no source" rather than "ambiguous". Supplying exactly one is unchanged.
+
+  **Potentially breaking.** A caller that previously sent two sources received a
+  successful response; it now receives an error. That response was describing a
+  file the caller did not choose, so the previous behaviour was not safe to rely
+  on, but the change is visible and is why this is a minor rather than a patch.
+
+### Changed
+
+- **The exactly-one constraint is now stated in the schema descriptions.** 28
+  parameter descriptions and 7 tool descriptions across the media and synthetic
+  tools. "Provide a file_path, url, or base64" read as a menu of things a caller
+  may supply rather than a choice between them.
+
+- **`analyze` now says when not to use it.** Its description was "Quick
+  comprehensive safety analysis that checks for both bullying and unsafe
+  content", which gave an agent nothing to choose it by. It now states that
+  `detect_bullying` and `detect_unsafe` return richer per-category detail when
+  the harm is known, and that multi-turn conversations belong to
+  `detect_grooming` or `analyse_multi` because this endpoint scores one message
+  at a time and does not reason across a conversation.
+
+### Notes
+
+- This package has no test runner. File-input behaviour is verified by a
+  runnable script, `npm run verify:file-inputs`, rather than a test file that
+  nothing would execute.
+
 ## [3.22.2] — 2026-08-13
 
 ### Fixed
