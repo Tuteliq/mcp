@@ -11,18 +11,13 @@
  *   widgets registered as MCP resources.
  */
 
-import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { loadWidget } from '../package-root.js';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Tuteliq, ModeratorAction, CustomerKeyAlgorithm } from '@tuteliq/sdk';
 import { RiskLevel, RiskCategory } from '@tuteliq/sdk';
 import { registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import { widgetUri } from '../widget-uri.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: true } as const;
 const ADDITIVE = { readOnlyHint: false, destructiveHint: false, openWorldHint: true } as const;
@@ -67,10 +62,6 @@ const INCIDENTS_LIST_WIDGET_URI = widgetUri('incidents-list');
 const INCIDENT_DETAIL_WIDGET_URI = widgetUri('incident-detail');
 const INCIDENT_TRENDS_WIDGET_URI = widgetUri('incident-trends');
 const MODERATION_QUEUE_WIDGET_URI = widgetUri('moderation-queue');
-
-function loadWidget(name: string): string {
-  return readFileSync(resolve(__dirname, '../../../dist-ui', name), 'utf-8');
-}
 
 export function registerGovernanceTools(server: McpServer, client: Tuteliq): void {
 

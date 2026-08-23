@@ -2,21 +2,13 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import type { Tuteliq } from '@tuteliq/sdk';
-import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { severityEmoji, riskEmoji, formatSupportText } from '../formatters.js';
+import { loadWidget } from '../package-root.js';
+import { severityEmoji, riskEmoji, formatSupportText, formatRationale, formatContinuation, formatTrajectory, riskScoreScope } from '../formatters.js';
+import { harmSignals } from '../support-relevance.js';
 import { withViewId } from '../view-id.js';
 import { widgetUri } from '../widget-uri.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 const DETECTION_WIDGET_URI = widgetUri('detection-result');
-
-function loadWidget(name: string): string {
-  return readFileSync(resolve(__dirname, '../../../dist-ui', name), 'utf-8');
-}
 
 function handleTierError(err: any, toolName: string, featureLabel: string) {
   if (err?.status === 403 || err?.response?.status === 403) {
@@ -91,7 +83,7 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
     'detect_bullying',
     {
       title: 'Detect Bullying',
-      description: 'Analyze text content to detect bullying, harassment, or harmful language. For multi-turn conversations, pass `continuation_token` returned by a prior call to preserve trajectory awareness without server-side message storage.',
+      description: 'Analyze text content to detect bullying, harassment, or harmful language. `risk_score` scores ONLY the message you pass in. Multi-turn: every result ends with a "Conversation state" section containing a `continuation_token` — pass that exact string back as `continuation_token` on the next call to carry trajectory awareness forward. No message content is stored server-side; the token is the state. From the second turn onward the result also carries a "Conversation risk" section: `trajectory_risk` (0-1 for the conversation, not the message), `trajectory` (rising/stable/declining/none) and `severity_series` (per-turn severity, oldest first). These diverge from `risk_score` precisely where it matters — a friendly message sent straight after an escalation scores low on its own and high as a conversation — so judge the conversation on the higher of the two.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
         content: z.string().describe('The text content to analyze for bullying'),
@@ -124,17 +116,18 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
 
 **Severity:** ${emoji} ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}
 **Confidence:** ${(result.confidence * 100).toFixed(0)}%
-**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
+**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%${riskScoreScope(result)}
 
 ${result.is_bullying ? `**Types:** ${result.bullying_type.join(', ')}` : ''}
+${formatTrajectory(result)}
 
-### Rationale
-${result.rationale}
+${formatRationale(result)}
 
 ### Recommended Action
-\`${result.recommended_action}\``;
+\`${result.recommended_action}\``.replace(/\n{3,}/g, '\n\n');
 
-        if ((result as any).support) text += formatSupportText((result as any).support);
+        if (result.support) text += formatSupportText(result.support, harmSignals(result, 'detect_bullying'));
+        text += formatContinuation(result, 'detect_bullying');
 
         return withViewId({
           structuredContent: { toolName: 'detect_bullying', result, branding: { appName: 'Tuteliq' } },
@@ -154,7 +147,7 @@ ${result.rationale}
     'detect_grooming',
     {
       title: 'Detect Grooming',
-      description: 'Analyze a conversation for grooming patterns and predatory behavior. Supports optional ages: pass `childAge` for the minor, `participantAge` for the non-minor counterpart, and `senderAge` per message when you have richer multi-party info. For conversations longer than ~20 turns, chunk into sliding windows and pass the `continuation_token` from each result back into the next call to preserve trajectory awareness.',
+      description: 'Analyze a conversation for grooming patterns and predatory behavior. Supports optional ages: pass `childAge` for the minor, `participantAge` for the non-minor counterpart, and `senderAge` per message when you have richer multi-party info. For conversations longer than ~20 turns, chunk into sliding windows: every result ends with a "Conversation state" section containing a `continuation_token` — pass that exact string back as `continuation_token` on the next chunk to carry trajectory awareness across windows. No message content is stored server-side; the token is the state. From the second chunk onward the result also carries a "Conversation risk" section: `trajectory_risk` (0-1 across every window seen so far, not just this one), `trajectory` (rising/stable/declining/none) and `severity_series` (per-window severity, oldest first). Grooming is a slow burn, so a window that reads benign can still sit inside a high-risk conversation — judge it on the higher of `risk_score` and `trajectory_risk`.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
         messages: z.array(z.object({
@@ -193,17 +186,18 @@ ${result.rationale}
 
 **Risk Level:** ${emoji} ${result.grooming_risk.charAt(0).toUpperCase() + result.grooming_risk.slice(1)}
 **Confidence:** ${(result.confidence * 100).toFixed(0)}%
-**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
+**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%${riskScoreScope(result)}
 
 ${result.flags.length > 0 ? `**Warning Flags:**\n${result.flags.map(f => `- \u{1F6A9} ${f}`).join('\n')}` : ''}
+${formatTrajectory(result)}
 
-### Rationale
-${result.rationale}
+${formatRationale(result)}
 
 ### Recommended Action
-\`${result.recommended_action}\``;
+\`${result.recommended_action}\``.replace(/\n{3,}/g, '\n\n');
 
-        if ((result as any).support) text += formatSupportText((result as any).support);
+        if (result.support) text += formatSupportText(result.support, harmSignals(result, 'detect_grooming'));
+        text += formatContinuation(result, 'detect_grooming');
 
         return withViewId({
           structuredContent: { toolName: 'detect_grooming', result, branding: { appName: 'Tuteliq' } },
@@ -256,13 +250,12 @@ ${result.rationale}
 
 ${result.unsafe ? `**Categories:**\n${result.categories.map(c => `- \u26A0\uFE0F ${c}`).join('\n')}` : ''}
 
-### Rationale
-${result.rationale}
+${formatRationale(result)}
 
 ### Recommended Action
 \`${result.recommended_action}\``;
 
-        if ((result as any).support) text += formatSupportText((result as any).support);
+        if (result.support) text += formatSupportText(result.support, harmSignals(result, 'detect_unsafe'));
 
         return withViewId({
           structuredContent: { toolName: 'detect_unsafe', result, branding: { appName: 'Tuteliq' } },
@@ -311,7 +304,9 @@ ${result.summary}
 ${result.bullying ? `\n**Bullying Check:** ${result.bullying.is_bullying ? '\u26A0\uFE0F Detected' : '\u2705 Clear'}\n` : ''}${result.unsafe ? `\n**Unsafe Content:** ${result.unsafe.unsafe ? '\u26A0\uFE0F Detected' : '\u2705 Clear'}\n` : ''}`;
 
         // Show support resources from the unsafe sub-result if available
-        if ((result.unsafe as any)?.support) text += formatSupportText((result.unsafe as any).support);
+        if (result.unsafe?.support) {
+          text += formatSupportText(result.unsafe.support, harmSignals(result.unsafe, 'detect_unsafe'));
+        }
 
         return withViewId({
           structuredContent: { toolName: 'analyze', result, branding: { appName: 'Tuteliq' } },

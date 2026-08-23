@@ -105,7 +105,7 @@ place.
 | `detect_unsafe` | Identify unsafe content (self-harm, violence, explicit material) |
 | `analyze` | Quick comprehensive safety check (bullying + unsafe) |
 | `analyse_multi` | Run multiple detection endpoints on a single piece of text in one call |
-| `batch_analyze` | Analyze up to 50 items in a single request (bullying, unsafe, emotions, grooming) — ideal for bulk triage |
+| `batch_analyze` | Analyze up to 50 items in a single request — all twelve detection types (bullying, grooming, unsafe, emotions, social_engineering, app_fraud, romance_scam, mule_recruitment, gambling_harm, coercive_control, vulnerability_exploitation, radicalisation) — ideal for bulk triage |
 | `analyze_emotions` | Analyze emotional content and mental state indicators — accepts single text or full conversations |
 | `get_action_plan` | Generate age-appropriate guidance for safety situations |
 | `generate_report` | Create incident reports from conversations |

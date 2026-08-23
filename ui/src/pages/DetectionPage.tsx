@@ -10,6 +10,7 @@ import { EvidenceCard } from '../components/EvidenceCard';
 import { ActionCard } from '../components/ActionCard';
 import { AgeCalibration } from '../components/AgeCalibration';
 import { SupportCard } from '../components/SupportCard';
+import { harmSignals } from '../../../src/support-relevance.js';
 import { UpsellBanner } from '../components/UpsellBanner';
 import { CardHeader, Callout, VerifiedBadge } from '../components/primitives';
 import type { ToolResultPayload } from '../types';
@@ -206,7 +207,7 @@ export function DetectionPage({ data }: DetectionPageProps) {
           <ActionCard action={action} detail={result.action_detail} />
         )}
 
-        {showSupport && <SupportCard support={support} />}
+        {showSupport && <SupportCard support={support} signals={harmSignals(result, toolName)} />}
       </div>
     </WidgetShell>
   );

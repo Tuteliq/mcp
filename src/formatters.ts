@@ -13,6 +13,7 @@ import type {
   VerificationSession,
   VerificationSessionResult,
 } from '@tuteliq/sdk';
+import { harmSignals, relevantHelplines } from './support-relevance.js';
 
 export const severityEmoji: Record<string, string> = {
   low: '\u{1F7E1}',
@@ -36,7 +37,236 @@ export const trendEmoji: Record<string, string> = {
   worsening: '\u{1F4C9}',
 };
 
-export function formatDetectionResult(result: DetectionResult): string {
+/**
+ * The Rationale section, or an honest substitute.
+ *
+ * `verdict_only: true` suppresses rationale generation server-side \u2014 that is the
+ * point of the mode. Interpolating the field regardless printed the literal
+ * string "undefined" under a "### Rationale" heading, which reads as a broken
+ * detector rather than a deliberately fast one. Fall back to `action_detail`
+ * (the endpoint's other free-text field, which verdict_only does keep) and say
+ * so when there is nothing at all.
+ */
+export function formatRationale(result: {
+  rationale?: string;
+  action_detail?: string;
+  summary?: string;
+}): string {
+  const rationale = typeof result.rationale === 'string' ? result.rationale.trim() : '';
+  if (rationale) return `### Rationale\n${rationale}`;
+
+  const summary = typeof result.summary === 'string' ? result.summary.trim() : '';
+  if (summary) return `### Summary\n${summary}`;
+
+  const detail = typeof result.action_detail === 'string' ? result.action_detail.trim() : '';
+  if (detail) return `### Assessment\n${detail}`;
+
+  return '### Rationale\n_Not generated \u2014 this call ran in `verdict_only` fast mode. Re-run without `verdict_only` for the written analysis._';
+}
+
+/**
+ * The conversation-level fields the continuation token carries forward.
+ *
+ * Typed locally rather than imported: `@tuteliq/sdk` gained these on
+ * `BullyingResult` / `GroomingResult` / `DetectionResult` in 2.25.0, and the
+ * renderer must keep working against an older installed SDK. Every field is
+ * optional, so any of those results is assignable to it.
+ */
+export interface TrajectoryFields {
+  /** Risk for THIS message only. */
+  risk_score?: number;
+  /** Risk for the conversation this message arrived in. */
+  trajectory_risk?: number;
+  trajectory?: 'rising' | 'stable' | 'declining' | 'none' | string;
+  /** Per-turn severity, oldest first. */
+  severity_series?: number[];
+}
+
+/** How far `trajectory_risk` must exceed `risk_score` before we say so loudly. */
+const TRAJECTORY_GAP = 0.15;
+
+/** Longest severity series rendered in full before the head is elided. */
+const MAX_SERIES_COLUMNS = 12;
+
+const SPARK = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+
+/**
+ * A sparkline block for a 0-1 severity, on an ABSOLUTE scale.
+ *
+ * Not normalised to the series maximum: normalising would draw a full-height
+ * bar for the worst turn of an entirely benign conversation, which is the same
+ * class of mistake as reading `risk_score` on its own.
+ */
+function sparkFor(v: number): string {
+  const clamped = Math.min(1, Math.max(0, v));
+  // Eight equal buckets by floor, not eight levels by rounding: rounding put
+  // 65% and 75% on the same bar, which flattened exactly the escalation the
+  // series exists to show.
+  return SPARK[Math.min(SPARK.length - 1, Math.floor(clamped * SPARK.length))];
+}
+
+const pct = (v: number) => `${Math.round(v * 100)}%`;
+
+function trajectoryEmoji(risk: number): string {
+  if (risk >= 0.85) return '⛔';
+  if (risk >= 0.7) return '\u{1F534}';
+  if (risk >= 0.4) return '\u{1F7E0}';
+  if (risk >= 0.2) return '\u{1F7E1}';
+  return '✅';
+}
+
+const TRAJECTORY_LABEL: Record<string, string> = {
+  rising: 'rising ↗',
+  stable: 'stable →',
+  declining: 'declining ↘',
+  none: 'no clear direction',
+};
+
+/**
+ * Right-aligned fixed-width columns so the severity row and the sparkline row
+ * line up under the same turn numbers inside a fenced block.
+ */
+function seriesTable(series: number[]): string {
+  const offset = Math.max(0, series.length - MAX_SERIES_COLUMNS);
+  const shown = series.slice(offset);
+  const cell = (s: string) => s.padStart(5);
+
+  // Percent signs live in the row label, not in the cells: with them in the
+  // cells the sparkline aligned under the `%` rather than under the digits.
+  const turns = shown.map((_, i) => cell(String(offset + i + 1))).join('');
+  const sevs = shown.map(v => cell(String(Math.round(v * 100)))).join('');
+  const spark = shown.map(v => cell(sparkFor(v))).join('');
+
+  const head = offset > 0
+    ? `_Last ${shown.length} of ${series.length} turns._\n`
+    : '';
+
+  return `${head}\`\`\`\nturn${turns}\nsev%${sevs}\n    ${spark}\n\`\`\``;
+}
+
+/**
+ * The conversation-level section.
+ *
+ * The reviewer's finding was not that the detector scored a message wrongly —
+ * it scored every message correctly. It was that "see you tomorrow :)", sent
+ * straight after two flagged turns, was reported as a positive social
+ * interaction, because `risk_score` has no memory. `trajectory_risk` is the
+ * answer, and it is worth nothing if a moderator reads "10%" at the top of the
+ * output and moves on.
+ *
+ * So: the conversation number gets its own headed section, both numbers are
+ * stated side by side, and the per-turn series is drawn underneath so the 74%
+ * is explainable from the evidence rather than asserted. Returns '' when the
+ * fields are absent, which is every first turn of a fresh conversation.
+ */
+export function formatTrajectory(result: TrajectoryFields): string {
+  const risk = result?.trajectory_risk;
+  if (typeof risk !== 'number' || Number.isNaN(risk)) return '';
+
+  const current = typeof result.risk_score === 'number' ? result.risk_score : undefined;
+  const direction = TRAJECTORY_LABEL[result.trajectory ?? ''] ?? result.trajectory;
+
+  const lines = [
+    '',
+    '---',
+    '',
+    `### ${trajectoryEmoji(risk)} Conversation risk: ${pct(risk)}${direction ? ` — ${direction}` : ''}`,
+    '',
+  ];
+
+  if (current !== undefined) {
+    lines.push(`**This message: ${pct(current)}. This conversation: ${pct(risk)}.**`, '');
+  }
+
+  if (current !== undefined && risk - current >= TRAJECTORY_GAP) {
+    lines.push(
+      `⚠️ Do not read the ${pct(current)} and stop. \`risk_score\` scores only the message you just sent; `
+      + '`trajectory_risk` scores the conversation it arrived in — anchored on the worst turn so far and decaying '
+      + `only slowly, so a friendly message straight after an escalation does not reset it. Act on ${pct(risk)}.`,
+      '',
+    );
+  } else {
+    lines.push(
+      '`risk_score` scores only this message; `trajectory_risk` scores the whole conversation, anchored on the '
+      + 'worst turn seen so far. Act on whichever is higher.',
+      '',
+    );
+  }
+
+  const series = result.severity_series;
+  if (Array.isArray(series) && series.length > 0) {
+    lines.push('**Severity by turn, oldest first:**', '', seriesTable(series), '');
+
+    const peak = Math.max(...series);
+    const peakTurn = series.indexOf(peak) + 1;
+    lines.push(`Peak ${pct(peak)} at turn ${peakTurn}; this is turn ${series.length}.`);
+  }
+
+  return lines.join('\n').replace(/\n+$/, '');
+}
+
+/**
+ * Suffix for the `Risk Score` line, so the per-message number is not read as
+ * the whole picture when a conversation-level one exists directly below it.
+ */
+export function riskScoreScope(result: TrajectoryFields): string {
+  return typeof result?.trajectory_risk === 'number' ? ' _(this message only)_' : '';
+}
+
+/**
+ * The continuation-token footer.
+ *
+ * The token is the whole of Tuteliq's multi-turn story: it carries derived
+ * trajectory state forward with no content stored server-side. It was already
+ * being returned in `structuredContent`, but an MCP host renders the text block
+ * \u2014 so through a connector the token was invisible and conversation-level
+ * detection could not be used at all. It goes last, verbatim and in a fenced
+ * block, with the instruction next to it rather than in the tool description
+ * where it is read once and forgotten.
+ */
+export function formatContinuation(
+  result: { continuation_token?: string; continuation_expires_at?: string; state_source?: string },
+  toolName: string,
+): string {
+  if (!result?.continuation_token) return '';
+
+  // Two leading blank lines, not one: `---` directly under a line of text is a
+  // setext H2 in Markdown, so a single newline turned whatever preceded this
+  // footer (usually the `recommended_action`) into a heading.
+  const lines = [
+    '',
+    '',
+    '---',
+    '',
+    '### Conversation state',
+  ];
+
+  if (result.state_source) {
+    const source: Record<string, string> = {
+      token: 'continued from the token you passed in',
+      fresh: 'first turn of a new conversation',
+      reset: 'restarted \u2014 the previous token was discarded',
+    };
+    lines.push(`**This turn:** ${source[result.state_source] ?? result.state_source}`);
+  }
+
+  lines.push(
+    '',
+    `Pass this \`continuation_token\` to the next \`${toolName}\` call to keep trajectory awareness across turns. No message content is stored server-side; the token *is* the state.`,
+    '',
+    '```',
+    result.continuation_token,
+    '```',
+  );
+
+  if (result.continuation_expires_at) {
+    lines.push('', `_Expires ${result.continuation_expires_at}. After that, start a fresh conversation._`);
+  }
+
+  return lines.join('\n');
+}
+
+export function formatDetectionResult(result: DetectionResult, toolName?: string): string {
   const detected = result.detected;
   const levelEmoji = riskEmoji[result.level] || '\u26AA';
   const label = result.endpoint
@@ -66,20 +296,22 @@ export function formatDetectionResult(result: DetectionResult): string {
 
   return `${header}
 
-**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
+**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%${riskScoreScope(result)}
 **Level:** ${result.level}
 **Confidence:** ${(result.confidence * 100).toFixed(0)}%
 ${categories}
+${formatTrajectory(result)}
 
-### Rationale
-${result.rationale}
+${formatRationale(result)}
 
 ### Recommended Action
-\`${result.recommended_action}\`${(result as any).action_detail ? `\n${(result as any).action_detail}` : ''}
+\`${result.recommended_action}\`${result.action_detail ? `\n${result.action_detail}` : ''}
 
 ${evidence}
 ${messageAnalysis}
-${calibration}`.trim() + ((result as any).support ? formatSupportText((result as any).support) : '');
+${calibration}`.replace(/\n{3,}/g, '\n\n').trim()
+    + (result.support ? formatSupportText(result.support, harmSignals(result, toolName)) : '')
+    + formatContinuation(result, toolName ?? `detect_${result.endpoint.replace(/-/g, '_')}`);
 }
 
 export function formatMultiResult(result: AnalyseMultiResult): string {
@@ -100,7 +332,7 @@ ${result.cross_endpoint_modifier ? `**Cross-Endpoint Modifier:** ${result.cross_
       return `### ${emoji} ${r.endpoint}
 **Detected:** ${r.detected ? 'Yes' : 'No'} | **Risk:** ${(r.risk_score * 100).toFixed(0)}% | **Level:** ${r.level}
 ${r.categories.length > 0 ? `**Categories:** ${r.categories.map(c => c.tag).join(', ')}` : ''}
-${r.rationale}`;
+${r.rationale ?? r.action_detail ?? '_No written analysis returned for this endpoint._'}`;
     })
     .join('\n\n');
 
@@ -111,13 +343,26 @@ ${r.rationale}`;
 ${perEndpoint}`;
 }
 
-export function formatSupportText(support: {
+export interface SupportBlock {
+  country?: string;
   country_name?: string;
   emergency_number?: string;
-  helplines: Array<{ name: string; number: string; available?: string }>;
-  response_guide?: { immediateActions: string[]; resources: Array<{ name: string; url?: string }> };
-}): string {
+  helplines: Array<{ name: string; number: string; available?: string; category?: string }>;
+  response_guide?: { immediateActions: string[]; resources: Array<{ name: string; url?: string; description?: string }> };
+}
+
+/**
+ * Render the crisis-support block.
+ *
+ * `signals` are the detected harm signals (see support-relevance.ts). Pass them
+ * so topical helplines that have nothing to do with the harm are not shown next
+ * to ones that do; omit them and every line the API returned is rendered.
+ */
+export function formatSupportText(support: SupportBlock, signals: string[] = []): string {
   const lines: string[] = [
+    // See formatContinuation: `---` on the line straight after text is a setext
+    // heading, not a rule.
+    '',
     '',
     '---',
     '',
@@ -131,9 +376,15 @@ export function formatSupportText(support: {
     lines.push('');
   }
 
-  if (support.helplines.length > 0) {
-    lines.push('**Crisis Helplines:**');
-    for (const h of support.helplines) {
+  const helplines = relevantHelplines(support.helplines ?? [], signals);
+
+  if (helplines.length > 0) {
+    // Name the jurisdiction. The helplines are localised but the resource links
+    // below them are a global list that still leans US, so an unlabelled block
+    // reads as if all of it applies where the caller is.
+    const where = support.country_name || support.country;
+    lines.push(where ? `**Crisis Helplines (${where}):**` : '**Crisis Helplines:**');
+    for (const h of helplines) {
       lines.push(`- \u{1F4DE} **${h.name}:** ${h.number}${h.available ? ` (${h.available})` : ''}`);
     }
     lines.push('');
@@ -148,7 +399,9 @@ export function formatSupportText(support: {
   }
 
   if (support.response_guide?.resources?.length) {
-    lines.push('**Resources:**');
+    // Not localised by the API — a single global list per category. Label it so
+    // a US-only link is not mistaken for local guidance.
+    lines.push('**Resources (general, not country-specific):**');
     for (const r of support.response_guide.resources) {
       lines.push(r.url ? `- [${r.name}](${r.url})` : `- ${r.name}`);
     }
@@ -209,7 +462,7 @@ export function formatDocumentResult(result: DocumentAnalysisResult): string {
       const pEmoji = riskEmoji[p.page_severity] || '\u2705';
       const detections = p.results.filter((r) => r.detected);
       const detectionText = detections.length > 0
-        ? detections.map((r) => `${r.endpoint}: ${r.rationale}`).join('; ')
+        ? detections.map((r) => `${r.endpoint}: ${r.rationale ?? r.level}`).join('; ')
         : 'Clear';
       return `- **Page ${p.page_number}** ${pEmoji} ${p.page_severity} \u2014 ${detectionText}`;
     })
@@ -233,7 +486,7 @@ ${flaggedSection}
 ### Page Results
 ${pageResultsSection}${result.page_results.length > 10 ? `\n_...and ${result.page_results.length - 10} more pages_` : ''}
 
-${result.detected_endpoints.length > 0 ? `### Detected Threats\n${result.detected_endpoints.map((e: string) => `- \u26A0\uFE0F ${e}`).join('\n')}` : ''}` + (result.support ? formatSupportText(result.support as any) : '');
+${result.detected_endpoints.length > 0 ? `### Detected Threats\n${result.detected_endpoints.map((e: string) => `- \u26A0\uFE0F ${e}`).join('\n')}` : ''}` + (result.support ? formatSupportText(result.support as any, harmSignals(result)) : '');
 }
 
 // =============================================================================
@@ -270,8 +523,7 @@ export function formatSyntheticTextResult(result: SyntheticTextResult): string {
 **Level:** ${result.level}
 ${categories}
 
-### Rationale
-${result.rationale}
+${formatRationale(result)}
 
 ### Recommended Action
 \`${result.recommended_action}\`${(result as any).action_detail ? `\n${(result as any).action_detail}` : ''}
@@ -331,8 +583,7 @@ ${signalsSection}
 ${hashSection}
 ${matchSection}
 
-### Rationale
-${result.rationale}
+${formatRationale(result)}
 
 ### Recommended Action
 \`${result.recommended_action}\`${(result as any).action_detail ? `\n${(result as any).action_detail}` : ''}
@@ -375,8 +626,7 @@ ${statsSection}
 
 ${spectralSection}
 
-### Rationale
-${result.rationale}
+${formatRationale(result)}
 
 ### Recommended Action
 \`${result.recommended_action}\`${(result as any).action_detail ? `\n${(result as any).action_detail}` : ''}
@@ -426,8 +676,7 @@ ${lipSyncSection}
 
 ${spectralSection}
 
-### Rationale
-${result.rationale}
+${formatRationale(result)}
 
 ### Recommended Action
 \`${result.recommended_action}\`${(result as any).action_detail ? `\n${(result as any).action_detail}` : ''}
