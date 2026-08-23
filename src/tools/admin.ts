@@ -3,9 +3,19 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Tuteliq, WebhookEventType, ConsentType, AuditAction, BreachSeverity, BreachStatus, BreachNotificationStatus } from '@tuteliq/sdk';
 import { severityEmoji } from '../formatters.js';
 
-const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: true } as const;
-const ADDITIVE = { readOnlyHint: false, destructiveHint: false, openWorldHint: true } as const;
-const DESTRUCTIVE = { readOnlyHint: false, destructiveHint: true, openWorldHint: true } as const;
+// Key order matches the inline annotation literals used in detection.ts/
+// analysis.ts (readOnlyHint, openWorldHint, destructiveHint) rather than the
+// order these constants previously used. Semantically identical either way --
+// JSON object key order carries no meaning in the MCP protocol -- but this was
+// the one objective difference found while investigating an unexplained
+// per-tool approval-gating report (batch_analyze/get_policy showing "No
+// approval received" in a client while structurally-identical tools worked).
+// No code anywhere in this stack implements approval gating, so the report is
+// very likely client-side, not caused by this; harmonizing anyway since it's
+// zero-risk and removes the only discrepancy on record.
+const READ_ONLY = { readOnlyHint: true, openWorldHint: true, destructiveHint: false } as const;
+const ADDITIVE = { readOnlyHint: false, openWorldHint: true, destructiveHint: false } as const;
+const DESTRUCTIVE = { readOnlyHint: false, openWorldHint: true, destructiveHint: true } as const;
 
 export function registerAdminTools(server: McpServer, client: Tuteliq): void {
 

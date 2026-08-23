@@ -2,15 +2,10 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import type { Tuteliq, ContextInput } from '@tuteliq/sdk';
-import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { loadWidget } from '../package-root.js';
 import { trendEmoji, riskEmoji, formatMultiResult } from '../formatters.js';
 import { withViewId } from '../view-id.js';
 import { widgetUri } from '../widget-uri.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 /**
  * Endpoint ids accepted by POST /api/v1/analyse/multi.
@@ -36,14 +31,32 @@ const ANALYSE_MULTI_ENDPOINTS = [
   'radicalisation',
 ] as const;
 
+/**
+ * Analysis types accepted by POST /api/v1/batch/analyze.
+ *
+ * Every one of them takes a plain `text` payload except `grooming` and
+ * `emotions`, which take message arrays — verified against the route's own
+ * enum and per-type switch. This tool used to expose only the first four.
+ */
+const BATCH_TYPES = [
+  'bullying',
+  'grooming',
+  'unsafe',
+  'emotions',
+  'social_engineering',
+  'app_fraud',
+  'romance_scam',
+  'mule_recruitment',
+  'gambling_harm',
+  'coercive_control',
+  'vulnerability_exploitation',
+  'radicalisation',
+] as const;
+
 const EMOTIONS_WIDGET_URI = widgetUri('emotions-result');
 const ACTION_PLAN_WIDGET_URI = widgetUri('action-plan');
 const REPORT_WIDGET_URI = widgetUri('report-result');
 const MULTI_WIDGET_URI = widgetUri('multi-result');
-
-function loadWidget(name: string): string {
-  return readFileSync(resolve(__dirname, '../../../dist-ui', name), 'utf-8');
-}
 
 function handleTierError(err: any, toolName: string, featureLabel: string) {
   if (err?.status === 403 || err?.response?.status === 403) {
@@ -325,16 +338,26 @@ ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
     'batch_analyze',
     {
       title: 'Batch Analysis',
-      description: 'Analyze up to 50 items in a single request — ideal for bulk triage. Each item runs one detection type: bullying, unsafe, or emotions (pass `content`), or grooming (pass `messages`). Per-item success/error is returned so a partial failure does not lose the successful results.',
+      description:
+        'Analyze up to 50 items in a single request — ideal for bulk triage. Each item runs one detection type. '
+        + 'Pass `content` for the single-text types (bullying, unsafe, and every fraud/extended type), `messages` for grooming, '
+        + 'and either for emotions. Give each item an `id` if you want to address it; one is generated otherwise. '
+        + 'Per-item success/error is returned so a partial failure does not lose the successful results.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
         items: z.array(z.object({
-          type: z.enum(['bullying', 'unsafe', 'emotions', 'grooming']).describe('Detection type to run on this item'),
-          content: z.string().optional().describe('Text to analyze (required for bullying/unsafe/emotions)'),
+          // `id` addresses this item inside this request; the API requires one.
+          // It was absent from this schema entirely, so Zod stripped any id the
+          // caller supplied and every request was rejected with
+          // "body/items/0 must have required property 'id'".
+          id: z.string().optional().describe('Your identifier for this item within the batch, echoed on its result. Generated as `item-N` if omitted. Not the same as `external_id`.'),
+          type: z.enum(BATCH_TYPES).describe('Detection type to run on this item'),
+          content: z.string().optional().describe('Text to analyze (required for every type except grooming; optional for emotions)'),
           messages: z.array(z.object({
-            role: z.enum(['adult', 'child', 'unknown']),
+            role: z.enum(['adult', 'child', 'unknown']).optional().describe('Sender role (grooming)'),
+            sender: z.string().optional().describe('Sender identifier (emotions)'),
             content: z.string(),
-          })).optional().describe('Conversation messages (required for grooming)'),
+          })).optional().describe('Conversation messages. Required for grooming (use `role`); optional for emotions (use `sender`).'),
           childAge: z.number().optional().describe('Age of the child (grooming only)'),
           external_id: z.string().optional().describe('Your correlation ID for this item, echoed in its result'),
         })).min(1).max(50).describe('Items to analyze (max 50)'),
@@ -344,35 +367,62 @@ ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
     async ({ items, parallel }) => {
       try {
         const invalid = items
-          .map((it, i) => (it.type === 'grooming' ? !it.messages?.length : !it.content) ? i : -1)
+          .map((it, i) => {
+            if (it.type === 'grooming') return it.messages?.length ? -1 : i;
+            if (it.type === 'emotions') return (it.messages?.length || it.content) ? -1 : i;
+            return it.content ? -1 : i;
+          })
           .filter(i => i >= 0);
         if (invalid.length > 0) {
           return {
-            content: [{ type: 'text' as const, text: `⚠️ Invalid items at index ${invalid.join(', ')}: grooming items need \`messages\`, all other types need \`content\`.` }],
+            content: [{ type: 'text' as const, text: `⚠️ Invalid items at index ${invalid.join(', ')}: grooming items need \`messages\`, emotions items need \`messages\` or \`content\`, all other types need \`content\`.` }],
             isError: true,
           };
         }
 
         const result = await client.batch({
-          items: items.map(it => it.type === 'grooming'
-            ? { type: 'grooming' as const, messages: it.messages!, childAge: it.childAge, external_id: it.external_id }
-            : { type: it.type, content: it.content!, external_id: it.external_id }),
+          items: items.map(it => {
+            if (it.type === 'grooming') {
+              return {
+                id: it.id,
+                type: 'grooming' as const,
+                messages: (it.messages ?? []).map(m => ({ role: m.role ?? 'unknown', content: m.content })),
+                childAge: it.childAge,
+                external_id: it.external_id,
+              };
+            }
+            if (it.type === 'emotions') {
+              return {
+                id: it.id,
+                type: 'emotions' as const,
+                ...(it.messages?.length
+                  ? { messages: it.messages.map(m => ({ sender: m.sender ?? m.role ?? 'user', content: m.content })) }
+                  : { content: it.content! }),
+                external_id: it.external_id,
+              };
+            }
+            return { id: it.id, type: it.type, content: it.content!, external_id: it.external_id };
+          }),
           parallel,
         });
 
         const lines = result.results.map(r => {
           const item = items[r.index];
-          const label = r.external_id ? `\`${r.external_id}\`` : `#${r.index}`;
-          if (!r.success) return `- ❌ ${label} (${item?.type}): ${r.error ?? 'unknown error'}`;
+          // Show both identifiers when they differ — they mean different things
+          // and collapsing them is how a caller loses track of which is which.
+          const label = r.external_id && r.external_id !== r.id
+            ? `\`${r.id}\` (external_id \`${r.external_id}\`)`
+            : `\`${r.id}\``;
+          if (!r.success) return `- ❌ ${label} (${r.type ?? item?.type}): ${r.error ?? 'unknown error'}`;
           const res = r.result as any;
-          const signal = res?.severity ?? res?.grooming_risk ?? res?.trend ?? '';
-          return `- ✅ ${label} (${item?.type})${signal ? ` — ${signal}` : ''}`;
+          const signal = res?.severity ?? res?.grooming_risk ?? res?.level ?? res?.trend ?? '';
+          return `- ✅ ${label} (${r.type ?? item?.type})${signal ? ` — ${signal}` : ''}`;
         }).join('\n');
 
         const text = `## Batch Analysis
 
 **Total:** ${result.summary.total} | **Succeeded:** ${result.summary.successful} | **Failed:** ${result.summary.failed}
-**Processing Time:** ${result.processing_time_ms}ms
+**Processing Time:** ${result.processing_time_ms}ms${result.summary.total_credits_used != null ? `\n**Credits Used:** ${result.summary.total_credits_used}` : ''}
 
 ${lines}`;
 

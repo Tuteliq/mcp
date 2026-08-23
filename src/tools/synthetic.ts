@@ -2,9 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import type { Tuteliq } from '@tuteliq/sdk';
-import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { loadWidget } from '../package-root.js';
 import {
   formatSyntheticTextResult,
   formatSyntheticImageResult,
@@ -41,14 +39,7 @@ const bypassCacheInput = z.preprocess((v) => {
   return v;
 }, z.boolean().optional());
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 const SYNTHETIC_WIDGET_URI = widgetUri('synthetic-result');
-
-function loadWidget(name: string): string {
-  return readFileSync(resolve(__dirname, '../../../dist-ui', name), 'utf-8');
-}
 
 function handleTierError(err: any, toolName: string, featureLabel: string) {
   if (err?.status === 403 || err?.response?.status === 403) {
@@ -130,12 +121,12 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
     'detect_synthetic_image',
     {
       title: 'Detect Synthetic Image',
-      description: 'Detect AI-generated images using a 6-signal forensic pipeline: vision AI analysis, EXIF metadata extraction, pixel statistics, C2PA Content Credentials, watermark detection, and perceptual hashing. Supports png, jpg, jpeg, gif, webp. Provide a file_path, url, or base64-encoded image.',
+      description: 'Detect AI-generated images using a 6-signal forensic pipeline: vision AI analysis, EXIF metadata extraction, pixel statistics, C2PA Content Credentials, watermark detection, and perceptual hashing. Supports png, jpg, jpeg, gif, webp. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
-        file_path: z.string().optional().describe('Absolute path to the image file on disk'),
-        url: z.string().optional().describe('URL to download the image from'),
-        base64: z.string().optional().describe('Base64-encoded image data (with or without data URI prefix)'),
+        file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the image file on disk'),
+        url: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. URL to download the image from'),
+        base64: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Base64-encoded image data (with or without data URI prefix)'),
         filename: z.string().optional().describe('Filename hint (e.g., "photo.jpg") — required with base64, optional otherwise'),
         age_group: z.string().optional().describe('Age group for calibrated analysis (e.g., "13-15")'),
         language: z.string().optional().describe('Language hint (ISO 639-1)'),
@@ -181,12 +172,12 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
     'detect_synthetic_audio',
     {
       title: 'Detect Synthetic Audio',
-      description: 'Detect AI-generated audio using dual-signal forensics: transcript analysis + mel spectrogram vision + quantitative audio statistics. Supports mp3, wav, m4a, ogg, flac, webm, mp4. Provide a file_path, url, or base64-encoded audio.',
+      description: 'Detect AI-generated audio using dual-signal forensics: transcript analysis + mel spectrogram vision + quantitative audio statistics. Supports mp3, wav, m4a, ogg, flac, webm, mp4. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
-        file_path: z.string().optional().describe('Absolute path to the audio file on disk'),
-        url: z.string().optional().describe('URL to download the audio from'),
-        base64: z.string().optional().describe('Base64-encoded audio data (with or without data URI prefix)'),
+        file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the audio file on disk'),
+        url: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. URL to download the audio from'),
+        base64: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Base64-encoded audio data (with or without data URI prefix)'),
         filename: z.string().optional().describe('Filename hint (e.g., "voice.mp3") — required with base64, optional otherwise'),
         age_group: z.string().optional().describe('Age group for calibrated analysis'),
         language: z.string().optional().describe('Language hint (ISO 639-1)'),
@@ -232,12 +223,12 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
     'detect_synthetic_video',
     {
       title: 'Detect Synthetic Video',
-      description: 'Detect AI-generated or deepfake video using 5-track analysis: per-frame vision forensics, temporal face consistency, lip-sync correlation, spectral audio analysis, and transcript detection. Supports mp4, webm, avi, mov. Provide a file_path, url, or base64-encoded video.',
+      description: 'Detect AI-generated or deepfake video using 5-track analysis: per-frame vision forensics, temporal face consistency, lip-sync correlation, spectral audio analysis, and transcript detection. Supports mp4, webm, avi, mov. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
-        file_path: z.string().optional().describe('Absolute path to the video file on disk'),
-        url: z.string().optional().describe('URL to download the video from'),
-        base64: z.string().optional().describe('Base64-encoded video data (with or without data URI prefix)'),
+        file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the video file on disk'),
+        url: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. URL to download the video from'),
+        base64: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Base64-encoded video data (with or without data URI prefix)'),
         filename: z.string().optional().describe('Filename hint (e.g., "clip.mp4") — required with base64, optional otherwise'),
         max_frames: z.number().optional().describe('Maximum frames to extract (default: 6, max: 20)'),
         age_group: z.string().optional().describe('Age group for calibrated analysis'),

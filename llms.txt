@@ -27,7 +27,7 @@ Create a free account at https://tuteliq.ai and generate an API key from the Das
 - detect_unsafe — Identify unsafe content (self-harm, violence, explicit material, sextortion)
 - analyze — Quick comprehensive safety check (bullying + unsafe)
 - analyse_multi — Run multiple detection endpoints on a single piece of text
-- batch_analyze — Analyze up to 50 items in one request (bullying, unsafe, emotions, grooming)
+- batch_analyze — Analyze up to 50 items in one request; all twelve detection types, each item optionally carrying your own `id`
 - analyze_emotions — Analyze emotional content and mental state indicators (single text or conversation)
 - get_action_plan — Generate age-appropriate guidance for safety situations
 - generate_report — Create incident reports from conversations

@@ -2,6 +2,7 @@ import React from 'react';
 import { colors, fonts, radius } from '../theme';
 import { useOpenLink } from './WidgetShell';
 import type { SupportData } from '../types';
+import { relevantHelplines } from '../../../src/support-relevance.js';
 
 /**
  * Crisis support resources.
@@ -107,10 +108,16 @@ function SectionLabel({ children, style }: { children: React.ReactNode; style?: 
   );
 }
 
-export function SupportCard({ support }: { support: SupportData }) {
+export function SupportCard({ support, signals = [] }: { support: SupportData; signals?: string[] }) {
   const openLink = useOpenLink();
   const guide = support.response_guide;
   const warmMessage = warmMessages[guide?.category ?? ''] || warmMessages.default;
+  // The API falls back to "first five lines for this country" whenever it
+  // cannot map the detected harm onto a helpline topic, which is how a phishing
+  // verdict ended up showing a domestic-violence line. Drop the ones that
+  // contradict the harm; see src/support-relevance.ts.
+  const helplines = relevantHelplines(support.helplines ?? [], signals);
+  const where = support.country_name || support.country;
 
   return (
     <div style={{ background: colors.ink.base, borderRadius: radius.panel, overflow: 'hidden' }}>
@@ -176,11 +183,13 @@ export function SupportCard({ support }: { support: SupportData }) {
           </div>
         )}
 
-        {support.helplines.length > 0 && (
+        {helplines.length > 0 && (
           <>
-            <SectionLabel style={{ marginBottom: 10 }}>Crisis helplines</SectionLabel>
+            <SectionLabel style={{ marginBottom: 10 }}>
+              {where ? `Crisis helplines \u00B7 ${where}` : 'Crisis helplines'}
+            </SectionLabel>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {support.helplines.map((h, i) => (
+              {helplines.map((h, i) => (
                 <div
                   key={i}
                   style={{
@@ -232,7 +241,9 @@ export function SupportCard({ support }: { support: SupportData }) {
 
         {guide && guide.resources.length > 0 && (
           <>
-            <SectionLabel style={{ margin: '18px 0 8px' }}>Helpful resources</SectionLabel>
+            {/* Not localised by the API — one global list per category, so it
+                must not be presented as local guidance next to the helplines. */}
+            <SectionLabel style={{ margin: '18px 0 8px' }}>Helpful resources (general)</SectionLabel>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {guide.resources.map((r, i) => (
                 <div key={i} style={{ fontSize: 13, color: colors.text.body, lineHeight: 1.5 }}>

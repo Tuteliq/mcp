@@ -1,8 +1,5 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'fs';
-import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Tuteliq } from '@tuteliq/sdk';
 
@@ -17,9 +14,7 @@ import { registerAutomationTools } from './tools/automation.js';
 import { registerGovernanceTools } from './tools/governance.js';
 import { registerResources } from './tools/resources.js';
 import { getTransportMode, startStdio } from './transport.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf-8'));
+import { PACKAGE_VERSION } from './package-root.js';
 
 export function createServer(apiKeyOverride?: string): McpServer {
   const apiKey = apiKeyOverride || process.env.TUTELIQ_API_KEY;
@@ -34,7 +29,7 @@ export function createServer(apiKeyOverride?: string): McpServer {
 
   const server = new McpServer({
     name: 'tuteliq-mcp',
-    version: pkg.version,
+    version: PACKAGE_VERSION,
   });
 
   // Register all tool groups
