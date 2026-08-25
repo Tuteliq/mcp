@@ -3,7 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import type { Tuteliq } from '@tuteliq/sdk';
 import { loadWidget } from '../package-root.js';
-import { severityEmoji, riskEmoji, formatSupportText, formatRationale, formatContinuation, formatTrajectory, riskScoreScope } from '../formatters.js';
+import { severityEmoji, riskEmoji, formatSupportText, formatRationale, formatContinuation, formatTrajectory, riskScoreScope, verdictHeader, verdictStatus } from '../formatters.js';
 import { harmSignals } from '../support-relevance.js';
 import { withViewId } from '../view-id.js';
 import { widgetUri } from '../widget-uri.js';
@@ -112,7 +112,7 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
         });
 
         const emoji = severityEmoji[result.severity] || '\u26AA';
-        let text = `## ${result.is_bullying ? '\u26A0\uFE0F Bullying Detected' : '\u2705 No Bullying Detected'}
+        let text = `## ${verdictHeader(result.is_bullying, result.recommended_action, 'Bullying Detected', 'No Bullying Detected')}
 
 **Severity:** ${emoji} ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}
 **Confidence:** ${(result.confidence * 100).toFixed(0)}%
@@ -242,7 +242,7 @@ ${formatRationale(result)}
         });
 
         const emoji = severityEmoji[result.severity] || '\u26AA';
-        let text = `## ${result.unsafe ? '\u26A0\uFE0F Unsafe Content Detected' : '\u2705 Content is Safe'}
+        let text = `## ${verdictHeader(result.unsafe, result.recommended_action, 'Unsafe Content Detected', 'Content is Safe')}
 
 **Severity:** ${emoji} ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}
 **Confidence:** ${(result.confidence * 100).toFixed(0)}%
@@ -301,7 +301,7 @@ ${result.summary}
 \`${result.recommended_action}\`
 
 ---
-${result.bullying ? `\n**Bullying Check:** ${result.bullying.is_bullying ? '\u26A0\uFE0F Detected' : '\u2705 Clear'}\n` : ''}${result.unsafe ? `\n**Unsafe Content:** ${result.unsafe.unsafe ? '\u26A0\uFE0F Detected' : '\u2705 Clear'}\n` : ''}`;
+${result.bullying ? `\n**Bullying Check:** ${verdictStatus(result.bullying.is_bullying, result.bullying.recommended_action)}\n` : ''}${result.unsafe ? `\n**Unsafe Content:** ${verdictStatus(result.unsafe.unsafe, result.unsafe.recommended_action)}\n` : ''}`;
 
         // Show support resources from the unsafe sub-result if available
         if (result.unsafe?.support) {

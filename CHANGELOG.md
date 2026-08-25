@@ -7,6 +7,23 @@ The MCP tool surface — tool names, input schemas, and `structuredContent` shap
 is the public API. Changes to the interactive widgets are user-visible but do not
 break programmatic callers.
 
+## [3.25.2] — 2026-08-25
+
+### Fixed
+
+- **`detect_bullying`/`detect_unsafe` headers no longer contradict the
+  verdict below them.** `is_bullying`/`unsafe` correctly clear for a
+  reporter relaying someone else's real abuse (e.g. a child reporting a
+  threat written on their locker), while `severity`/`recommended_action`
+  correctly stay live — but the H2 header was built from the raw boolean
+  alone, so that case rendered a green "No Bullying Detected"/"Content is
+  Safe" heading directly above a `flag_for_review` verdict. `detect_bullying`,
+  `detect_unsafe`, and the `analyze` multi-endpoint summary now render a
+  third, amber "Flagged for Review" state whenever the content wasn't
+  flagged against the speaker but `recommended_action` says otherwise.
+  `detect_grooming` was already keying its header off the graded
+  `grooming_risk` value rather than a boolean, so it needed no change.
+
 ## [3.25.1] — 2026-08-23
 
 ### Fixed

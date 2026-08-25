@@ -12,7 +12,9 @@ import type {
   SyntheticProfile,
   VerificationSession,
   VerificationSessionResult,
+  RecommendedAction,
 } from '@tuteliq/sdk';
+import { isActionable } from '@tuteliq/sdk';
 import { harmSignals, relevantHelplines } from './support-relevance.js';
 
 export const severityEmoji: Record<string, string> = {
@@ -36,6 +38,40 @@ export const trendEmoji: Record<string, string> = {
   stable: '\u27A1\uFE0F',
   worsening: '\u{1F4C9}',
 };
+
+/**
+ * `is_bullying` / `unsafe` clear for a reporter relaying someone else's real
+ * abuse (the HOC-HELP-11 carve-out) while `recommended_action` correctly
+ * stays live -- keying a header on the raw boolean alone produced a green
+ * "No Bullying Detected" / "Content is Safe" heading sitting directly above
+ * a `flag_for_review` verdict. A third, amber state covers that gap: the
+ * speaker wasn't the one flagged, but the content still needs a look.
+ */
+function verdictState(flagged: boolean, recommendedAction: RecommendedAction): 'flagged' | 'review' | 'clear' {
+  if (flagged) return 'flagged';
+  return isActionable(recommendedAction) ? 'review' : 'clear';
+}
+
+export function verdictHeader(
+  flagged: boolean,
+  recommendedAction: RecommendedAction,
+  detectedLabel: string,
+  clearLabel: string,
+): string {
+  switch (verdictState(flagged, recommendedAction)) {
+    case 'flagged': return `\u26A0\uFE0F ${detectedLabel}`;
+    case 'review': return '\u{1F7E0} Flagged for Review';
+    default: return `\u2705 ${clearLabel}`;
+  }
+}
+
+export function verdictStatus(flagged: boolean, recommendedAction: RecommendedAction): string {
+  switch (verdictState(flagged, recommendedAction)) {
+    case 'flagged': return '\u26A0\uFE0F Detected';
+    case 'review': return '\u{1F7E0} Flagged for Review';
+    default: return '\u2705 Clear';
+  }
+}
 
 /**
  * The Rationale section, or an honest substitute.
