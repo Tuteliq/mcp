@@ -26,6 +26,19 @@ function handleTierError(err: any, toolName: string, featureLabel: string) {
   return null;
 }
 
+/**
+ * Renders the additive, deterministic `profanity`/`risk_terms` fields when
+ * present. Both are opt-in (flag_profanity/flag_risk_terms or the account
+ * defaults) and never affect severity/risk_score/recommended_action, so this
+ * is purely informational — omitted entirely when neither fired.
+ */
+function formatDeterministicFlags(result: { profanity?: { detected: boolean; matches: string[] } | null; risk_terms?: { detected: boolean; matches: Array<{ term: string; category: string }> } | null }): string {
+  const lines: string[] = [];
+  if (result.profanity?.detected) lines.push(`**Profanity:** ${result.profanity.matches.join(', ')}`);
+  if (result.risk_terms?.detected) lines.push(`**Risk Terms:** ${result.risk_terms.matches.map(m => `${m.term} (${m.category})`).join(', ')}`);
+  return lines.length ? `\n${lines.join('\n')}\n` : '';
+}
+
 const contextSchema = z.object({
   language: z.string().optional(),
   ageGroup: z.string().optional(),
@@ -92,11 +105,13 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
         continuation_token: z.string().optional().describe('Opaque signed token returned by a prior detect_bullying call. Pass it back to maintain multi-turn awareness without server-side content storage. The result includes a fresh continuation_token to forward into the next call.'),
         reset_conversation: z.boolean().optional().describe('If true, discard any continuation_token and analyze this content as a fresh conversation.'),
         verdict_only: z.boolean().optional().describe('Fast mode. Return only the verdict (severity, categories, recommended action) and omit any per-message breakdown. Lower latency for real-time screening; the verdict itself is unchanged.'),
+        flag_profanity: z.boolean().optional().describe('Additive, deterministic word-list flag for plain profanity/vulgarity. Adds a `profanity` field to the response; never affects severity/risk_score/recommended_action. Free — no extra credits. Explicit true/false here overrides the account\'s default_flag_profanity setting for this call; omit to use the account default.'),
+        flag_risk_terms: z.boolean().optional().describe('Additive, deterministic word-list flag for bare drug/violence terms (e.g. "cocaine", "kill"). Adds a `risk_terms` field to the response; never affects severity/risk_score/recommended_action. Free — no extra credits. Purely lexical: WILL fire on benign uses of an included term ("kill the lights"). Explicit true/false here overrides the account\'s default_flag_risk_terms setting for this call; omit to use the account default.'),
         ...trackingSchema,
       },
       _meta: uiMeta('Shows bullying detection results with risk indicators', 'Analyzing content for bullying...', 'Bullying analysis complete.'),
     },
-    async ({ content, context, support_threshold, continuation_token, reset_conversation, verdict_only, external_id, customer_id, metadata, incident_moderation_enabled }) => {
+    async ({ content, context, support_threshold, continuation_token, reset_conversation, verdict_only, flag_profanity, flag_risk_terms, external_id, customer_id, metadata, incident_moderation_enabled }) => {
       try {
         const result = await client.detectBullying({
           content,
@@ -105,6 +120,8 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
           continuationToken: continuation_token,
           resetConversation: reset_conversation,
           verdictOnly: verdict_only,
+          flagProfanity: flag_profanity,
+          flagRiskTerms: flag_risk_terms,
           external_id,
           customer_id,
           metadata,
@@ -120,7 +137,7 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
 
 ${result.is_bullying ? `**Types:** ${result.bullying_type.join(', ')}` : ''}
 ${formatTrajectory(result)}
-
+${formatDeterministicFlags(result)}
 ${formatRationale(result)}
 
 ### Recommended Action
@@ -224,17 +241,21 @@ ${formatRationale(result)}
         context: contextSchema,
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
                 verdict_only: z.boolean().optional().describe('Fast mode. Skips generating the rationale, the only free-text field this endpoint produces. Lower latency and a smaller response; the verdict itself is unchanged.'),
+        flag_profanity: z.boolean().optional().describe('Additive, deterministic word-list flag for plain profanity/vulgarity. Adds a `profanity` field to the response; never affects severity/risk_score/recommended_action. Free \u2014 no extra credits. Explicit true/false here overrides the account\'s default_flag_profanity setting for this call; omit to use the account default.'),
+        flag_risk_terms: z.boolean().optional().describe('Additive, deterministic word-list flag for bare drug/violence terms (e.g. "cocaine", "kill"). Adds a `risk_terms` field to the response; never affects severity/risk_score/recommended_action. Free \u2014 no extra credits. Purely lexical: WILL fire on benign uses of an included term ("kill the lights"). Explicit true/false here overrides the account\'s default_flag_risk_terms setting for this call; omit to use the account default.'),
         ...trackingSchema,
       },
       _meta: uiMeta('Shows unsafe content detection results', 'Analyzing content for safety concerns...', 'Safety analysis complete.'),
     },
-    async ({ content, context, support_threshold, verdict_only, external_id, customer_id, metadata, incident_moderation_enabled }) => {
+    async ({ content, context, support_threshold, verdict_only, flag_profanity, flag_risk_terms, external_id, customer_id, metadata, incident_moderation_enabled }) => {
       try {
         const result = await client.detectUnsafe({
           content,
           context: context as Record<string, string> | undefined,
           supportThreshold: support_threshold,
           verdictOnly: verdict_only,
+          flagProfanity: flag_profanity,
+          flagRiskTerms: flag_risk_terms,
           external_id,
           customer_id,
           metadata,
@@ -249,7 +270,7 @@ ${formatRationale(result)}
 **Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
 
 ${result.unsafe ? `**Categories:**\n${result.categories.map(c => `- \u26A0\uFE0F ${c}`).join('\n')}` : ''}
-
+${formatDeterministicFlags(result)}
 ${formatRationale(result)}
 
 ### Recommended Action
@@ -280,12 +301,14 @@ ${formatRationale(result)}
       inputSchema: {
         content: z.string().describe('The text content to analyze'),
         include: z.array(z.enum(['bullying', 'unsafe'])).optional().describe('Which checks to run (default: both)'),
+        flag_profanity: z.boolean().optional().describe('Additive, deterministic word-list flag for plain profanity/vulgarity, forwarded to every included check. Adds a `profanity` field to the relevant sub-result(s); never affects severity/risk_score/recommended_action. Free — no extra credits. Explicit true/false here overrides the account\'s default_flag_profanity setting for this call; omit to use the account default.'),
+        flag_risk_terms: z.boolean().optional().describe('Additive, deterministic word-list flag for bare drug/violence terms (e.g. "cocaine", "kill"), forwarded to every included check. Adds a `risk_terms` field to the relevant sub-result(s); never affects severity/risk_score/recommended_action. Free — no extra credits. Purely lexical: WILL fire on benign uses of an included term ("kill the lights"). Explicit true/false here overrides the account\'s default_flag_risk_terms setting for this call; omit to use the account default.'),
       },
       _meta: uiMeta('Shows combined safety analysis results', 'Running safety analysis...', 'Safety analysis complete.'),
     },
-    async ({ content, include }) => {
+    async ({ content, include, flag_profanity, flag_risk_terms }) => {
       try {
-        const result = await client.analyze({ content, include });
+        const result = await client.analyze({ content, include, flagProfanity: flag_profanity, flagRiskTerms: flag_risk_terms });
 
         const emoji = riskEmoji[result.risk_level] || '\u26AA';
         let text = `## Safety Analysis Results
@@ -301,7 +324,7 @@ ${result.summary}
 \`${result.recommended_action}\`
 
 ---
-${result.bullying ? `\n**Bullying Check:** ${verdictStatus(result.bullying.is_bullying, result.bullying.recommended_action)}\n` : ''}${result.unsafe ? `\n**Unsafe Content:** ${verdictStatus(result.unsafe.unsafe, result.unsafe.recommended_action)}\n` : ''}`;
+${result.bullying ? `\n**Bullying Check:** ${verdictStatus(result.bullying.is_bullying, result.bullying.recommended_action)}\n${formatDeterministicFlags(result.bullying)}` : ''}${result.unsafe ? `\n**Unsafe Content:** ${verdictStatus(result.unsafe.unsafe, result.unsafe.recommended_action)}\n${formatDeterministicFlags(result.unsafe)}` : ''}`;
 
         // Show support resources from the unsafe sub-result if available
         if (result.unsafe?.support) {
