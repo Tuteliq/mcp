@@ -7,6 +7,16 @@ The MCP tool surface — tool names, input schemas, and `structuredContent` shap
 is the public API. Changes to the interactive widgets are user-visible but do not
 break programmatic callers.
 
+## [3.26.0] — 2026-08-27
+
+### Added
+
+- **`flag_profanity`/`flag_risk_terms` on `detect_bullying`, `detect_unsafe`, and `analyze`.** The API's additive, deterministic word-list flags (never affect severity/risk_score/recommended_action) existed since PR #149, and the SDK gained typed support in `@tuteliq/sdk` 2.27–2.31, but no MCP tool ever exposed them — there was no way to override either flag per-call through MCP, and the resulting `profanity`/`risk_terms` fields, while always present in `structuredContent` when the account default was on, were never rendered in the text summary. Both are now visible in the response text and settable per-call on all three tools.
+
+- **`default_flag_profanity`/`default_flag_risk_terms` on `get_detection_settings`/`update_detection_settings`.** These account-level defaults existed on the API since PR #149 but were invisible and unsettable through MCP — `get_detection_settings` never displayed them and `update_detection_settings` had no field for them, so an MCP-only user had no way to turn on (or confirm) profanity/risk-term detection at all. Root cause of a customer report: reconnecting after toggling something in a dashboard did nothing, because MCP could never reach `default_flag_profanity` in the first place.
+
+  **Requires `@tuteliq/sdk` 2.31.0+.**
+
 ## [3.25.2] — 2026-08-25
 
 ### Fixed
