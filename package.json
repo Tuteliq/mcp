@@ -86,7 +86,7 @@
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^1.7.5",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@tuteliq/sdk": "^2.31.0",
+    "@tuteliq/sdk": "^2.32.0",
     "cors": "^2.8.6",
     "express": "^4.22.2",
     "zod": "^4.4.3"
