@@ -72,7 +72,7 @@ Pass a \`context\` object with any detection tool to improve accuracy.
 | \`ageGroup\` / \`age_group\` | string | Age bracket for calibrated scoring: \`"under 10"\`, \`"10-12"\`, \`"13-15"\`, \`"16-17"\`, \`"under 18"\` |
 | \`language\` | string | ISO 639-1 code (e.g. \`"en"\`, \`"de"\`, \`"sv"\`). Auto-detected if omitted. 27 languages supported. |
 | \`platform\` | string | Platform name (e.g. \`"Discord"\`, \`"Roblox"\`, \`"WhatsApp"\`). Adjusts for platform-specific norms and slang. |
-| \`conversation_history\` | array | Prior messages for context-aware analysis. Each entry: \`{ sender: string, content: string }\`. Returns per-message \`message_analysis\`. |
+| \`priorMessages\` | array | Prior turns of this conversation, oldest first, for a single call to see full trajectory. Each entry: \`{ role: string, text: string, timestamp?: string }\`. Request-scoped -- never stored server-side. Returns per-message \`message_analysis\`. Supported by detect_unsafe and the fraud/coercive-control/distress-signals endpoint family; not by detect_bullying or detect_grooming (use \`continuation_token\` there, or detect_grooming's own \`messages\` array). |
 | \`country\` | string | ISO 3166-1 alpha-2 country code (e.g. \`"GB"\`, \`"US"\`, \`"SE"\`). Returns geo-localised crisis helplines. Falls back to user profile country if omitted. |
 | \`sender_trust\` | string | \`"verified"\`, \`"trusted"\`, or \`"unknown"\`. When \`"verified"\`, AUTH_IMPERSONATION is fully suppressed. |
 | \`sender_name\` | string | Sender identifier. Used with \`sender_trust\` for impersonation scoring. |
@@ -128,7 +128,7 @@ All detection tools return:
 1. Always pass \`ageGroup\` in context — it significantly affects scoring calibration
 2. Use \`include_evidence: true\` to get flagged phrases with weights for audit trails
 3. Use \`analyse_multi\` to run multiple classifiers in a single call (saves latency)
-4. For conversations, pass \`conversation_history\` to enable multi-turn pattern detection
+4. For conversations you already have in hand, pass \`context.priorMessages\` to enable multi-turn pattern detection in one call; for one-message-at-a-time flows, use \`continuation_token\` instead
 5. Set \`support_threshold: "low"\` to always include crisis resources in responses`;
 
 interface ResourceDef {
