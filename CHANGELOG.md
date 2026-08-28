@@ -7,6 +7,20 @@ The MCP tool surface — tool names, input schemas, and `structuredContent` shap
 is the public API. Changes to the interactive widgets are user-visible but do not
 break programmatic callers.
 
+## [3.27.0] — 2026-08-28
+
+### Added
+
+- **`detect_unsafe` multi-turn support.** Never had any before — no `context.priorMessages` for a one-shot whole-conversation call, and no `continuation_token`/`reset_conversation` for one-message-at-a-time flows, despite the API's `/unsafe` route supporting `continuation_token` all along and now also `context.prior_messages` (Tuteliq/api#173). `detect_unsafe` now supports both, matching `detect_bullying`: the "Conversation risk"/"Conversation state" sections render the same way, and the tool description explains when to use which.
+
+- **`priorMessages` on every fraud tool's context, explicitly documented.** `detect_social_engineering`, `detect_app_fraud`, `detect_romance_scam`, `detect_mule_recruitment`, `detect_gambling_harm`, `detect_coercive_control`, `detect_vulnerability_exploitation`, `detect_radicalisation`, `detect_distress_signals`, `detect_tfgbv` already accepted it silently through an undocumented Zod `.passthrough()` — functionally fine, but undiscoverable: an LLM reading the tool schema had no way to know the field existed. Now named and described like every other parameter.
+
+  **Requires `@tuteliq/sdk` 2.32.0+.**
+
+### Fixed
+
+- **Context reference doc (`resources.ts`) was stale on two counts.** Still named the old `conversation_history` field (now `priorMessages`), and described the wrong shape entirely — `{ sender: string, content: string }` instead of the real `{ role: string, text: string, timestamp?: string }`.
+
 ## [3.26.0] — 2026-08-27
 
 ### Added
