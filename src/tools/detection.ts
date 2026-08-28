@@ -45,6 +45,18 @@ const contextSchema = z.object({
   relationship: z.string().optional(),
   platform: z.string().optional(),
   country: z.string().optional().describe('ISO 3166-1 alpha-2 country code (e.g., "GB", "US") for geo-localised helpline data'),
+  // Supported by detect_unsafe only (enables multi-turn trajectory awareness
+  // in a single call). Silently ignored by detect_bullying, which has no
+  // multi-turn content field of its own -- use continuation_token there
+  // instead. Request-scoped: never stored server-side, used once to build
+  // the analysis prompt for this call and then discarded. camelCase to
+  // match every other context field here; the Node SDK (client.detectUnsafe)
+  // translates this to the wire's prior_messages key.
+  priorMessages: z.array(z.object({
+    role: z.string(),
+    text: z.string(),
+    timestamp: z.string().optional(),
+  })).optional().describe('Prior turns of this conversation, oldest first, submitted for this request only -- not stored server-side. Lets a single call see the trajectory a gradually-building risk needs. Supported by detect_unsafe; independent of continuation_token, which carries state across SEPARATE calls instead of within one.'),
 }).optional();
 
 // Correlation fields shared by the detection endpoints. They are echoed back in
@@ -234,26 +246,30 @@ ${formatRationale(result)}
     'detect_unsafe',
     {
       title: 'Detect Unsafe Content',
-      description: 'Detect unsafe content including self-harm, violence, drugs, explicit material.',
+      description: 'Detect unsafe content including self-harm, violence, drugs, explicit material. `risk_score` scores ONLY the message you pass in. Multi-turn: two independent ways to carry conversation trajectory, pick whichever fits your call pattern. (1) Already have the whole conversation in hand? Pass `context.priorMessages` (oldest first) to see it in one call — request-scoped, never stored server-side. (2) Calling once per new message as it arrives? Every result ends with a "Conversation state" section containing a `continuation_token` — pass that exact string back as `continuation_token` on the next call, same as detect_bullying/detect_grooming. No message content is stored server-side either way; the token is the state. From the second turn onward the result also carries a "Conversation risk" section: `trajectory_risk` (0-1 for the conversation, not the message), `trajectory` (rising/stable/declining/none) and `severity_series` (per-turn severity, oldest first).',
       annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
       inputSchema: {
         content: z.string().describe('The text content to analyze for unsafe content'),
         context: contextSchema,
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
                 verdict_only: z.boolean().optional().describe('Fast mode. Skips generating the rationale, the only free-text field this endpoint produces. Lower latency and a smaller response; the verdict itself is unchanged.'),
+        continuation_token: z.string().optional().describe('Opaque signed token returned by a prior detect_unsafe call. Pass it back to maintain multi-turn awareness without server-side content storage. The result includes a fresh continuation_token to forward into the next call. Alternative to context.priorMessages for callers analyzing one new message at a time.'),
+        reset_conversation: z.boolean().optional().describe('If true, discard any continuation_token and analyze this content as a fresh conversation.'),
         flag_profanity: z.boolean().optional().describe('Additive, deterministic word-list flag for plain profanity/vulgarity. Adds a `profanity` field to the response; never affects severity/risk_score/recommended_action. Free \u2014 no extra credits. Explicit true/false here overrides the account\'s default_flag_profanity setting for this call; omit to use the account default.'),
         flag_risk_terms: z.boolean().optional().describe('Additive, deterministic word-list flag for bare drug/violence terms (e.g. "cocaine", "kill"). Adds a `risk_terms` field to the response; never affects severity/risk_score/recommended_action. Free \u2014 no extra credits. Purely lexical: WILL fire on benign uses of an included term ("kill the lights"). Explicit true/false here overrides the account\'s default_flag_risk_terms setting for this call; omit to use the account default.'),
         ...trackingSchema,
       },
       _meta: uiMeta('Shows unsafe content detection results', 'Analyzing content for safety concerns...', 'Safety analysis complete.'),
     },
-    async ({ content, context, support_threshold, verdict_only, flag_profanity, flag_risk_terms, external_id, customer_id, metadata, incident_moderation_enabled }) => {
+    async ({ content, context, support_threshold, verdict_only, continuation_token, reset_conversation, flag_profanity, flag_risk_terms, external_id, customer_id, metadata, incident_moderation_enabled }) => {
       try {
         const result = await client.detectUnsafe({
           content,
-          context: context as Record<string, string> | undefined,
+          context: context as Record<string, unknown> | undefined,
           supportThreshold: support_threshold,
           verdictOnly: verdict_only,
+          continuationToken: continuation_token,
+          resetConversation: reset_conversation,
           flagProfanity: flag_profanity,
           flagRiskTerms: flag_risk_terms,
           external_id,
@@ -270,13 +286,15 @@ ${formatRationale(result)}
 **Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
 
 ${result.unsafe ? `**Categories:**\n${result.categories.map(c => `- \u26A0\uFE0F ${c}`).join('\n')}` : ''}
+${formatTrajectory(result)}
 ${formatDeterministicFlags(result)}
 ${formatRationale(result)}
 
 ### Recommended Action
-\`${result.recommended_action}\``;
+\`${result.recommended_action}\``.replace(/\n{3,}/g, '\n\n');
 
         if (result.support) text += formatSupportText(result.support, harmSignals(result, 'detect_unsafe'));
+        text += formatContinuation(result, 'detect_unsafe');
 
         return withViewId({
           structuredContent: { toolName: 'detect_unsafe', result, branding: { appName: 'Tuteliq' } },

@@ -33,6 +33,16 @@ interface FraudToolDef {
   deprecatedFor?: string;
 }
 
+/**
+ * Appended to every fraud tool's description, since context.priorMessages is
+ * accepted uniformly by fraudContextSchema below -- unlike continuation_token
+ * (CONTINUATION_NOTE), which only the `conversational` subset issues back.
+ */
+const PRIOR_MESSAGES_NOTE =
+  ' Already have the whole conversation in hand? Pass `context.priorMessages`'
+  + ' (oldest first, `{ role, text, timestamp? }`) to see it in one call --'
+  + ' request-scoped, never stored server-side.';
+
 /** Appended to the description of every tool that supports multi-turn state. */
 const CONTINUATION_NOTE =
   ' Multi-turn: every result ends with a "Conversation state" section containing a `continuation_token` —'
@@ -151,6 +161,16 @@ const fraudContextSchema = z.object({
   ageGroup: z.string().optional().describe('Age group (e.g., "13-15")'),
   platform: z.string().optional().describe('Platform name (e.g., "Discord", "Telegram")'),
   country: z.string().optional().describe('ISO 3166-1 alpha-2 country code (e.g., "GB", "US", "SE"). Localises the crisis helplines returned with a positive result.'),
+  // Request-scoped: never stored server-side, used once to build the
+  // analysis prompt for this call and then discarded. Independent of
+  // continuation_token (below) -- carries state WITHIN one call instead of
+  // across separate calls. Supported by every fraud tool, not just the
+  // `conversational` subset that also issues a continuation_token.
+  priorMessages: z.array(z.object({
+    role: z.string(),
+    text: z.string(),
+    timestamp: z.string().optional(),
+  })).optional().describe('Prior turns of this conversation, oldest first, submitted for this request only -- not stored server-side. Lets a single call see the trajectory a gradually-building risk needs.'),
 }).passthrough().optional().describe('Optional analysis context');
 
 const fraudInputSchema = {
@@ -177,7 +197,7 @@ export function registerFraudTools(server: McpServer, client: Tuteliq): void {
       tool.name,
       {
         title: tool.title,
-        description: tool.description + (tool.conversational ? CONTINUATION_NOTE : ''),
+        description: tool.description + PRIOR_MESSAGES_NOTE + (tool.conversational ? CONTINUATION_NOTE : ''),
         annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
         // Only the conversational tools advertise the continuation inputs; the
         // cast keeps one handler signature for both shapes, and the fields are
