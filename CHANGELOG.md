@@ -7,6 +7,25 @@ The MCP tool surface — tool names, input schemas, and `structuredContent` shap
 is the public API. Changes to the interactive widgets are user-visible but do not
 break programmatic callers.
 
+## [4.0.0] — 2026-08-31
+
+### Removed — BREAKING
+
+- **`detect_emotional_distress` has been removed.** Use **`detect_distress_signals`** instead: identical behaviour, identical backing endpoint (`/safety/distress-signals`), and it accepts the multi-turn inputs the alias never did.
+
+  The alias was deprecated two minor versions ago and its description has carried the removal notice since. It was flagged again in an external review of the connector, which is what prompted this.
+
+  **This is a tool-surface change, which is the public API — hence the major version.** Only callers invoking the MCP tool by that name are affected; the underlying HTTP route is untouched and HTTP integrations need no change.
+
+  **Migration:** rename the tool call. Everything else — inputs, `structuredContent` shape, results — is identical.
+
+  ```diff
+  - detect_emotional_distress({ content, context })
+  + detect_distress_signals({ content, context })
+  ```
+
+  **Migrating is an upgrade, not just a rename.** The alias could not accept `continuation_token` or `reset_conversation`, so an agent that selected it silently lost conversation-trajectory awareness across turns. `detect_distress_signals` carries it.
+
 ## [3.27.0] — 2026-08-28
 
 ### Added

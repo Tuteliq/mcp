@@ -24,11 +24,14 @@ interface FraudToolDef {
    */
   conversational?: boolean;
   /**
-   * Set on a retained alias: the tool name callers should move to. Kept listed
-   * rather than deleted because removing a tool breaks every integration
-   * already calling it and this server is on a minor version — but the notice
-   * now appears on the result as well as in the description, so it cannot be
-   * missed by a caller who never reads tool metadata.
+   * Set on a retained alias: the tool name callers should move to.
+   *
+   * Currently unused — `detect_emotional_distress` was the only alias and was
+   * removed in 4.0.0. Kept because the lesson behind it is worth not
+   * relearning: a deprecation that lives only in the tool DESCRIPTION is read
+   * once, at registration, and never again, so the notice has to appear on the
+   * RESULT too (see the handler below). The next alias should set this rather
+   * than inventing a new mechanism.
    */
   deprecatedFor?: string;
 }
@@ -128,15 +131,6 @@ const FRAUD_TOOLS: FraudToolDef[] = [
     invoking: 'Analyzing for distress-signal patterns...',
     invoked: 'Distress-signals analysis complete.',
     conversational: true,
-  },
-  {
-    name: 'detect_emotional_distress',
-    title: 'DEPRECATED — use detect_distress_signals',
-    description: 'DEPRECATED ALIAS — DO NOT USE FOR NEW WORK. Call `detect_distress_signals` instead: identical behaviour, identical backing endpoint (/safety/distress-signals), and it also supports multi-turn `continuation_token`, which this alias does not. Retained only so existing integrations keep working; it will be removed in the next major version.',
-    method: 'detectDistressSignals',
-    invoking: 'Analyzing for distress-signal patterns...',
-    invoked: 'Distress-signals analysis complete.',
-    deprecatedFor: 'detect_distress_signals',
   },
   {
     name: 'detect_tfgbv',
