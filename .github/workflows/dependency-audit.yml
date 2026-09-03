@@ -1,0 +1,47 @@
+# Advisories do not wait for a push.
+#
+# CI audits dependencies, but only on push and pull_request, so a repository
+# that is not being actively committed to stops checking. Four high-severity
+# fast-uri advisories published while main was idle and sat unnoticed until a
+# compliance dashboard read the alert feed; the next push then failed CI for
+# something that had been true for days.
+#
+# This runs the same audit on a schedule so the gap is bounded by a day rather
+# than by however long it happens to be between commits. A failed scheduled run
+# notifies whoever last touched the cron.
+name: Dependency audit
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      # Same gate as CI, deliberately: this job should fail exactly when the
+      # next push would have failed, with no separate threshold to keep in sync.
+      - name: Audit dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      # Advisory, and outside the gate above so it reports even on a red audit.
+      # Dependabot raises no PRs for overridden packages, so without this the
+      # only signal that a pin has gone stale is an advisory landing on it.
+      - name: Check override freshness
+        if: always()
+        run: npm run check:overrides
