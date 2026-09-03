@@ -106,11 +106,11 @@
     "vitest": "^4.1.11"
   },
   "overrides": {
-    "qs": ">=6.15.2",
+    "qs": ">=6.16.0",
     "hono": ">=4.12.34",
     "@hono/node-server": ">=2.0.10",
     "path-to-regexp": ">=8.2.0",
-    "fast-uri": ">=4.1.2",
+    "fast-uri": ">=4.1.3",
     "ip-address": ">=10.4.0"
   },
   "engines": {
