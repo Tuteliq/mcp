@@ -90,7 +90,7 @@
     "@tuteliq/sdk": "^2.32.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "zod": "^4.5.1"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/cors": "^2.8.0",
