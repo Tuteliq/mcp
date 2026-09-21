@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Tuteliq, WebhookEventType, ConsentType, AuditAction, BreachSeverity, BreachStatus, BreachNotificationStatus } from '@tuteliq/sdk';
-import { severityEmoji } from '../formatters.js';
+import { severityEmoji, formatQuota } from '../formatters.js';
 
 // Key order matches the inline annotation literals used in detection.ts/
 // analysis.ts (readOnlyHint, openWorldHint, destructiveHint) rather than the
@@ -276,13 +276,7 @@ ${result.recommendations ? `### Recommendation\n${result.recommendations.reason}
     },
     async () => {
       const result = await client.getQuota();
-      const text = `## Rate Limit Quota
-
-**Tier:** ${result.tier}
-**Rate Limit:** ${result.rate_limit}/min
-**Remaining This Minute:** ${result.remaining}
-**Resets In:** ${result.reset_in_seconds}s`;
-      return { content: [{ type: 'text', text }] };
+      return { content: [{ type: 'text', text: formatQuota(result) }] };
     },
   );
 

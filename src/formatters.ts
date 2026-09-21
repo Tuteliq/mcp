@@ -856,3 +856,43 @@ export function formatVerificationSessionResult(result: VerificationSessionResul
 
   return lines.join('\n');
 }
+
+/**
+ * The quota tool's text, from whatever shape the API returns.
+ *
+ * The API's GET /usage/quota answers `{ tier, limits: { requestsPerMinute,
+ * ... }, current: { requestsThisMinute, ... }, remaining: { requestsThisMinute,
+ * ... }, resetsInSeconds }`. This tool (and the SDK's `UsageQuota` type) had
+ * assumed flat `rate_limit` / `remaining` / `reset_in_seconds` fields that the
+ * API never sent, which rendered as "undefined/min", "[object Object]" and
+ * "undefineds" (customer report, 2026-09-21). Read the real fields, keep the
+ * old names as a fallback, and never print an undefined.
+ */
+export function formatQuota(result: unknown): string {
+  const q = (result ?? {}) as Record<string, unknown>;
+  const obj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' ? (v as Record<string, unknown>) : {});
+  const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+  const show = (v: number | undefined, unit = ''): string => (v === undefined ? 'n/a' : `${v}${unit}`);
+
+  const tier = typeof q.tier === 'string' ? q.tier : 'n/a';
+  const perMinute = num(obj(q.limits).requestsPerMinute) ?? num(q.rate_limit);
+  const remainingThisMinute = num(obj(q.remaining).requestsThisMinute) ?? num(q.remaining);
+  const usedThisMinute = num(obj(q.current).requestsThisMinute);
+  const remainingToday = num(obj(q.remaining).requestsToday);
+  const perDay = num(obj(q.limits).requestsPerDay);
+  const resets = num(q.resetsInSeconds) ?? num(q.reset_in_seconds);
+
+  const lines = [
+    '## Rate Limit Quota',
+    '',
+    `**Tier:** ${tier}`,
+    `**Rate Limit:** ${show(perMinute, '/min')}`,
+    `**Used This Minute:** ${show(usedThisMinute)}`,
+    `**Remaining This Minute:** ${show(remainingThisMinute)}`,
+    `**Resets In:** ${show(resets, 's')}`,
+  ];
+  if (perDay !== undefined && perDay !== -1) {
+    lines.push(`**Remaining Today:** ${show(remainingToday)} of ${perDay}`);
+  }
+  return lines.join('\n');
+}
