@@ -13,6 +13,7 @@ import type {
   VerificationSession,
   VerificationSessionResult,
   RecommendedAction,
+  UsageQuota,
 } from '@tuteliq/sdk';
 import { isActionable } from '@tuteliq/sdk';
 import { harmSignals, relevantHelplines } from './support-relevance.js';
@@ -868,19 +869,23 @@ export function formatVerificationSessionResult(result: VerificationSessionResul
  * "undefineds" (customer report, 2026-09-21). Read the real fields, keep the
  * old names as a fallback, and never print an undefined.
  */
-export function formatQuota(result: unknown): string {
-  const q = (result ?? {}) as Record<string, unknown>;
-  const obj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' ? (v as Record<string, unknown>) : {});
+export function formatQuota(quota: UsageQuota): string {
+  // Typed against the SDK's UsageQuota (2.33.0, the wire shape of
+  // GET /usage/quota). Field reads stay guarded: the connector can face an
+  // API deployment older than the field it wants (resetsInSeconds arrived
+  // on 2026-09-21), and this text must never print "undefined" or
+  // "[object Object]" again, which is what the customer saw.
+  const q = (quota ?? {}) as Partial<UsageQuota>;
   const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
   const show = (v: number | undefined, unit = ''): string => (v === undefined ? 'n/a' : `${v}${unit}`);
 
   const tier = typeof q.tier === 'string' ? q.tier : 'n/a';
-  const perMinute = num(obj(q.limits).requestsPerMinute) ?? num(q.rate_limit);
-  const remainingThisMinute = num(obj(q.remaining).requestsThisMinute) ?? num(q.remaining);
-  const usedThisMinute = num(obj(q.current).requestsThisMinute);
-  const remainingToday = num(obj(q.remaining).requestsToday);
-  const perDay = num(obj(q.limits).requestsPerDay);
-  const resets = num(q.resetsInSeconds) ?? num(q.reset_in_seconds);
+  const perMinute = num(q.limits?.requestsPerMinute);
+  const usedThisMinute = num(q.current?.requestsThisMinute);
+  const remainingThisMinute = num(q.remaining?.requestsThisMinute);
+  const remainingToday = num(q.remaining?.requestsToday);
+  const perDay = num(q.limits?.requestsPerDay);
+  const resets = num(q.resetsInSeconds);
 
   const lines = [
     '## Rate Limit Quota',

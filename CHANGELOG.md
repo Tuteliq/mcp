@@ -7,6 +7,14 @@ The MCP tool surface — tool names, input schemas, and `structuredContent` shap
 is the public API. Changes to the interactive widgets are user-visible but do not
 break programmatic callers.
 
+## [4.0.1] — 2026-09-21
+
+### Fixed
+
+- **`get_usage_quota` printed `undefined/min`, `[object Object]` and `undefineds`** (customer report, 2026-09-21). The formatter read flat `rate_limit` / `remaining` / `reset_in_seconds` fields that `GET /usage/quota` never returned; the SDK type declared them, so nothing failed to compile. The tool now renders the wire shape: tier, per-minute limit, used and remaining this minute, seconds until the window resets, and remaining today where the tier has a daily limit. Any value the API omits renders as `n/a`, never `undefined`. Output text only; the tool's name, input schema and `structuredContent` are unchanged, hence a patch.
+
+  **Requires `@tuteliq/sdk` 2.33.0+** (the corrected `UsageQuota` type). `resetsInSeconds` needs the API deployed on or after 2026-09-21 and shows `n/a` on older deployments.
+
 ## [4.0.0] — 2026-08-31
 
 ### Removed — BREAKING
