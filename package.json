@@ -85,7 +85,7 @@
     "url": "https://github.com/Tuteliq/mcp/issues"
   },
   "dependencies": {
-    "@modelcontextprotocol/ext-apps": "^1.7.5",
+    "@modelcontextprotocol/ext-apps": "^2.0.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@tuteliq/sdk": "^2.33.0",
     "cors": "^2.8.6",
