@@ -3,7 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import type { Tuteliq } from '@tuteliq/sdk';
 import { loadWidget } from '../package-root.js';
-import { severityEmoji, riskEmoji, formatSupportText, formatRationale, formatContinuation, formatTrajectory, riskScoreScope, verdictHeader, verdictStatus } from '../formatters.js';
+import { severityEmoji, riskEmoji, formatSupportText, formatRationale, formatContinuation, formatTrajectory, riskScoreScope, verdictHeader, verdictStatus , formatMessageRows } from '../formatters.js';
 import { harmSignals } from '../support-relevance.js';
 import { withViewId } from '../view-id.js';
 import { widgetUri } from '../widget-uri.js';
@@ -225,6 +225,10 @@ ${formatRationale(result)}
 ### Recommended Action
 \`${result.recommended_action}\``.replace(/\n{3,}/g, '\n\n');
 
+        // The rows were only in structuredContent; the text now carries them
+        // too, with the coverage line and withdrawn tactics a reader needs.
+        const rows = formatMessageRows(result.message_analysis, messages.length);
+        if (rows) text += `\n\n${rows}`;
         if (result.support) text += formatSupportText(result.support, harmSignals(result, 'detect_grooming'));
         text += formatContinuation(result, 'detect_grooming');
 

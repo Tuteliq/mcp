@@ -7,6 +7,17 @@ The MCP tool surface — tool names, input schemas, and `structuredContent` shap
 is the public API. Changes to the interactive widgets are user-visible but do not
 break programmatic callers.
 
+## [4.0.2] — 2026-09-22
+
+### Fixed
+
+- **`detect_grooming` text output now carries the per-message rows**, with two things the structured result does not say (customer report, 2026-09-22): when rows cover fewer messages than were sent, a line states how many and that a message without a row carried no per-message finding, not a zero; and a tactic the API withdrew from a row (`unsupported_flags`) is shown as withdrawn rather than dropped. Text only; `structuredContent` is unchanged.
+- **`get_usage_quota` says what the daily figure counts.** The per-minute figure counts requests as they start, the daily figure counts completed requests, so a quota read while calls are in flight shows them in the first and not yet in the second. The output line and the tool description now say so.
+
+### Dependencies
+
+- zod 4.5.4 → 4.6.5; github/codeql-action 4.38.0 → 4.38.1. `@modelcontextprotocol/ext-apps` 2.0.0 was declined: it moves to the split MCP SDK 2.0 packages (`@modelcontextprotocol/client` and `server` replace `sdk@^1`), a migration of the whole server, not a bump.
+
 ## [4.0.1] — 2026-09-21
 
 ### Fixed

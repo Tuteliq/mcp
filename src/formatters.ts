@@ -869,6 +869,29 @@ export function formatVerificationSessionResult(result: VerificationSessionResul
  * "undefineds" (customer report, 2026-09-21). Read the real fields, keep the
  * old names as a fallback, and never print an undefined.
  */
+/**
+ * Per-message rows as text, with the two things a reader needs and the
+ * structured result does not say (customer report, 2026-09-22): rows cover
+ * only the messages the model judged relevant, so a message without a row
+ * carried no per-message finding, not a zero; and a tactic the API withdrew
+ * from a row (`unsupported_flags`) is shown as withdrawn, not dropped.
+ */
+export function formatMessageRows(
+  rows: ReadonlyArray<{ message_index: number; risk_score: number; flags: string[]; summary: string; unsupported_flags?: string[] }> | undefined,
+  messageCount: number,
+): string {
+  if (!rows || rows.length === 0) return '';
+  const coverage = rows.length < messageCount
+    ? `${rows.length} of ${messageCount} messages have a row; a message without a row carried no per-message finding.\n`
+    : '';
+  const lines = rows.map(m => {
+    const flags = m.flags.length > 0 ? ` [${m.flags.join(', ')}]` : '';
+    const withdrawn = m.unsupported_flags && m.unsupported_flags.length > 0 ? ` (withdrawn: ${m.unsupported_flags.join(', ')})` : '';
+    return `- **Message ${m.message_index}** (risk: ${(m.risk_score * 100).toFixed(0)}%)${flags}${withdrawn} — ${m.summary}`;
+  });
+  return `### Message Analysis\n${coverage}${lines.join('\n')}`;
+}
+
 export function formatQuota(quota: UsageQuota): string {
   // Typed against the SDK's UsageQuota (2.33.0, the wire shape of
   // GET /usage/quota). Field reads stay guarded: the connector can face an
@@ -897,7 +920,11 @@ export function formatQuota(quota: UsageQuota): string {
     `**Resets In:** ${show(resets, 's')}`,
   ];
   if (perDay !== undefined && perDay !== -1) {
-    lines.push(`**Remaining Today:** ${show(remainingToday)} of ${perDay}`);
+    // Completed requests: the per-minute figure counts requests as they
+    // start, the daily one as they finish, so a quota read while calls are
+    // in flight shows them in the first and not yet in the second (customer
+    // report, 2026-09-22).
+    lines.push(`**Remaining Today:** ${show(remainingToday)} of ${perDay} (completed requests; calls still in flight are counted when they finish)`);
   }
   return lines.join('\n');
 }
