@@ -270,7 +270,7 @@ ${result.recommendations ? `### Recommendation\n${result.recommendations.reason}
     'get_usage_quota',
     {
       title: 'Rate Limit Quota',
-      description: 'Get the real-time rate limit status: requests remaining this minute and seconds until reset. Useful as a pre-flight check before running batch analyses.',
+      description: 'Get the real-time rate limit status: requests remaining this minute, seconds until reset, and remaining today. The per-minute figure counts requests as they start; the daily figure counts completed requests, so calls still in flight appear in the first and not yet in the second. Useful as a pre-flight check before running batch analyses.',
       annotations: READ_ONLY,
       inputSchema: {},
     },
