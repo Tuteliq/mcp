@@ -241,7 +241,7 @@ export function registerAdminTools(server: McpServer, client: Tuteliq): void {
 **Remaining:** ${result.usage.remaining}
 **Rate Limit:** ${result.rate_limit.requests_per_minute}/min
 
-${result.recommendations ? `### Recommendation\n${result.recommendations.reason}\n**Suggested Tier:** ${result.recommendations.suggested_tier}\n[Upgrade](${result.recommendations.upgrade_url})` : ''}`;
+${result.recommendations ? `### Recommendation\n${result.recommendations.reason}\n**Suggested Tier:** ${result.recommendations.suggested_tier}` : ''}`;
       return { content: [{ type: 'text', text }] };
     },
   );

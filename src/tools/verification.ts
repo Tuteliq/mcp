@@ -12,7 +12,7 @@ function handleTierError(err: any, toolName: string, featureLabel: string) {
   if (err?.status === 403 || err?.response?.status === 403) {
     const message = `Your current plan does not include ${featureLabel.toLowerCase()}. Upgrade your plan or purchase additional credits to unlock this feature.`;
     return {
-      content: [{ type: 'text' as const, text: `⚠️ ${message}\n\nUpgrade at: https://tuteliq.ai/dashboard` }],
+      content: [{ type: 'text' as const, text: `⚠️ ${message}` }],
     };
   }
   return null;
