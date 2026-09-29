@@ -13,6 +13,8 @@ import { registerAdminTools } from './tools/admin.js';
 import { registerAutomationTools } from './tools/automation.js';
 import { registerGovernanceTools } from './tools/governance.js';
 import { registerResources } from './tools/resources.js';
+import { pathToFileURL } from 'node:url';
+
 import { getTransportMode, startStdio } from './transport.js';
 import { PACKAGE_VERSION } from './package-root.js';
 
@@ -47,6 +49,21 @@ export function createServer(apiKeyOverride?: string): McpServer {
   return server;
 }
 
+/**
+ * True when this file was run as a program rather than imported as a module.
+ * The HTTP deployment imports `createServer` and drives its own transport, so
+ * it must keep reaching the `else` branch without printing anything.
+ */
+function isDirectExecution(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return import.meta.url === pathToFileURL(entry).href;
+  } catch {
+    return false;
+  }
+}
+
 // Direct execution: stdio mode
 if (getTransportMode() === 'stdio') {
   const server = createServer();
@@ -54,4 +71,22 @@ if (getTransportMode() === 'stdio') {
     console.error('Fatal error:', error);
     process.exit(1);
   });
+} else if (isDirectExecution()) {
+  // Transport defaults to http, which this entrypoint does not start: the HTTP
+  // deployment imports `createServer` instead. Run as a binary, that meant
+  // exiting 0 with no output and no explanation, which reads as a crash.
+  // Say so rather than sitting silent. The exit code is deliberately
+  // unchanged, since something may already depend on it.
+  console.error(
+    'tuteliq-mcp: nothing to do.\n'
+    + '\n'
+    + "This entrypoint starts a server only in stdio mode, and the transport currently resolves to 'http'.\n"
+    + '\n'
+    + '  To run over stdio (what an MCP client expects):\n'
+    + '    TUTELIQ_MCP_TRANSPORT=stdio TUTELIQ_API_KEY=<key> tuteliq-mcp\n'
+    + '\n'
+    + '  For HTTP, import { createServer } and attach your own transport.\n'
+    + '\n'
+    + '  The hosted server is at https://api.tuteliq.ai/mcp',
+  );
 }
