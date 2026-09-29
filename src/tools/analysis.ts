@@ -68,7 +68,7 @@ function handleTierError(err: any, toolName: string, featureLabel: string) {
     };
     return {
       structuredContent: { toolName, result: upsellResult, branding: { appName: 'Tuteliq' } },
-      content: [{ type: 'text' as const, text: `\u26A0\uFE0F ${upsellResult.message}\n\nUpgrade at: https://tuteliq.ai/dashboard` }],
+      content: [{ type: 'text' as const, text: `\u26A0\uFE0F ${upsellResult.message}` }],
     };
   }
   return null;

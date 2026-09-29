@@ -240,7 +240,7 @@ export function registerFraudTools(server: McpServer, client: Tuteliq): void {
             };
             return {
               structuredContent: { toolName: tool.name, result: upsellResult, branding: { appName: 'Tuteliq' } },
-              content: [{ type: 'text' as const, text: `⚠️ ${upsellResult.message}\n\nUpgrade at: https://tuteliq.ai/dashboard` }],
+              content: [{ type: 'text' as const, text: `⚠️ ${upsellResult.message}` }],
             };
           }
           throw err;

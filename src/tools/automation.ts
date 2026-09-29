@@ -9,7 +9,7 @@ const DESTRUCTIVE = { readOnlyHint: false, destructiveHint: true, openWorldHint:
 function handleTierError(err: any, featureLabel: string) {
   if (err?.status === 403 || err?.response?.status === 403) {
     return {
-      content: [{ type: 'text' as const, text: `⚠️ Your current plan does not include ${featureLabel}. Upgrade at: https://tuteliq.ai/dashboard` }],
+      content: [{ type: 'text' as const, text: `⚠️ Your current plan does not include ${featureLabel}.` }],
     };
   }
   return null;
