@@ -48,7 +48,7 @@ export function registerMediaTools(server: McpServer, client: Tuteliq): void {
     {
       title: 'Analyze Voice',
       description: 'Analyze an audio file for safety concerns. Transcribes the audio via Whisper, then runs safety analysis on the transcript. Supports mp3, wav, m4a, ogg, flac, webm, mp4. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
-      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
       inputSchema: {
         file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the audio file on disk'),
         url: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. URL to download the audio from'),
@@ -129,7 +129,7 @@ ${analysisLines.join('\n')}`;
     {
       title: 'Analyze Image',
       description: 'Analyze an image for visual safety concerns and OCR text extraction. Supports png, jpg, jpeg, gif, webp. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
-      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
       inputSchema: {
         file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the image file on disk'),
         url: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. URL to download the image from'),
@@ -199,7 +199,7 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
     {
       title: 'Analyze Video',
       description: 'Analyze a video file for safety concerns. Extracts key frames and runs safety classification. Supports mp4, mov, avi, webm, mkv. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
-      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
       inputSchema: {
         file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the video file on disk'),
         url: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. URL to download the video from'),
@@ -240,7 +240,7 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
     {
       title: 'Analyze Document',
       description: 'Analyze a PDF document for safety and compliance concerns. Extracts text from each page, runs detection endpoints in parallel, and returns per-page results with an overall risk assessment. Zero-retention: no document data is stored after processing. Supports PDF only (max 50MB, 100 pages). Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
-      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
       inputSchema: {
         file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the PDF file on disk'),
         url: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. URL to download the PDF from'),

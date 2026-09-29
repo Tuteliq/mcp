@@ -4,9 +4,9 @@ import type { Tuteliq } from '@tuteliq/sdk';
 import { VerificationMode } from '@tuteliq/sdk';
 import { formatVerificationSession, formatVerificationSessionResult } from '../formatters.js';
 
-const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: true } as const;
-const ADDITIVE = { readOnlyHint: false, destructiveHint: false, openWorldHint: true } as const;
-const DESTRUCTIVE = { readOnlyHint: false, destructiveHint: true, openWorldHint: true } as const;
+const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const;
+const ADDITIVE = { readOnlyHint: false, destructiveHint: false, openWorldHint: false } as const;
+const DESTRUCTIVE = { readOnlyHint: false, destructiveHint: true, openWorldHint: false } as const;
 
 function handleTierError(err: any, toolName: string, featureLabel: string) {
   if (err?.status === 403 || err?.response?.status === 403) {

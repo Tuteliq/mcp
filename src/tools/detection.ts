@@ -109,7 +109,7 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
     {
       title: 'Detect Bullying',
       description: 'Analyze text content to detect bullying, harassment, or harmful language. `risk_score` scores ONLY the message you pass in. Multi-turn: every result ends with a "Conversation state" section containing a `continuation_token` — pass that exact string back as `continuation_token` on the next call to carry trajectory awareness forward. No message content is stored server-side; the token is the state. From the second turn onward the result also carries a "Conversation risk" section: `trajectory_risk` (0-1 for the conversation, not the message), `trajectory` (rising/stable/declining/none) and `severity_series` (per-turn severity, oldest first). These diverge from `risk_score` precisely where it matters — a friendly message sent straight after an escalation scores low on its own and high as a conversation — so judge the conversation on the higher of the two.',
-      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
       inputSchema: {
         content: z.string().describe('The text content to analyze for bullying'),
         context: contextSchema,
@@ -177,7 +177,7 @@ ${formatRationale(result)}
     {
       title: 'Detect Grooming',
       description: 'Analyze a conversation for grooming patterns and predatory behavior. Supports optional ages: pass `childAge` for the minor, `participantAge` for the non-minor counterpart, and `senderAge` per message when you have richer multi-party info. For conversations longer than ~20 turns, chunk into sliding windows: every result ends with a "Conversation state" section containing a `continuation_token` — pass that exact string back as `continuation_token` on the next chunk to carry trajectory awareness across windows. No message content is stored server-side; the token is the state. From the second chunk onward the result also carries a "Conversation risk" section: `trajectory_risk` (0-1 across every window seen so far, not just this one), `trajectory` (rising/stable/declining/none) and `severity_series` (per-window severity, oldest first). Grooming is a slow burn, so a window that reads benign can still sit inside a high-risk conversation — judge it on the higher of `risk_score` and `trajectory_risk`.',
-      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
       inputSchema: {
         messages: z.array(z.object({
           role: z.enum(['adult', 'child', 'unknown']),
@@ -251,7 +251,7 @@ ${formatRationale(result)}
     {
       title: 'Detect Unsafe Content',
       description: 'Detect unsafe content including self-harm, violence, drugs, explicit material. `risk_score` scores ONLY the message you pass in. Multi-turn: two independent ways to carry conversation trajectory, pick whichever fits your call pattern. (1) Already have the whole conversation in hand? Pass `context.priorMessages` (oldest first) to see it in one call — request-scoped, never stored server-side. (2) Calling once per new message as it arrives? Every result ends with a "Conversation state" section containing a `continuation_token` — pass that exact string back as `continuation_token` on the next call, same as detect_bullying/detect_grooming. No message content is stored server-side either way; the token is the state. From the second turn onward the result also carries a "Conversation risk" section: `trajectory_risk` (0-1 for the conversation, not the message), `trajectory` (rising/stable/declining/none) and `severity_series` (per-turn severity, oldest first).',
-      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
       inputSchema: {
         content: z.string().describe('The text content to analyze for unsafe content'),
         context: contextSchema,
@@ -319,7 +319,7 @@ ${formatRationale(result)}
     {
       title: 'Quick Safety Analysis',
       description: 'Run bullying and unsafe-content detection on a single piece of text in one call. Use this when you want a general safety read and do not know which harm to look for. Prefer detect_bullying or detect_unsafe when you already know, since those return richer per-category detail. For multi-turn conversations use detect_grooming or analyse_multi instead: this endpoint scores one message at a time and does not reason across a conversation.',
-      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
       inputSchema: {
         content: z.string().describe('The text content to analyze'),
         include: z.array(z.enum(['bullying', 'unsafe'])).optional().describe('Which checks to run (default: both)'),

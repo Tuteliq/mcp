@@ -192,7 +192,7 @@ export function registerFraudTools(server: McpServer, client: Tuteliq): void {
       {
         title: tool.title,
         description: tool.description + PRIOR_MESSAGES_NOTE + (tool.conversational ? CONTINUATION_NOTE : ''),
-        annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+        annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
         // Only the conversational tools advertise the continuation inputs; the
         // cast keeps one handler signature for both shapes, and the fields are
         // simply absent (undefined) on the tools that never accept them.
