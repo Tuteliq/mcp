@@ -105,7 +105,7 @@ export function registerAnalysisTools(server: McpServer, client: Tuteliq): void 
     {
       title: 'Analyze Emotions',
       description: 'Analyze emotional content and mental state indicators. Identifies dominant emotions, trends, and provides follow-up recommendations. Pass either `content` (single text) or `messages` (a conversation with senders) — messages enable per-speaker trend analysis.',
-      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
       inputSchema: {
         content: z.string().optional().describe('Single text content to analyze for emotions (alternative to messages)'),
         messages: z.array(z.object({
@@ -183,7 +183,7 @@ ${result.recommended_followup}`;
     {
       title: 'Get Action Plan',
       description: 'Generate age-appropriate guidance and action steps for handling a safety situation.',
-      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
       inputSchema: {
         situation: z.string().describe('Description of the situation needing guidance'),
         childAge: z.number().optional().describe('Age of the child involved'),
@@ -226,7 +226,7 @@ ${result.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}`;
     {
       title: 'Generate Report',
       description: 'Generate a comprehensive incident report from a conversation.',
-      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
       inputSchema: {
         messages: z.array(z.object({
           sender: z.string().describe('Name/ID of sender'),
@@ -283,7 +283,7 @@ ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
         'Run several detection endpoints against one piece of text in a single call, returning each verdict plus a combined risk level. '
         + 'Prefer this over `analyze` when the threat is not child-safety-specific: `analyze` only ever runs bullying and unsafe, so a financial scam analysed with it comes back labelled from the child-safety taxonomy rather than as fraud. '
         + 'Endpoint ids are hyphenated and are NOT the tool names — `social-engineering`, not `detect_social_engineering`. Maximum 10 per call.',
-      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
       inputSchema: {
         content: z.string().describe('Text content to analyze'),
         // A closed enum, not `z.array(z.string())`. The ids are hyphenated and
@@ -343,7 +343,7 @@ ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
         + 'Pass `content` for the single-text types (bullying, unsafe, and every fraud/extended type), `messages` for grooming, '
         + 'and either for emotions. Give each item an `id` if you want to address it; one is generated otherwise. '
         + 'Per-item success/error is returned so a partial failure does not lose the successful results.',
-      annotations: { readOnlyHint: true, openWorldHint: true, destructiveHint: false },
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
       inputSchema: {
         items: z.array(z.object({
           // `id` addresses this item inside this request; the API requires one.

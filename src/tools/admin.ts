@@ -13,9 +13,31 @@ import { severityEmoji, formatQuota } from '../formatters.js';
 // No code anywhere in this stack implements approval gating, so the report is
 // very likely client-side, not caused by this; harmonizing anyway since it's
 // zero-risk and removes the only discrepancy on record.
-const READ_ONLY = { readOnlyHint: true, openWorldHint: true, destructiveHint: false } as const;
-const ADDITIVE = { readOnlyHint: false, openWorldHint: true, destructiveHint: false } as const;
-const DESTRUCTIVE = { readOnlyHint: false, openWorldHint: true, destructiveHint: true } as const;
+const READ_ONLY = { readOnlyHint: true, openWorldHint: false, destructiveHint: false } as const;
+/**
+ * The three tools that genuinely reach an open world.
+ *
+ * `openWorldHint` is false everywhere else because a detection call operates on
+ * user-supplied content against our own service: a closed domain, like a
+ * database query rather than a web search. Claiming otherwise over-states what
+ * every tool might touch, which is what the previous blanket `true` did.
+ *
+ * These three are different in kind. `test_webhook` dispatches a payload to a
+ * customer-supplied URL; `create_webhook` and `update_webhook` configure that
+ * destination. All three can therefore cause a request to a host we do not
+ * control and cannot vouch for.
+ */
+const EXTERNAL_DESTINATION = { readOnlyHint: false, openWorldHint: true, destructiveHint: false } as const;
+/**
+ * `update_webhook` is both: it points at an external destination AND it
+ * overwrites an existing configuration, which is why it was DESTRUCTIVE before
+ * this change. Keeping `destructiveHint: true` is deliberate. Reusing
+ * EXTERNAL_DESTINATION here would have quietly downgraded it to false, and a
+ * destructive hint is what tells a client to confirm before calling.
+ */
+const EXTERNAL_DESTINATION_DESTRUCTIVE = { readOnlyHint: false, openWorldHint: true, destructiveHint: true } as const;
+const ADDITIVE = { readOnlyHint: false, openWorldHint: false, destructiveHint: false } as const;
+const DESTRUCTIVE = { readOnlyHint: false, openWorldHint: false, destructiveHint: true } as const;
 
 export function registerAdminTools(server: McpServer, client: Tuteliq): void {
 
@@ -48,7 +70,7 @@ export function registerAdminTools(server: McpServer, client: Tuteliq): void {
     {
       title: 'Create Webhook',
       description: 'Create a new webhook endpoint.',
-      annotations: ADDITIVE,
+      annotations: EXTERNAL_DESTINATION,
       inputSchema: {
         name: z.string().describe('Display name for the webhook'),
         url: z.string().describe('HTTPS URL to receive webhook payloads'),
@@ -72,7 +94,7 @@ export function registerAdminTools(server: McpServer, client: Tuteliq): void {
     {
       title: 'Update Webhook',
       description: 'Update an existing webhook configuration.',
-      annotations: DESTRUCTIVE,
+      annotations: EXTERNAL_DESTINATION_DESTRUCTIVE,
       inputSchema: {
         id: z.string().describe('Webhook ID'),
         name: z.string().optional().describe('New display name'),
@@ -113,7 +135,7 @@ export function registerAdminTools(server: McpServer, client: Tuteliq): void {
     {
       title: 'Test Webhook',
       description: 'Send a test payload to a webhook to verify it is working correctly.',
-      annotations: ADDITIVE,
+      annotations: EXTERNAL_DESTINATION,
       inputSchema: { id: z.string().describe('Webhook ID to test') },
     },
     async ({ id }) => {

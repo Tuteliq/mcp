@@ -2,9 +2,9 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Tuteliq, PolicyRule } from '@tuteliq/sdk';
 
-const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: true } as const;
-const ADDITIVE = { readOnlyHint: false, destructiveHint: false, openWorldHint: true } as const;
-const DESTRUCTIVE = { readOnlyHint: false, destructiveHint: true, openWorldHint: true } as const;
+const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const;
+const ADDITIVE = { readOnlyHint: false, destructiveHint: false, openWorldHint: false } as const;
+const DESTRUCTIVE = { readOnlyHint: false, destructiveHint: true, openWorldHint: false } as const;
 
 function handleTierError(err: any, featureLabel: string) {
   if (err?.status === 403 || err?.response?.status === 403) {

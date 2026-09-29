@@ -19,9 +19,9 @@ import { RiskLevel, RiskCategory } from '@tuteliq/sdk';
 import { registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import { widgetUri } from '../widget-uri.js';
 
-const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: true } as const;
-const ADDITIVE = { readOnlyHint: false, destructiveHint: false, openWorldHint: true } as const;
-const DESTRUCTIVE = { readOnlyHint: false, destructiveHint: true, openWorldHint: true } as const;
+const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const;
+const ADDITIVE = { readOnlyHint: false, destructiveHint: false, openWorldHint: false } as const;
+const DESTRUCTIVE = { readOnlyHint: false, destructiveHint: true, openWorldHint: false } as const;
 
 // Enums mirrored from the API contract — kept in sync with what
 // /api/v1/incidents/:id/review and /api/v1/incidents/batch-review accept.
