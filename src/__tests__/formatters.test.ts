@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { UsageQuota } from '@tuteliq/sdk';
-import { formatQuota, formatMessageRows } from '../formatters.js';
+import { formatQuota, formatMessageRows, formatUsageSummary } from '../formatters.js';
 
 const full: UsageQuota = {
   apiKeyId: 'k', tier: 'business',
@@ -84,4 +84,46 @@ describe('formatQuota daily wording', () => {
     });
     expect(text).toContain('**Remaining Today:** 6667 of 6667 (completed requests; calls still in flight are counted when they finish)');
   });
+});
+
+describe('formatUsageSummary', () => {
+  // What GET /usage/summary returns. The SDK's UsageSummary type (2.33.x)
+  // declares a billing-period shape the route has never sent.
+  const wire = {
+    apiKeyId: 'k', tier: 'business', date: '2026-10-05',
+    usage: { totalRequests: 120, successRequests: 118, errorRequests: 2 },
+    quota: { requestsPerMinute: 5000, requestsPerDay: 6667, remainingToday: 6547 },
+  };
+
+  it('renders the shape the API returns', () => {
+    const text = formatUsageSummary(wire);
+    expect(text).toContain('**Tier:** business');
+    expect(text).toContain('**Date:** 2026-10-05');
+    expect(text).toContain('**Requests Today:** 120 (118 succeeded, 2 failed)');
+    expect(text).toContain('**Remaining Today:** 6547 of 6667');
+    expect(text).toContain('**Rate Limit:** 5000/min');
+    expect(text).not.toMatch(/undefined|NaN|\[object Object\]/);
+  });
+
+  it('says unlimited when the tier has no daily limit', () => {
+    const text = formatUsageSummary({ ...wire, quota: { requestsPerMinute: 5000, requestsPerDay: -1, remainingToday: -1 } });
+    expect(text).toContain('**Remaining Today:** unlimited');
+  });
+
+  it('renders the billing-period shape too, should an API ever send it', () => {
+    const text = formatUsageSummary({
+      messages_used: 6736, message_limit: 205000, usage_percentage: 3.29, purchased_credits: 0,
+      total_available: 205000, period_start: '2026-10-01', period_end: '2026-10-31', days_remaining: 26,
+    });
+    expect(text).toContain('**Used:** 6736 / 205000 (3.3%)');
+    expect(text).toContain('26 days left');
+    expect(text).not.toMatch(/undefined|NaN/);
+  });
+
+  it.each([[undefined], [null], [{}], [{ usage: {} }], [{ quota: { requestsPerDay: 'many' } }], ['not an object']])(
+    'never throws and never prints undefined for %j', (body) => {
+      const text = formatUsageSummary(body);
+      expect(text).toContain('## Usage Summary');
+      expect(text).not.toMatch(/undefined|NaN|\[object Object\]/);
+    });
 });

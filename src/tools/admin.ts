@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Tuteliq, WebhookEventType, ConsentType, AuditAction, BreachSeverity, BreachStatus, BreachNotificationStatus } from '@tuteliq/sdk';
-import { severityEmoji, formatQuota } from '../formatters.js';
+import { severityEmoji, formatQuota, formatUsageSummary } from '../formatters.js';
 
 // Key order matches the inline annotation literals used in detection.ts/
 // analysis.ts (readOnlyHint, openWorldHint, destructiveHint) rather than the
@@ -272,19 +272,13 @@ ${result.recommendations ? `### Recommendation\n${result.recommendations.reason}
     'get_usage_summary',
     {
       title: 'Usage Summary',
-      description: 'Get the current billing-period usage summary: messages used, limits, purchased credits, and days remaining.',
+      description: "Get today's usage summary: requests made today (succeeded and failed), requests remaining today, and the per-minute rate limit. For billing-period totals, the monthly limit and days remaining, use get_usage_monthly.",
       annotations: READ_ONLY,
       inputSchema: {},
     },
     async () => {
       const result = await client.getUsageSummary();
-      const text = `## Usage Summary
-
-**Billing Period:** ${result.period_start} → ${result.period_end} (${result.days_remaining} days left)
-**Used:** ${result.messages_used} / ${result.message_limit} (${result.usage_percentage.toFixed(1)}%)
-**Purchased Credits:** ${result.purchased_credits}
-**Total Available:** ${result.total_available}`;
-      return { content: [{ type: 'text', text }] };
+      return { content: [{ type: 'text', text: formatUsageSummary(result) }] };
     },
   );
 

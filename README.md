@@ -206,7 +206,7 @@ and the card is unbranded — it is never defaulted to a placeholder.
 | `get_usage_history` | Get daily usage history |
 | `get_usage_by_tool` | Get usage by tool/endpoint |
 | `get_usage_monthly` | Get monthly usage with billing info |
-| `get_usage_summary` | Get current billing-period summary (used, limits, purchased credits) |
+| `get_usage_summary` | Get today's usage: requests made, succeeded and failed, remaining today, and the rate limit |
 | `get_usage_quota` | Get real-time rate-limit status — pre-flight check before batch runs |
 
 ### Policy Configuration

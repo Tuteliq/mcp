@@ -7,6 +7,12 @@ The MCP tool surface — tool names, input schemas, and `structuredContent` shap
 is the public API. Changes to the interactive widgets are user-visible but do not
 break programmatic callers.
 
+## [Unreleased]
+
+### Fixed
+
+- **`get_usage_summary` failed on every call** with `Cannot read properties of undefined (reading 'toFixed')`. The tool read a billing-period shape (`messages_used`, `usage_percentage`, ...) that `GET /usage/summary` has never returned; the route returns one day's request counts and the daily and per-minute limits. The tool now renders what the API returns, prints `n/a` for a missing field and never throws, and its description says what it reports. Billing-period totals remain in `get_usage_monthly`.
+
 ## [4.0.2] — 2026-09-22
 
 ### Fixed
