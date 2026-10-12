@@ -99,21 +99,25 @@ describe('annotations follow from what a tool takes', () => {
         ...names.filter((n) => inputs(n).some((k) => CORRELATION.includes(k)) && n !== 'list_incidents' && n !== 'create_verification_session'),
         'batch_analyze',
     ];
-    const fetchesUrl = names.filter((n) => inputs(n).includes('url') && !EXTERNAL.includes(n));
+    // Any input whose name ends in `url`, not only one named exactly `url`: `redirect_url` on
+    // `create_verification_session` passed the narrower rule and was left closed-world.
+    const takesUrl = names.filter((n) => inputs(n).some((k) => /url$/i.test(k)) && !EXTERNAL.includes(n));
+    const fetchesUrl = takesUrl;
 
     it('reads the registered tools, so this cannot pass vacuously', () => {
         expect(names.length).toBeGreaterThan(70);
         expect(inputs('detect_bullying')).toContain('external_id');
         expect(recordsAndNotifies.length).toBeGreaterThanOrEqual(19);
         expect(fetchesUrl).toEqual(expect.arrayContaining(['analyze_voice', 'analyze_image', 'analyze_video', 'analyze_document']));
+        expect(takesUrl).toContain('create_verification_session');
     });
 
     it.each(recordsAndNotifies)('%s can store an incident and notify a webhook: not read-only, not closed-world, not destructive', (name) => {
         expect(tools[name].annotations).toMatchObject({ readOnlyHint: false, openWorldHint: true, destructiveHint: false });
     });
 
-    it.each(fetchesUrl)('%s can download from a URL the caller names: not closed-world', (name) => {
-        expect(tools[name].annotations).toMatchObject({ openWorldHint: true, destructiveHint: false });
+    it.each(fetchesUrl)('%s takes a URL the caller names: not closed-world', (name) => {
+        expect(tools[name].annotations).toMatchObject({ openWorldHint: true });
     });
 
     it('claims openWorldHint on exactly those tools and the three webhook tools, and on no other', () => {

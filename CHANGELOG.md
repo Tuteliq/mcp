@@ -13,9 +13,10 @@ break programmatic callers.
 
 ### Changed
 
-- **Annotations on 24 tools now say what the tools can do.** A tool annotation is a claim a host acts on: a read-only tool may be called without asking the user.
+- **Annotations on 25 tools now say what the tools can do.** A tool annotation is a claim a host acts on: a read-only tool may be called without asking the user.
   - The 19 detection and analysis tools that take `external_id`, `customer_id`, `metadata` or `incident_moderation_enabled`, and `batch_analyze`, were marked read-only and closed-world. A detection can be stored as an incident and delivered to the account's webhooks, which is what those fields are for. They are now `readOnlyHint: false`, `openWorldHint: true`, `destructiveHint: false`. A host may ask the user to confirm before calling them.
   - `analyze_voice`, `analyze_image`, `analyze_video` and `analyze_document` can download their input from a `url`. They stay read-only and are now `openWorldHint: true`. The three synthetic-media tools that take a `url` are covered by the first group.
+  - `create_verification_session` takes a `redirect_url`, an address the caller chooses to send the person to afterwards. It was already declared as writing and is now also `openWorldHint: true`.
   - No tool name, input or result changed.
 
 ### Added

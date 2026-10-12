@@ -7,6 +7,13 @@ import { formatVerificationSession, formatVerificationSessionResult } from '../f
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const;
 const ADDITIVE = { readOnlyHint: false, destructiveHint: false, openWorldHint: false } as const;
 const DESTRUCTIVE = { readOnlyHint: false, destructiveHint: true, openWorldHint: false } as const;
+/**
+ * Creating a session takes a `redirect_url`: when the person has finished, they
+ * are sent to an address the caller chose. That is a customer-supplied
+ * destination, the same kind of thing `create_webhook` configures, so the
+ * world this tool can touch is not closed.
+ */
+const ADDITIVE_WITH_REDIRECT = { readOnlyHint: false, destructiveHint: false, openWorldHint: true } as const;
 
 function handleTierError(err: any, toolName: string, featureLabel: string) {
   if (err?.status === 403 || err?.response?.status === 403) {
@@ -26,7 +33,7 @@ export function registerVerificationTools(server: McpServer, client: Tuteliq): v
     {
       title: 'Create Verification Session',
       description: 'Create a verification session for age or identity verification. Returns a URL that the user opens in a browser to complete document capture, liveness check, and selfie. The web UI handles the entire verification flow — the MCP tool only creates the session and provides the URL. Costs 10 credits (age) or 15 credits (identity) on completion.',
-      annotations: ADDITIVE,
+      annotations: ADDITIVE_WITH_REDIRECT,
       inputSchema: {
         mode: z.enum(['age', 'identity']).describe('Verification mode: "age" for age verification, "identity" for full identity verification'),
         document_type: z.enum(['passport', 'id_card', 'drivers_license']).optional().describe('Preferred document type hint for the web UI'),
