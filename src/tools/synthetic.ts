@@ -13,6 +13,7 @@ import {
 import { resolveFile } from '../resolveFile.js';
 import { withViewId } from '../view-id.js';
 import { widgetUri } from '../widget-uri.js';
+import { RECORDS_AND_NOTIFIES } from './hints.js';
 
 /**
  * V3.15.4 — permissive boolean parser.
@@ -79,7 +80,7 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
     {
       title: 'Detect Synthetic Text',
       description: 'Detect AI-generated text content. Analyzes text for synthetic indicators across 10 child-safety categories including synthetic CSAM narratives, deepfake impersonation scripts, and AI-generated grooming content. Returns classification, confidence, risk score, and rationale.',
-      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+      annotations: RECORDS_AND_NOTIFIES,
       inputSchema: {
         content: z.string().describe('Text content to analyze for AI-generation indicators'),
         context: z.record(z.string(), z.unknown()).optional().describe('Optional analysis context (ageGroup, language, platform)'),
@@ -122,7 +123,7 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
     {
       title: 'Detect Synthetic Image',
       description: 'Detect AI-generated images using a 6-signal forensic pipeline: vision AI analysis, EXIF metadata extraction, pixel statistics, C2PA Content Credentials, watermark detection, and perceptual hashing. Supports png, jpg, jpeg, gif, webp. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
-      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+      annotations: RECORDS_AND_NOTIFIES,
       inputSchema: {
         file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the image file on disk'),
         url: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. URL to download the image from'),
@@ -173,7 +174,7 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
     {
       title: 'Detect Synthetic Audio',
       description: 'Detect AI-generated audio using dual-signal forensics: transcript analysis + mel spectrogram vision + quantitative audio statistics. Supports mp3, wav, m4a, ogg, flac, webm, mp4. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
-      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+      annotations: RECORDS_AND_NOTIFIES,
       inputSchema: {
         file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the audio file on disk'),
         url: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. URL to download the audio from'),
@@ -224,7 +225,7 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
     {
       title: 'Detect Synthetic Video',
       description: 'Detect AI-generated or deepfake video using 5-track analysis: per-frame vision forensics, temporal face consistency, lip-sync correlation, spectral audio analysis, and transcript detection. Supports mp4, webm, avi, mov. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
-      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+      annotations: RECORDS_AND_NOTIFIES,
       inputSchema: {
         file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the video file on disk'),
         url: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. URL to download the video from'),
