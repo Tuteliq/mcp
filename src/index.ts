@@ -18,7 +18,20 @@ import { pathToFileURL } from 'node:url';
 import { getTransportMode, startStdio } from './transport.js';
 import { PACKAGE_VERSION } from './package-root.js';
 
-export function createServer(apiKeyOverride?: string): McpServer {
+/** A group of tools that a host can leave out when it creates the server. */
+export type ToolGroup = 'verification';
+
+export interface CreateServerOptions {
+  /**
+   * Tool groups not to register. The hosted connector leaves out
+   * `verification`: those tools start a flow in which a person shows an
+   * identity document, which connector directories do not list. They remain
+   * available to anyone running this package themselves.
+   */
+  exclude?: readonly ToolGroup[];
+}
+
+export function createServer(apiKeyOverride?: string, options: CreateServerOptions = {}): McpServer {
   const apiKey = apiKeyOverride || process.env.TUTELIQ_API_KEY;
   if (!apiKey) {
     throw new Error('API key is required: pass it to createServer() or set TUTELIQ_API_KEY env var');
@@ -40,7 +53,7 @@ export function createServer(apiKeyOverride?: string): McpServer {
   registerMediaTools(server, client);
   registerAnalysisTools(server, client);
   registerSyntheticTools(server, client);
-  registerVerificationTools(server, client);
+  if (!options.exclude?.includes('verification')) registerVerificationTools(server, client);
   registerAdminTools(server, client);
   registerAutomationTools(server, client);
   registerGovernanceTools(server, client);

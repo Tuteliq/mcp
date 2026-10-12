@@ -149,6 +149,8 @@ place.
 | `get_verification_session` | Poll session status — returns full document intelligence (MRZ, barcode, authenticity, face match, liveness) |
 | `cancel_verification_session` | Cancel an active session (no credits consumed) |
 
+These three tools are registered when you run this package yourself. The hosted connector does not serve them.
+
 ### Incidents & Moderation
 
 Read the incident store, triage a queue, and record moderator decisions. The

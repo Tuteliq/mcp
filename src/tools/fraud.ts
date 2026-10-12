@@ -5,6 +5,7 @@ import type { Tuteliq, ContextInput } from '@tuteliq/sdk';
 import { formatDetectionResult } from '../formatters.js';
 import { withViewId } from '../view-id.js';
 import { widgetUri } from '../widget-uri.js';
+import { RECORDS_AND_NOTIFIES } from './hints.js';
 
 const DETECTION_WIDGET_URI = widgetUri('detection-result');
 
@@ -192,7 +193,7 @@ export function registerFraudTools(server: McpServer, client: Tuteliq): void {
       {
         title: tool.title,
         description: tool.description + PRIOR_MESSAGES_NOTE + (tool.conversational ? CONTINUATION_NOTE : ''),
-        annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+        annotations: RECORDS_AND_NOTIFIES,
         // Only the conversational tools advertise the continuation inputs; the
         // cast keeps one handler signature for both shapes, and the fields are
         // simply absent (undefined) on the tools that never accept them.

@@ -17,10 +17,11 @@ const READ_ONLY = { readOnlyHint: true, openWorldHint: false, destructiveHint: f
 /**
  * The three tools that genuinely reach an open world.
  *
- * `openWorldHint` is false everywhere else because a detection call operates on
- * user-supplied content against our own service: a closed domain, like a
- * database query rather than a web search. Claiming otherwise over-states what
- * every tool might touch, which is what the previous blanket `true` did.
+ * `openWorldHint` is false on a tool that only reads from or writes to our own
+ * service: a closed domain, like a database query rather than a web search.
+ * Claiming otherwise over-states what a tool might touch, which is what the
+ * previous blanket `true` did. Two other kinds of tool also claim it, for
+ * their own reasons: see hints.ts.
  *
  * These three are different in kind. `test_webhook` dispatches a payload to a
  * customer-supplied URL; `create_webhook` and `update_webhook` configure that
