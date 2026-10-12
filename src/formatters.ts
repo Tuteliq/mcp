@@ -928,3 +928,60 @@ export function formatQuota(quota: UsageQuota): string {
   }
   return lines.join('\n');
 }
+
+export function formatUsageSummary(summary: unknown): string {
+  // GET /usage/summary returns one day: { tier, date, usage: { totalRequests,
+  // successRequests, errorRequests }, quota: { requestsPerMinute,
+  // requestsPerDay, remainingToday } }. The SDK's UsageSummary type declares
+  // a billing-period shape (messages_used, usage_percentage, ...) that the
+  // route has never sent, so reading it as typed called toFixed on undefined
+  // and the tool failed on every call. This reads what arrives, renders the
+  // billing-period fields as well if they are ever present, and prints "n/a"
+  // for anything missing. It never throws.
+  const s = (summary && typeof summary === 'object' ? summary : {}) as Record<string, unknown>;
+  const obj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' ? v as Record<string, unknown> : {});
+  const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+  const str = (v: unknown): string | undefined => (typeof v === 'string' && v.length > 0 ? v : undefined);
+  const show = (v: number | undefined, unit = ''): string => (v === undefined ? 'n/a' : `${v}${unit}`);
+  const usage = obj(s.usage);
+  const quota = obj(s.quota);
+
+  const lines = ['## Usage Summary', ''];
+  const tier = str(s.tier);
+  if (tier) lines.push(`**Tier:** ${tier}`);
+
+  const used = num(s.messages_used);
+  const limit = num(s.message_limit);
+  if (used !== undefined || limit !== undefined) {
+    const pct = num(s.usage_percentage);
+    const days = num(s.days_remaining);
+    const start = str(s.period_start);
+    const end = str(s.period_end);
+    if (start || end) lines.push(`**Billing Period:** ${start ?? 'n/a'} → ${end ?? 'n/a'}${days === undefined ? '' : ` (${days} days left)`}`);
+    lines.push(`**Used:** ${show(used)} / ${show(limit)}${pct === undefined ? '' : ` (${pct.toFixed(1)}%)`}`);
+    const credits = num(s.purchased_credits);
+    if (credits !== undefined) lines.push(`**Purchased Credits:** ${credits}`);
+    const available = num(s.total_available);
+    if (available !== undefined) lines.push(`**Total Available:** ${available}`);
+  }
+
+  const total = num(usage.totalRequests);
+  const ok = num(usage.successRequests);
+  const failed = num(usage.errorRequests);
+  const perDay = num(quota.requestsPerDay);
+  const remainingToday = num(quota.remainingToday);
+  const perMinute = num(quota.requestsPerMinute);
+  const date = str(s.date);
+  if (date) lines.push(`**Date:** ${date}`);
+  if (total !== undefined || used === undefined) {
+    const split = ok !== undefined && failed !== undefined ? ` (${ok} succeeded, ${failed} failed)` : '';
+    lines.push(`**Requests Today:** ${show(total)}${split}`);
+    const remaining = perDay === -1 || remainingToday === -1
+      ? 'unlimited'
+      : `${show(remainingToday)}${perDay === undefined ? '' : ` of ${perDay}`}`;
+    lines.push(`**Remaining Today:** ${remaining}`);
+    lines.push(`**Rate Limit:** ${show(perMinute, '/min')}`);
+    lines.push('', 'For the billing period (used, limit, days left) use get_usage_monthly.');
+  }
+  return lines.join('\n');
+}
