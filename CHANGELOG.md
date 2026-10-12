@@ -9,9 +9,16 @@ break programmatic callers.
 
 ## [Unreleased]
 
+## [4.2.1] — 2026-10-12
+
 ### Fixed
 
 - **`get_usage_summary` failed on every call** with `Cannot read properties of undefined (reading 'toFixed')`. The tool read a billing-period shape (`messages_used`, `usage_percentage`, ...) that `GET /usage/summary` has never returned; the route returns one day's request counts and the daily and per-minute limits. The tool now renders what the API returns, prints `n/a` for a missing field and never throws, and its description says what it reports. Billing-period totals remain in `get_usage_monthly`.
+
+### Dependencies
+
+- `@modelcontextprotocol/sdk` 1.30.1 → 1.32.0. The SDK's upgrade notes for 1.31.0 and 1.32.0 concern its HTTP client transports and OAuth client helpers, which this package does not use.
+- Lockfile: `proxy-addr` 2.0.8, `ip-address` 10.7.4 and `source-map-js` 1.2.2, clearing the advisories `npm audit` reported against them.
 
 ## [4.0.2] — 2026-09-22
 
