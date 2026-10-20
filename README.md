@@ -223,7 +223,7 @@ and the card is unbranded — it is never defaulted to a placeholder.
 | Tool | Description |
 |------|-------------|
 | `list_policy_rules` | List all automation rules (block/flag/escalate/notify/log_only on matching detections) |
-| `create_policy_rule` | Create a rule that acts automatically when detections match its conditions |
+| `create_policy_rule` | Create a rule that labels matching detections with an action for your own system to apply |
 | `get_policy_rule` | Get full detail of a single rule |
 | `update_policy_rule` | Update any subset of a rule's fields (e.g., pause with `enabled: false`) |
 | `delete_policy_rule` | Permanently delete a rule |
