@@ -9,6 +9,13 @@ break programmatic callers.
 
 ## [Unreleased]
 
+## [4.2.4] - 2026-10-20
+
+### Added
+
+- **`exclude: ['webhook-destinations']`** leaves out `create_webhook` and `update_webhook`. A webhook receives incidents and, for `verification.completed`, the fields read from identity documents; these two tools choose its address. Through a hosted connector an assistant calls them with whatever it was told, including by a message it read, so a host can leave choosing the address to its dashboard. `list_webhooks`, `test_webhook`, `delete_webhook` and `regenerate_webhook_secret` stay. Running the package yourself registers all of them, as before.
+- **The server says who it is:** `title` "Tuteliq", `websiteUrl`, and an icon on a solid background (`https://api.tuteliq.ai/favicon.png`), so a client shows the mark on a dark page.
+
 ## [4.2.3] - 2026-10-20
 
 ### Changed

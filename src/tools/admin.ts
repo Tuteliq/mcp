@@ -40,7 +40,12 @@ const EXTERNAL_DESTINATION_DESTRUCTIVE = { readOnlyHint: false, openWorldHint: t
 const ADDITIVE = { readOnlyHint: false, openWorldHint: false, destructiveHint: false } as const;
 const DESTRUCTIVE = { readOnlyHint: false, openWorldHint: false, destructiveHint: true } as const;
 
-export function registerAdminTools(server: McpServer, client: Tuteliq): void {
+export interface AdminToolOptions {
+  /** create_webhook and update_webhook, which choose where incidents and verification results are sent. */
+  webhookDestinations?: boolean;
+}
+
+export function registerAdminTools(server: McpServer, client: Tuteliq, options: AdminToolOptions = {}): void {
 
   // =========================================================================
   // Webhook Management
@@ -66,56 +71,59 @@ export function registerAdminTools(server: McpServer, client: Tuteliq): void {
     },
   );
 
-  server.registerTool(
-    'create_webhook',
-    {
-      title: 'Create Webhook',
-      description: 'Create a new webhook endpoint.',
-      annotations: EXTERNAL_DESTINATION,
-      inputSchema: {
-        name: z.string().describe('Display name for the webhook'),
-        url: z.string().describe('HTTPS URL to receive webhook payloads'),
-        events: z.array(z.string()).describe('Event types to subscribe to'),
-        headers: z.record(z.string(), z.string()).optional().describe('Custom headers to send with webhook payloads (e.g., an auth header for your endpoint)'),
+  // Choosing the address is left to the dashboard when a host excludes it: see CreateServerOptions.
+  if (options.webhookDestinations !== false) {
+    server.registerTool(
+      'create_webhook',
+      {
+        title: 'Create Webhook',
+        description: 'Create a new webhook endpoint.',
+        annotations: EXTERNAL_DESTINATION,
+        inputSchema: {
+          name: z.string().describe('Display name for the webhook'),
+          url: z.string().describe('HTTPS URL to receive webhook payloads'),
+          events: z.array(z.string()).describe('Event types to subscribe to'),
+          headers: z.record(z.string(), z.string()).optional().describe('Custom headers to send with webhook payloads (e.g., an auth header for your endpoint)'),
+        },
       },
-    },
-    async ({ name, url, events, headers }) => {
-      const result = await client.createWebhook({
-        name,
-        url,
-        events: events as WebhookEventType[],
-        headers,
-      });
-      return { content: [{ type: 'text', text: `## ✅ Webhook Created\n\n**ID:** ${result.id}\n**Name:** ${result.name}\n**URL:** ${result.url}\n**Events:** ${result.events.join(', ')}\n\n⚠️ **Secret (save this — shown only once):**\n\`${result.secret}\`` }] };
-    },
-  );
+      async ({ name, url, events, headers }) => {
+        const result = await client.createWebhook({
+          name,
+          url,
+          events: events as WebhookEventType[],
+          headers,
+        });
+        return { content: [{ type: 'text', text: `## ✅ Webhook Created\n\n**ID:** ${result.id}\n**Name:** ${result.name}\n**URL:** ${result.url}\n**Events:** ${result.events.join(', ')}\n\n⚠️ **Secret (save this — shown only once):**\n\`${result.secret}\`` }] };
+      },
+    );
 
-  server.registerTool(
-    'update_webhook',
-    {
-      title: 'Update Webhook',
-      description: 'Update an existing webhook configuration.',
-      annotations: EXTERNAL_DESTINATION_DESTRUCTIVE,
-      inputSchema: {
-        id: z.string().describe('Webhook ID'),
-        name: z.string().optional().describe('New display name'),
-        url: z.string().optional().describe('New HTTPS URL'),
-        events: z.array(z.string()).optional().describe('New event subscriptions'),
-        is_active: z.boolean().optional().describe('Enable or disable the webhook'),
-        headers: z.record(z.string(), z.string()).optional().describe('New custom headers to send with webhook payloads'),
+    server.registerTool(
+      'update_webhook',
+      {
+        title: 'Update Webhook',
+        description: 'Update an existing webhook configuration.',
+        annotations: EXTERNAL_DESTINATION_DESTRUCTIVE,
+        inputSchema: {
+          id: z.string().describe('Webhook ID'),
+          name: z.string().optional().describe('New display name'),
+          url: z.string().optional().describe('New HTTPS URL'),
+          events: z.array(z.string()).optional().describe('New event subscriptions'),
+          is_active: z.boolean().optional().describe('Enable or disable the webhook'),
+          headers: z.record(z.string(), z.string()).optional().describe('New custom headers to send with webhook payloads'),
+        },
       },
-    },
-    async ({ id, name, url, events, is_active, headers }) => {
-      const result = await client.updateWebhook(id, {
-        name,
-        url,
-        events: events as WebhookEventType[] | undefined,
-        isActive: is_active,
-        headers,
-      });
-      return { content: [{ type: 'text', text: `## ✅ Webhook Updated\n\n**ID:** ${result.id}\n**Name:** ${result.name}\n**Active:** ${result.is_active ? '\u{1F7E2} Yes' : '⚪ No'}` }] };
-    },
-  );
+      async ({ id, name, url, events, is_active, headers }) => {
+        const result = await client.updateWebhook(id, {
+          name,
+          url,
+          events: events as WebhookEventType[] | undefined,
+          isActive: is_active,
+          headers,
+        });
+        return { content: [{ type: 'text', text: `## ✅ Webhook Updated\n\n**ID:** ${result.id}\n**Name:** ${result.name}\n**Active:** ${result.is_active ? '\u{1F7E2} Yes' : '⚪ No'}` }] };
+      },
+    );
+  }
 
   server.registerTool(
     'delete_webhook',
