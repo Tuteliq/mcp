@@ -9,6 +9,20 @@ break programmatic callers.
 
 ## [Unreleased]
 
+## [4.2.5] - 2026-10-20
+
+### Added
+
+- **`exclude: ['account-administration']`** leaves out `delete_account_data`, `record_consent`, `withdraw_consent`, `rectify_data`, `log_breach`, `update_breach_status`, `register_encryption_key` and `revoke_encryption_key`. They are legal or irreversible acts on the account, which an assistant behind a hosted connector would perform on whatever it was told, including by a message it read. Reading the same records (`export_account_data`, `get_consent_status`, `list_breaches`, `get_breach`, `get_encryption_key`, `get_audit_logs`) stays. Running the package yourself registers everything, as before.
+
+### Changed
+
+- **Three tools are now marked destructive**, so a client asks before calling them:
+  - `register_encryption_key`: registering replaces the key new incidents are encrypted to, and incidents under a lost private key cannot be recovered.
+  - `batch_review_incidents`: the same decision as `review_incident`, which was already marked destructive, on up to 100 incidents.
+  - `log_breach`: it starts the statutory 72-hour notification clock.
+  - No tool name, input or result changed.
+
 ## [4.2.4] - 2026-10-20
 
 ### Added

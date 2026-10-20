@@ -101,7 +101,7 @@ export function registerGovernanceTools(server: McpServer, client: Tuteliq): voi
       title: 'Register Customer Encryption Key',
       description:
         'Register (or rotate) the RSA public key Tuteliq uses to encrypt your incident records (rationale, visual_description, source_data, metadata). After registration, those fields are wrapped with a per-record AES key encrypted to your RSA key — Tuteliq cannot decrypt; only the holder of the matching private key can. The private key is YOUR responsibility — Tuteliq cannot recover incidents encrypted under a lost key.',
-      annotations: ADDITIVE,
+      annotations: DESTRUCTIVE,
       inputSchema: {
         algorithm: z.enum(['RSA-OAEP-2048', 'RSA-OAEP-4096']).describe('RSA-OAEP key size. 2048 is faster; 4096 is more conservative.'),
         public_key_pem: z.string().describe('PEM-encoded SPKI public key (begins with "-----BEGIN PUBLIC KEY-----")'),
@@ -297,7 +297,7 @@ ${result.audit_receipt ? `### Audit receipt\n**Request ID:** \`${result.audit_re
       title: 'Batch Review Incidents',
       description:
         'Apply the same moderator action + reason to up to 100 incidents in one call. Per-incident success/error is returned so partial failures can be retried without re-running successful items. Each incident still emits its own signed Art 12 audit receipt. Use for triage-queue throughput when many incidents share the same disposition (mass false-positive dismissal, batch escalation, etc).',
-      annotations: ADDITIVE,
+      annotations: DESTRUCTIVE,
       inputSchema: {
         incident_ids: z.array(z.string()).min(1).max(100).describe('Incident UUIDs to review. 1 to 100.'),
         action: z.enum(MODERATOR_ACTIONS).describe('Action to apply to every incident in the batch.'),
