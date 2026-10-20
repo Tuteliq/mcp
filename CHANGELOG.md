@@ -9,6 +9,15 @@ break programmatic callers.
 
 ## [Unreleased]
 
+## [4.2.3] - 2026-10-20
+
+### Changed
+
+- **`create_policy_rule` and `update_policy_rule` now say what a rule does.** A matching rule labels the detection result with its action (`policy_action`) for the account's own system to apply. Tuteliq does not block, contact or notify anyone, and sends nothing outside the API response.
+  - `escalate_to` and `notify_channel` are described as labels returned with matching results. Their examples ("email", "slack") read as destinations Tuteliq would send to, which it never did.
+  - `create_policy_rule` no longer says rules act "without a human or agent in the loop".
+  - No tool name, input, annotation or result changed.
+
 ## [4.2.2] - 2026-10-12
 
 ### Changed

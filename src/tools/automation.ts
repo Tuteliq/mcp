@@ -23,9 +23,9 @@ const ruleConditionsSchema = z.object({
 });
 
 const ruleActionSchema = z.object({
-  type: z.enum(['block', 'flag', 'escalate', 'notify', 'log_only']).describe('What to do when the rule matches'),
-  escalate_to: z.string().optional().describe('Escalation target (e.g., email or team identifier)'),
-  notify_channel: z.string().optional().describe('Notification channel (e.g., slack, email)'),
+  type: z.enum(['block', 'flag', 'escalate', 'notify', 'log_only']).describe('The action returned as `policy_action` on matching results, for your own system to apply'),
+  escalate_to: z.string().optional().describe('For escalate: a label returned with matching results, naming who your system should route them to. Tuteliq sends nothing to it.'),
+  notify_channel: z.string().optional().describe('For notify: a label returned with matching results, naming the channel your system should use. Tuteliq sends nothing to it.'),
   message: z.string().optional().describe('Custom message/reason attached to the action'),
   override_severity: z.string().optional().describe('Override the detected severity'),
 });
@@ -71,7 +71,7 @@ export function registerAutomationTools(server: McpServer, client: Tuteliq): voi
     'create_policy_rule',
     {
       title: 'Create Policy Rule',
-      description: 'Create a policy automation rule. When a detection result matches the conditions, the action is applied automatically — this is how obvious cases get handled without a human or agent in the loop.',
+      description: 'Create a policy rule. When a detection result matches its conditions, the result comes back labelled with the rule\'s action (`policy_action`: block, flag, escalate, notify or log_only) for your own system to apply. Tuteliq does not block, contact or notify anyone itself, and sends nothing outside the API response.',
       annotations: ADDITIVE,
       inputSchema: {
         name: z.string().describe('Display name for the rule'),
@@ -119,7 +119,7 @@ export function registerAutomationTools(server: McpServer, client: Tuteliq): voi
     'update_policy_rule',
     {
       title: 'Update Policy Rule',
-      description: 'Update a policy automation rule. Accepts any subset of rule fields (e.g., just `enabled: false` to pause a rule).',
+      description: 'Update a policy rule, which labels matching detection results with an action for your own system to apply. Accepts any subset of rule fields (e.g., just `enabled: false` to pause a rule).',
       annotations: DESTRUCTIVE,
       inputSchema: {
         rule_id: z.string().describe('Rule ID'),
