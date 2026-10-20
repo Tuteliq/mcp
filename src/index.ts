@@ -19,7 +19,7 @@ import { getTransportMode, startStdio } from './transport.js';
 import { PACKAGE_VERSION } from './package-root.js';
 
 /** A group of tools that a host can leave out when it creates the server. */
-export type ToolGroup = 'verification';
+export type ToolGroup = 'verification' | 'webhook-destinations';
 
 export interface CreateServerOptions {
   /**
@@ -27,6 +27,13 @@ export interface CreateServerOptions {
    * `verification`: those tools start a flow in which a person shows an
    * identity document, which connector directories do not list. They remain
    * available to anyone running this package themselves.
+   *
+   * It also leaves out `webhook-destinations`: `create_webhook` and
+   * `update_webhook` choose the address that receives incidents and the
+   * fields read from identity documents. Through a hosted connector an
+   * assistant calls them with whatever it was told, including by a message it
+   * read, so where data goes is set in the dashboard instead. Listing,
+   * testing, deleting and re-signing a webhook stay.
    */
   exclude?: readonly ToolGroup[];
 }
@@ -44,7 +51,11 @@ export function createServer(apiKeyOverride?: string, options: CreateServerOptio
 
   const server = new McpServer({
     name: 'tuteliq-mcp',
+    title: 'Tuteliq',
     version: PACKAGE_VERSION,
+    websiteUrl: 'https://tuteliq.ai',
+    // On a solid background: the site's transparent favicon loses its dark lines on a dark page.
+    icons: [{ src: 'https://api.tuteliq.ai/favicon.png', mimeType: 'image/png', sizes: ['512x512'] }],
   });
 
   // Register all tool groups
@@ -54,7 +65,7 @@ export function createServer(apiKeyOverride?: string, options: CreateServerOptio
   registerAnalysisTools(server, client);
   registerSyntheticTools(server, client);
   if (!options.exclude?.includes('verification')) registerVerificationTools(server, client);
-  registerAdminTools(server, client);
+  registerAdminTools(server, client, { webhookDestinations: !options.exclude?.includes('webhook-destinations') });
   registerAutomationTools(server, client);
   registerGovernanceTools(server, client);
   registerResources(server);
