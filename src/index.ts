@@ -19,7 +19,7 @@ import { getTransportMode, startStdio } from './transport.js';
 import { PACKAGE_VERSION } from './package-root.js';
 
 /** A group of tools that a host can leave out when it creates the server. */
-export type ToolGroup = 'verification' | 'webhook-destinations';
+export type ToolGroup = 'verification' | 'webhook-destinations' | 'account-administration';
 
 export interface CreateServerOptions {
   /**
@@ -34,9 +34,21 @@ export interface CreateServerOptions {
    * assistant calls them with whatever it was told, including by a message it
    * read, so where data goes is set in the dashboard instead. Listing,
    * testing, deleting and re-signing a webhook stay.
+   *
+   * And `account-administration`: deleting all account data, registering or
+   * revoking the key incidents are encrypted to, recording or withdrawing
+   * consent, rectifying data and logging or updating a breach. They are legal
+   * or irreversible acts, performed through a connector on whatever the
+   * assistant was told. Reading the same records stays.
    */
   exclude?: readonly ToolGroup[];
 }
+
+/** The tools `account-administration` leaves out. */
+export const ACCOUNT_ADMINISTRATION_TOOLS: readonly string[] = [
+  'delete_account_data', 'record_consent', 'withdraw_consent', 'rectify_data',
+  'log_breach', 'update_breach_status', 'register_encryption_key', 'revoke_encryption_key',
+];
 
 export function createServer(apiKeyOverride?: string, options: CreateServerOptions = {}): McpServer {
   const apiKey = apiKeyOverride || process.env.TUTELIQ_API_KEY;
@@ -69,6 +81,13 @@ export function createServer(apiKeyOverride?: string, options: CreateServerOptio
   registerAutomationTools(server, client);
   registerGovernanceTools(server, client);
   registerResources(server);
+
+  if (options.exclude?.includes('account-administration')) {
+    // Removed through the SDK's own handles, after the groups register them,
+    // so the tool files keep one registration path each.
+    const registered = (server as unknown as { _registeredTools: Record<string, { remove(): void }> })._registeredTools;
+    for (const name of ACCOUNT_ADMINISTRATION_TOOLS) registered[name]?.remove();
+  }
 
   return server;
 }

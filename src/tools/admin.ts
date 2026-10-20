@@ -478,7 +478,7 @@ ${result.recommendations ? `### Recommendation\n${result.recommendations.reason}
     {
       title: 'Log Data Breach',
       description: 'Log a new data breach (GDPR Article 33/34). Starts the 72-hour notification clock.',
-      annotations: ADDITIVE,
+      annotations: DESTRUCTIVE,
       inputSchema: {
         title: z.string().describe('Brief title of the breach'),
         description: z.string().describe('Detailed description'),
