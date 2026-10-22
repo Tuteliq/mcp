@@ -6,6 +6,7 @@ import { formatDetectionResult } from '../formatters.js';
 import { withViewId } from '../view-id.js';
 import { widgetUri } from '../widget-uri.js';
 import { RECORDS_AND_NOTIFIES } from './hints.js';
+import { conversationTypeField } from './conversation-type.js';
 
 const DETECTION_WIDGET_URI = widgetUri('detection-result');
 
@@ -156,6 +157,7 @@ const fraudContextSchema = z.object({
   ageGroup: z.string().optional().describe('Age group (e.g., "13-15")'),
   platform: z.string().optional().describe('Platform name (e.g., "Discord", "Telegram")'),
   country: z.string().optional().describe('ISO 3166-1 alpha-2 country code (e.g., "GB", "US", "SE"). Localises the crisis helplines returned with a positive result.'),
+  conversation_type: conversationTypeField,
   // Request-scoped: never stored server-side, used once to build the
   // analysis prompt for this call and then discarded. Independent of
   // continuation_token (below) -- carries state WITHIN one call instead of

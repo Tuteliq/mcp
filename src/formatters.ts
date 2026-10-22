@@ -66,6 +66,69 @@ export function verdictHeader(
   }
 }
 
+/**
+ * The analysis engine could not produce a verdict. The API then returns a
+ * zeroed result (`grooming_risk: none`, `risk_score: 0`) with
+ * `recommended_action: flag_for_review`, and the zeros are not a finding.
+ * Printing them under a green "No Grooming Detected" turned an engine failure
+ * into an all-clear; an independent evaluation saw exactly that (2026-09).
+ */
+export function analysisIncomplete(result: object): boolean {
+  return (result as { analysis_status?: unknown } | undefined)?.analysis_status === 'engine_error';
+}
+
+export const INCOMPLETE_HEADER = '\u{1F7E0} Analysis Incomplete: Flagged for Review';
+export const INCOMPLETE_SCORES = '**Risk Score:** not available, the analysis did not complete. This is not a result: treat the content as unresolved and route it to a moderator.';
+
+/** The verdict header, with the engine-failure case ahead of the others. */
+export function resultHeader(
+  result: object,
+  flagged: boolean,
+  recommendedAction: RecommendedAction,
+  detectedLabel: string,
+  clearLabel: string,
+): string {
+  return analysisIncomplete(result) ? INCOMPLETE_HEADER : verdictHeader(flagged, recommendedAction, detectedLabel, clearLabel);
+}
+
+const SPEAKER_ROLE_MEANING: Record<string, string> = {
+  enacting: 'the speaker is the one doing it',
+  experiencing: 'the speaker is the person it is happening to',
+  reporting_other: 'the speaker is reporting it happening to someone else',
+  self_directed: 'the speaker is speaking about themselves',
+  unclear: 'not clear from the text',
+};
+
+const SPEAKER_STANCE_MEANING: Record<string, string> = {
+  deploying: 'the speaker is using these tactics in this exchange',
+  describing_third_party: 'the speaker is describing someone else doing it (a disclosure or a report)',
+  unclear: 'not clear from the text',
+};
+
+/**
+ * Who is speaking, and what the API did with a declared conversation type.
+ *
+ * `speaker_role` / `speaker_stance` are what tell a bystander's report or a
+ * child's disclosure from the harm itself, and are what a platform routes a
+ * report to a victim-protection queue on. They were in `structuredContent`
+ * only, which a host does not show the assistant. `conversation_type_applied`
+ * is the API confirming a declared setting changed routing.
+ */
+export function formatSpeakerAndRouting(result: Record<string, unknown>): string {
+  const lines: string[] = [];
+  const role = result?.speaker_role;
+  if (typeof role === 'string') lines.push(`**Speaker role:** \`${role}\`${SPEAKER_ROLE_MEANING[role] ? ` (${SPEAKER_ROLE_MEANING[role]})` : ''}`);
+  const stance = result?.speaker_stance;
+  if (typeof stance === 'string') lines.push(`**Speaker stance:** \`${stance}\`${SPEAKER_STANCE_MEANING[stance] ? ` (${SPEAKER_STANCE_MEANING[stance]})` : ''}`);
+  if (typeof result?.conversation_type_applied === 'string') {
+    lines.push(`**Conversation type applied:** \`${result.conversation_type_applied}\` (the declared setting changed the recommended action; the score is unchanged)`);
+  }
+  if (result?.action_capped === true && typeof result?.action_capped_reason === 'string') {
+    lines.push(`**Action capped:** ${result.action_capped_reason}`);
+  }
+  return lines.join('\n');
+}
+
 export function verdictStatus(flagged: boolean, recommendedAction: RecommendedAction): string {
   switch (verdictState(flagged, recommendedAction)) {
     case 'flagged': return '\u26A0\uFE0F Detected';
@@ -311,9 +374,18 @@ export function formatDetectionResult(result: DetectionResult, toolName?: string
     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
 
-  const header = detected
-    ? `## ${levelEmoji} ${label} Detected`
-    : `## \u2705 No ${label} Detected`;
+  // Nothing detected with a live action (a report the detector routes to
+  // review) is "Flagged for Review", not a green all-clear.
+  const header = analysisIncomplete(result)
+    ? `## ${INCOMPLETE_HEADER}`
+    : detected
+      ? `## ${levelEmoji} ${label} Detected`
+      : `## ${verdictHeader(false, result.recommended_action, `${label} Detected`, `No ${label} Detected`)}`;
+  const scores = analysisIncomplete(result)
+    ? INCOMPLETE_SCORES
+    : `**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%${riskScoreScope(result)}
+**Level:** ${result.level}
+**Confidence:** ${(result.confidence * 100).toFixed(0)}%`;
 
   const categories = result.categories.length > 0
     ? `**Categories:** ${result.categories.map(c => c.tag).join(', ')}`
@@ -333,10 +405,9 @@ export function formatDetectionResult(result: DetectionResult, toolName?: string
 
   return `${header}
 
-**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%${riskScoreScope(result)}
-**Level:** ${result.level}
-**Confidence:** ${(result.confidence * 100).toFixed(0)}%
+${scores}
 ${categories}
+${formatSpeakerAndRouting(result as unknown as Record<string, unknown>)}
 ${formatTrajectory(result)}
 
 ${formatRationale(result)}

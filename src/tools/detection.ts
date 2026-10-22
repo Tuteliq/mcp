@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
-import type { Tuteliq } from '@tuteliq/sdk';
+import type { Tuteliq, ContextInput } from '@tuteliq/sdk';
 import { loadWidget } from '../package-root.js';
-import { severityEmoji, riskEmoji, formatSupportText, formatRationale, formatContinuation, formatTrajectory, riskScoreScope, verdictHeader, verdictStatus , formatMessageRows } from '../formatters.js';
+import { severityEmoji, riskEmoji, formatSupportText, formatRationale, formatContinuation, formatTrajectory, riskScoreScope, verdictStatus, formatMessageRows, resultHeader, analysisIncomplete, INCOMPLETE_SCORES, formatSpeakerAndRouting } from '../formatters.js';
+import { conversationTypeField } from './conversation-type.js';
 import { harmSignals } from '../support-relevance.js';
 import { withViewId } from '../view-id.js';
 import { widgetUri } from '../widget-uri.js';
@@ -46,6 +47,7 @@ const contextSchema = z.object({
   relationship: z.string().optional(),
   platform: z.string().optional(),
   country: z.string().optional().describe('ISO 3166-1 alpha-2 country code (e.g., "GB", "US") for geo-localised helpline data'),
+  conversation_type: conversationTypeField,
   // Supported by detect_unsafe only (enables multi-turn trajectory awareness
   // in a single call). Silently ignored by detect_bullying, which has no
   // multi-turn content field of its own -- use continuation_token there
@@ -142,13 +144,14 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
         });
 
         const emoji = severityEmoji[result.severity] || '\u26AA';
-        let text = `## ${verdictHeader(result.is_bullying, result.recommended_action, 'Bullying Detected', 'No Bullying Detected')}
+        let text = `## ${resultHeader(result, result.is_bullying, result.recommended_action, 'Bullying Detected', 'No Bullying Detected')}
 
-**Severity:** ${emoji} ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}
+${analysisIncomplete(result) ? INCOMPLETE_SCORES : `**Severity:** ${emoji} ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}
 **Confidence:** ${(result.confidence * 100).toFixed(0)}%
-**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%${riskScoreScope(result)}
+**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%${riskScoreScope(result)}`}
 
 ${result.is_bullying ? `**Types:** ${result.bullying_type.join(', ')}` : ''}
+${formatSpeakerAndRouting(result as unknown as Record<string, unknown>)}
 ${formatTrajectory(result)}
 ${formatDeterministicFlags(result)}
 ${formatRationale(result)}
@@ -187,6 +190,11 @@ ${formatRationale(result)}
         })).describe('Array of messages in the conversation'),
         childAge: z.number().optional().describe('Age of the child in the conversation'),
         participantAge: z.number().optional().describe('Optional age of the non-minor participant'),
+        context: z.object({
+          conversation_type: conversationTypeField,
+          platform: z.string().optional().describe('Platform name'),
+          language: z.string().optional().describe('Language code (e.g., "en")'),
+        }).optional().describe('Optional analysis context'),
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
         continuation_token: z.string().optional().describe('Opaque signed token returned by a prior detect_grooming call. Pass it back to maintain multi-turn awareness across chunked conversations without server-side content storage. The result includes a fresh continuation_token for the next call.'),
         reset_conversation: z.boolean().optional().describe('If true, discard any continuation_token and analyze these messages as a fresh conversation.'),
@@ -195,12 +203,13 @@ ${formatRationale(result)}
       },
       _meta: uiMeta('Shows grooming detection results with risk indicators', 'Analyzing conversation for grooming patterns...', 'Grooming analysis complete.'),
     },
-    async ({ messages, childAge, participantAge, support_threshold, continuation_token, reset_conversation, verdict_only, external_id, customer_id, metadata, incident_moderation_enabled }) => {
+    async ({ messages, childAge, participantAge, context, support_threshold, continuation_token, reset_conversation, verdict_only, external_id, customer_id, metadata, incident_moderation_enabled }) => {
       try {
         const result = await client.detectGrooming({
           messages,
           childAge,
           participantAge,
+          context: context as ContextInput | undefined,
           supportThreshold: support_threshold,
           continuationToken: continuation_token,
           resetConversation: reset_conversation,
@@ -212,13 +221,14 @@ ${formatRationale(result)}
         });
 
         const emoji = riskEmoji[result.grooming_risk] || '\u26AA';
-        let text = `## ${result.grooming_risk === 'none' ? '\u2705 No Grooming Detected' : '\u26A0\uFE0F Grooming Risk Detected'}
+        let text = `## ${resultHeader(result, result.grooming_risk !== 'none', result.recommended_action, 'Grooming Risk Detected', 'No Grooming Detected')}
 
-**Risk Level:** ${emoji} ${result.grooming_risk.charAt(0).toUpperCase() + result.grooming_risk.slice(1)}
+${analysisIncomplete(result) ? INCOMPLETE_SCORES : `**Risk Level:** ${emoji} ${result.grooming_risk.charAt(0).toUpperCase() + result.grooming_risk.slice(1)}
 **Confidence:** ${(result.confidence * 100).toFixed(0)}%
-**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%${riskScoreScope(result)}
+**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%${riskScoreScope(result)}`}
 
 ${result.flags.length > 0 ? `**Warning Flags:**\n${result.flags.map(f => `- \u{1F6A9} ${f}`).join('\n')}` : ''}
+${formatSpeakerAndRouting(result as unknown as Record<string, unknown>)}
 ${formatTrajectory(result)}
 
 ${formatRationale(result)}
@@ -284,13 +294,14 @@ ${formatRationale(result)}
         });
 
         const emoji = severityEmoji[result.severity] || '\u26AA';
-        let text = `## ${verdictHeader(result.unsafe, result.recommended_action, 'Unsafe Content Detected', 'Content is Safe')}
+        let text = `## ${resultHeader(result, result.unsafe, result.recommended_action, 'Unsafe Content Detected', 'Content is Safe')}
 
 **Severity:** ${emoji} ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}
 **Confidence:** ${(result.confidence * 100).toFixed(0)}%
 **Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
 
 ${result.unsafe ? `**Categories:**\n${result.categories.map(c => `- \u26A0\uFE0F ${c}`).join('\n')}` : ''}
+${formatSpeakerAndRouting(result as unknown as Record<string, unknown>)}
 ${formatTrajectory(result)}
 ${formatDeterministicFlags(result)}
 ${formatRationale(result)}
