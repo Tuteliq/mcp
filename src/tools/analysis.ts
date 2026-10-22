@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { conversationTypeField } from './conversation-type.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import type { Tuteliq, ContextInput } from '@tuteliq/sdk';
@@ -300,7 +301,9 @@ ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
             + ANALYSE_MULTI_ENDPOINTS.join(', ')
             + '.',
           ),
-        context: z.record(z.string(), z.unknown()).optional().describe('Optional analysis context'),
+        // Named so `conversation_type` is advertised; passthrough keeps any
+        // other key working as the bare record did.
+        context: z.object({ conversation_type: conversationTypeField }).passthrough().optional().describe('Optional analysis context. When `conversation_type` is omitted, the account default is used if one is set.'),
         include_evidence: z.boolean().optional().describe('Include supporting evidence'),
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
         external_id: z.string().optional().describe('External tracking ID'),

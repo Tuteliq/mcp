@@ -82,8 +82,25 @@ export function DetectionPage({ data }: DetectionPageProps) {
     (result.grooming_risk && result.grooming_risk !== 'none') ??
     false;
 
-  const shownLevel = detected ? level : 'safe';
-  const copy = verdict[shownLevel] || verdict.none;
+  const action = result.recommended_action || '';
+  // Two states that are neither a detection nor an all-clear. An engine
+  // failure comes back zeroed with `flag_for_review`; nothing detected with a
+  // live action is a report the detector routes to a person. Both used to
+  // render "All clear" over a 0% gauge.
+  const incomplete = result.analysis_status === 'engine_error';
+  const review = !detected && !incomplete && !!action && !['none', 'allow', 'monitor'].includes(action.toLowerCase());
+
+  const shownLevel = detected ? level : incomplete || review ? 'medium' : 'safe';
+  const copy = incomplete
+    ? { title: 'Analysis incomplete', subtitle: 'No verdict was produced. This is not an all-clear: send it to a moderator' }
+    : review
+      ? { title: 'Flagged for review', subtitle: 'Not detected as harm here, but a person should look at it' }
+      : verdict[shownLevel] || verdict.none;
+  const speaker = [
+    typeof result.speaker_role === 'string' ? `Speaker role: ${result.speaker_role.replace(/_/g, ' ')}` : null,
+    typeof result.speaker_stance === 'string' ? `Speaker stance: ${result.speaker_stance.replace(/_/g, ' ')}` : null,
+    typeof result.conversation_type_applied === 'string' ? `Conversation type applied: ${result.conversation_type_applied.replace(/_/g, ' ')}` : null,
+  ].filter((l): l is string => l !== null);
 
   /**
    * The model's actual explanation, in order of preference.
@@ -119,7 +136,6 @@ export function DetectionPage({ data }: DetectionPageProps) {
     const summary = typeof result.summary === 'string' ? result.summary.trim() : '';
     return summary ? [{ text: summary }] : [];
   })();
-  const action = result.recommended_action || '';
   /**
    * Categories, gathered from wherever this tool happens to put them.
    *
@@ -172,16 +188,22 @@ export function DetectionPage({ data }: DetectionPageProps) {
 
       {/* Score row: the "how bad" and the "how sure" side by side. Keeping them
           adjacent is what stops a confident-but-low result being misread. */}
+      {!incomplete && (
       <div style={{ display: 'flex', gap: 32, alignItems: 'center', marginBottom: 26, flexWrap: 'wrap' }}>
         <RiskGauge score={riskScore} level={shownLevel} />
         <div style={{ flex: 1, minWidth: 220 }}>
           <ConfidenceBar value={confidence} label="Detection confidence" />
           <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <SeverityBadge level={shownLevel} label={badgeLabel(level, detected)} />
+            <SeverityBadge level={shownLevel} label={review ? 'Review' : badgeLabel(level, detected)} />
             <AgeCalibration calibration={result.age_calibration} />
           </div>
         </div>
       </div>
+      )}
+
+      {speaker.length > 0 && (
+        <p style={{ margin: '0 0 20px', color: colors.text.muted, fontSize: 13 }}>{speaker.join(' \u00B7 ')}</p>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         {/* Always shown: "none" is a finding, and an absent section is

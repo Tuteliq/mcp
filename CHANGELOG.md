@@ -9,6 +9,18 @@ break programmatic callers.
 
 ## [Unreleased]
 
+## [4.2.6] - 2026-10-22
+
+### Added
+
+- **`context.conversation_type`** on `detect_bullying`, `detect_grooming`, `detect_unsafe`, `analyse_multi` and every fraud and harm tool built on the shared detection shape. The API already accepted it; no tool advertised it, so a helpline, a counsellor service or a safeguarding platform could not declare its setting through the connector. `detect_grooming` gains a `context` object for it. When the declared setting changes routing, the result says "Conversation type applied". The score is never lowered.
+- **Who is speaking is in the result text.** `speaker_role` and `speaker_stance` (for example a bystander reporting, or a child disclosing) were only in `structuredContent`, which a host does not show the assistant. They are now printed with a plain reading of each value, as are `conversation_type_applied` and an action cap's reason.
+
+### Fixed
+
+- **An analysis that could not complete no longer reads as an all-clear.** When the engine produced no verdict, the API returns zeroed scores with `analysis_status: engine_error` and `flag_for_review`; `detect_grooming` printed "No Grooming Detected" and a 0% score over that. The text and the widget now say the analysis is incomplete, show no score, and send it to a moderator.
+- **Nothing detected with a live action reads as "Flagged for Review"**, not a green all-clear, on `detect_grooming` and on every tool built on the shared detection shape, matching `detect_bullying` and `detect_unsafe`. The widget had the same gap and is fixed with it.
+
 ## [4.2.5] - 2026-10-20
 
 ### Added
