@@ -9,6 +9,10 @@ break programmatic callers.
 
 ## [Unreleased]
 
+### Security
+
+- **Transitive dependencies patched.** `body-parser` (high: denial of service via trailing bytes after a compressed body), `fast-uri` (four URI-parsing advisories), `qs` and `@hono/node-server` are lifted to fixed releases. The `overrides` floors are raised to match, and `body-parser` gains one, so a fresh install cannot resolve a vulnerable version.
+
 ## [4.2.6] - 2026-10-22
 
 ### Added
