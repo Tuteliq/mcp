@@ -29,22 +29,7 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://api.tuteliq.ai/mcp",
-      "headers": [
-        {
-          "name": "Authorization",
-          "description": "Tuteliq API key from tuteliq.ai, sent as a bearer token",
-          "isRequired": true,
-          "value": "Bearer {api_key}",
-          "variables": {
-            "api_key": {
-              "description": "Tuteliq API key from tuteliq.ai",
-              "isRequired": true,
-              "isSecret": true
-            }
-          }
-        }
-      ]
+      "url": "https://api.tuteliq.ai/mcp"
     }
   ]
 }

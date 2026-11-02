@@ -5,8 +5,12 @@ import { join } from 'node:path';
 /**
  * server.json is what the MCP Registry tells clients about us. It is edited
  * by hand at release time, so it drifts silently: it once advertised 3.22.2
- * while the package was at 4.2.6, and its hosted remote never said it needs
- * an API key, so automated checkers read the 401 as a broken server.
+ * while the package was at 4.2.6.
+ *
+ * The hosted remote authenticates with MCP OAuth (a 401 points the client at
+ * the protected-resource metadata). Declaring a required Authorization header
+ * here would make registry clients ask for a pasted API key and skip the
+ * OAuth sign-in, so the remote must not declare one.
  */
 
 const ROOT = join(__dirname, '..', '..');
@@ -27,15 +31,13 @@ describe('MCP Registry entry (server.json)', () => {
         }
     });
 
-    it('declares that every hosted remote needs a secret API key', () => {
+    it('leaves hosted remotes to OAuth instead of a pasted API key header', () => {
         expect(entry.remotes.length).toBeGreaterThan(0);
         for (const remote of entry.remotes) {
             const auth = (remote.headers ?? []).find(
-                (h: { name: string }) => h.name === 'Authorization',
+                (h: { name: string }) => h.name.toLowerCase() === 'authorization',
             );
-            expect(auth, `${remote.url} declares no Authorization header`).toBeDefined();
-            expect(auth.isRequired).toBe(true);
-            expect(auth.isSecret || Object.values(auth.variables ?? {}).some((v: any) => v.isSecret)).toBe(true);
+            expect(auth, `${remote.url} declares an Authorization header`).toBeUndefined();
         }
     });
 });
