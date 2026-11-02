@@ -6,12 +6,12 @@
     "url": "https://github.com/Tuteliq/mcp",
     "source": "github"
   },
-  "version": "3.22.2",
+  "version": "4.2.6",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@tuteliq/mcp",
-      "version": "3.22.2",
+      "version": "4.2.6",
       "transport": {
         "type": "stdio"
       },
@@ -29,7 +29,22 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://api.tuteliq.ai/mcp"
+      "url": "https://api.tuteliq.ai/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Tuteliq API key from tuteliq.ai, sent as a bearer token",
+          "isRequired": true,
+          "value": "Bearer {api_key}",
+          "variables": {
+            "api_key": {
+              "description": "Tuteliq API key from tuteliq.ai",
+              "isRequired": true,
+              "isSecret": true
+            }
+          }
+        }
+      ]
     }
   ]
 }
