@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Tuteliq, WebhookEventType, ConsentType, AuditAction, BreachSeverity, BreachStatus, BreachNotificationStatus } from '@tuteliq/sdk';
-import { severityEmoji, formatQuota, formatUsageSummary } from '../formatters.js';
+import { severityEmoji, formatQuota, formatUsageSummary, formatSafetyClassification, formatApiStatus, formatComponentPing, formatFleet, formatFleetDevice, formatDsaReportSummary } from '../formatters.js';
 
 // Key order matches the inline annotation literals used in detection.ts/
 // analysis.ts (readOnlyHint, openWorldHint, destructiveHint) rather than the
@@ -262,16 +262,26 @@ export function registerAdminTools(server: McpServer, client: Tuteliq, options: 
     },
     async () => {
       const result = await client.getUsageMonthly();
+      // On an enterprise verification plan the usage figures count
+      // verifications, not credits, and the tier name is the plan name.
+      const v = result.verification;
+      const unit = v ? ' verifications' : '';
       const text = `## Monthly Usage
 
-**Tier:** ${result.tier_display_name}
+**${v ? 'Plan' : 'Tier'}:** ${result.tier_display_name}
 **Billing Period:** ${result.billing.current_period_start} → ${result.billing.current_period_end} (${result.billing.days_remaining} days left)
 
 ### Usage
-**Used:** ${result.usage.used} / ${result.usage.limit} (${result.usage.percent_used.toFixed(1)}%)
-**Remaining:** ${result.usage.remaining}
+**Used:** ${result.usage.used} / ${result.usage.limit}${unit} (${result.usage.percent_used.toFixed(1)}%)
+**Remaining:** ${result.usage.remaining}${unit}
 **Rate Limit:** ${result.rate_limit.requests_per_minute}/min
-
+${v ? `
+### Verifications (${v.period})
+**Completed:** ${v.total} | **In progress:** ${v.in_progress}
+**Included:** ${v.included_used} of ${v.included_per_month} used | **From packs:** ${v.pack_used} (${v.packs_remaining} left in packs)
+**Remaining:** ${v.remaining}${v.limit_reached ? ' (allowance used up: new verifications are refused until the next period)' : ''}
+**Next period starts:** ${v.next_period_start}
+` : ''}
 ${result.recommendations ? `### Recommendation\n${result.recommendations.reason}\n**Suggested Tier:** ${result.recommendations.suggested_tier}` : ''}`;
       return { content: [{ type: 'text', text }] };
     },
@@ -281,12 +291,14 @@ ${result.recommendations ? `### Recommendation\n${result.recommendations.reason}
     'get_usage_summary',
     {
       title: 'Usage Summary',
-      description: "Get today's usage summary: requests made today (succeeded and failed), requests remaining today, and the per-minute rate limit. For billing-period totals, the monthly limit and days remaining, use get_usage_monthly.",
+      description: "Get one day's usage summary (today by default): requests made (succeeded and failed), requests remaining today, and the per-minute rate limit. For billing-period totals, the monthly limit and days remaining, use get_usage_monthly.",
       annotations: READ_ONLY,
-      inputSchema: {},
+      inputSchema: {
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Date in YYYY-MM-DD format (default: today)'),
+      },
     },
-    async () => {
-      const result = await client.getUsageSummary();
+    async ({ date }) => {
+      const result = await client.getUsageSummary(date);
       return { content: [{ type: 'text', text: formatUsageSummary(result) }] };
     },
   );
@@ -371,7 +383,15 @@ ${result.recommendations ? `### Recommendation\n${result.recommendations.reason}
     async () => {
       const result = await client.exportAccountData();
       const collections = Object.keys(result.data).join(', ');
-      return { content: [{ type: 'text', text: `## \u{1F4E6} Account Data Export\n\n**User ID:** ${result.userId}\n**Exported At:** ${result.exportedAt}\n**Collections:** ${collections}\n\n\`\`\`json\n${JSON.stringify(result.data, null, 2).slice(0, 5000)}\n\`\`\`` }] };
+      // An export that could not read everything is not a complete answer to
+      // a data subject request; say so ahead of the data.
+      const incomplete = result.incompleteCollections ?? [];
+      const unverified = result.unverifiedCollections ?? [];
+      const warning = [
+        incomplete.length > 0 ? `\u26A0\uFE0F **Export incomplete:** ${incomplete.join(', ')} could not be read in full. Request the export again later before relying on it.` : '',
+        unverified.length > 0 ? `\u26A0\uFE0F **Completeness not confirmed:** ${unverified.join(', ')}.` : '',
+      ].filter(Boolean).join('\n');
+      return { content: [{ type: 'text', text: `## \u{1F4E6} Account Data Export\n\n${warning ? `${warning}\n\n` : ''}**User ID:** ${result.userId}\n**Exported At:** ${result.exportedAt}\n**Collections:** ${collections}\n\n\`\`\`json\n${JSON.stringify(result.data, null, 2).slice(0, 5000)}\n\`\`\`` }] };
     },
   );
 
@@ -563,6 +583,99 @@ ${result.recommendations ? `### Recommendation\n${result.recommendations.reason}
       });
       const b = result.breach;
       return { content: [{ type: 'text', text: `## ✅ Breach Updated\n\n**ID:** ${b.id}\n**Status:** ${b.status}\n**Notification:** ${b.notification_status}` }] };
+    },
+  );
+
+  // =========================================================================
+  // Compliance reporting, safety classification, service status, fleet
+  // =========================================================================
+
+  // Name, title and description as the hosted connector served them before
+  // this package carried the tool, so a connector user sees no change.
+  server.registerTool(
+    'generate_dsa_transparency_report',
+    {
+      title: 'DSA Transparency Report Data',
+      description: 'Aggregated moderation data for a reporting period, laid out on the EU DSA transparency-report template (Implementing Regulation (EU) 2024/2835), to help prepare the report. Each template field says whether Tuteliq computed it, holds part of it, or does not hold it (null, for the platform to supply). Aggregates only; no incident content. Read-only. Included in the Build, Assure and Enterprise plans. Costs 1 credit per started block of 10,000 incidents read in the period (1 up to 10,000, 10 at the 100,000 cap).',
+      annotations: READ_ONLY,
+      inputSchema: {
+        from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('First day of the reporting period, YYYY-MM-DD (UTC), included.'),
+        to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('Last day of the reporting period, YYYY-MM-DD (UTC), included. At most 366 days after from.'),
+      },
+    },
+    async ({ from, to }) => {
+      const report = await client.getDsaTransparencyReport({ from, to });
+      return {
+        structuredContent: { toolName: 'generate_dsa_transparency_report', result: report },
+        content: [{ type: 'text', text: formatDsaReportSummary(report) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    'get_safety_classification',
+    {
+      title: 'Safety Classification',
+      description: "The account's daily safety classification: a 0-100 score and band built from review coverage, response time, open queue age, detection coverage and integration health, with a tip for each component below full marks. An account with too little activity is not classified yet, which is not a score of zero.",
+      annotations: READ_ONLY,
+      inputSchema: {},
+    },
+    async () => {
+      const result = await client.getSafetyClassification();
+      return {
+        structuredContent: { toolName: 'get_safety_classification', result },
+        content: [{ type: 'text', text: formatSafetyClassification(result) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    'get_service_status',
+    {
+      title: 'Service Status',
+      description: 'Current health of the Tuteliq service: overall status, each component, uptime and any active incidents. Pass `component` to check one component instead. A degraded service or a failing component is returned as an answer, not an error.',
+      annotations: READ_ONLY,
+      inputSchema: {
+        component: z.string().optional().describe('Check one component only, e.g. "database" or "cache"'),
+      },
+    },
+    async ({ component }) => {
+      if (component) {
+        const ping = await client.pingComponent(component);
+        return { structuredContent: { toolName: 'get_service_status', result: ping }, content: [{ type: 'text', text: formatComponentPing(ping) }] };
+      }
+      const status = await client.getStatus();
+      return { structuredContent: { toolName: 'get_service_status', result: status }, content: [{ type: 'text', text: formatApiStatus(status) }] };
+    },
+  );
+
+  server.registerTool(
+    'get_fleet',
+    {
+      title: 'Device Fleet',
+      description: "The latest posture attestation of each device in the organisation's endpoint agent fleet, newest first, with how many devices are compliant. Costs 1 credit per call.",
+      annotations: READ_ONLY,
+      inputSchema: {},
+    },
+    async () => {
+      const result = await client.getFleet();
+      return { structuredContent: { toolName: 'get_fleet', result }, content: [{ type: 'text', text: formatFleet(result) }] };
+    },
+  );
+
+  server.registerTool(
+    'get_fleet_device',
+    {
+      title: 'Device Attestation',
+      description: "One device's latest posture attestation: which checks passed and which failed. Costs 1 credit per call.",
+      annotations: READ_ONLY,
+      inputSchema: {
+        device_id: z.string().min(1).describe('The device ID, as listed by get_fleet'),
+      },
+    },
+    async ({ device_id }) => {
+      const result = await client.getFleetDevice(device_id);
+      return { structuredContent: { toolName: 'get_fleet_device', result }, content: [{ type: 'text', text: formatFleetDevice(result.device, result.credits_used) }] };
     },
   );
 }

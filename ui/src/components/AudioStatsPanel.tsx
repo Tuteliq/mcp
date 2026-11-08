@@ -1,7 +1,10 @@
 import React from 'react';
 import { colors, fontFamily } from '../theme';
+import { audioRms } from '../utils/resultFields';
 
 interface AudioStats {
+  rms_level?: number;
+  /** Older name of rms_level */
   rms_mean?: number;
   dynamic_range?: number;
   silence_ratio?: number;
@@ -42,10 +45,11 @@ export function AudioStatsPanel({ stats, spectralSignals, transcription }: Audio
       description: 'Range between quietest and loudest',
     });
   }
-  if (stats.rms_mean != null) {
+  const rms = audioRms(stats);
+  if (rms != null) {
     meters.push({
       label: 'RMS Level',
-      value: Math.abs(stats.rms_mean),
+      value: Math.abs(rms),
       max: 1,
       unit: '',
       color: colors.teal.base,

@@ -246,8 +246,9 @@ ${receipt.canonical}
           ])
           .describe('Closed enum of reason codes'),
         reason_comment: z.string().optional().describe('Free-form comment; encrypted at rest'),
-        new_risk_level: z.string().optional().describe('Required for downgrade / escalate'),
-        new_risk_category: z.string().optional().describe('Required for reclassify'),
+        // `medium` is accepted as the older spelling of `moderate`.
+        new_risk_level: z.enum(['low', 'moderate', 'medium', 'high', 'critical']).optional().describe('Required for downgrade / escalate: low, moderate, high or critical'),
+        new_risk_category: z.enum(Object.values(RiskCategory) as [RiskCategory, ...RiskCategory[]]).optional().describe('Required for reclassify'),
         moderator_external_id: z.string().optional().describe('Name of the acting agent. Sent to the API as "mcp:<name>" and defaults to "mcp:agent"; the mcp: prefix is added for you.'),
         retention_class: z
           .enum(['biometric-high-risk', 'safety-high-risk', 'limited-risk', 'minimal-risk'])
@@ -260,7 +261,7 @@ ${receipt.canonical}
         action: input.action,
         reason_code: input.reason_code,
         reason_comment: input.reason_comment,
-        new_risk_level: input.new_risk_level,
+        new_risk_level: (input.new_risk_level === 'medium' ? RiskLevel.MODERATE : input.new_risk_level) as RiskLevel | undefined,
         new_risk_category: input.new_risk_category,
         moderator_external_id: agentActorId(input.moderator_external_id),
         retention_class: input.retention_class,
@@ -364,7 +365,8 @@ ${result.failed === 0 ? '_All reviews recorded with signed Art 12 receipts._' : 
       annotations: READ_ONLY,
       inputSchema: {
         category: z.string().optional().describe('Filter by risk_category (e.g. "bullying", "grooming", "synthetic_content")'),
-        severity: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+        // Incidents are stored as `moderate`; `medium` is accepted as an alias.
+        severity: z.enum(['low', 'moderate', 'medium', 'high', 'critical']).optional(),
         // Must match IncidentStatus in the API exactly. This previously offered
         // "reviewing", which the API never writes, so filtering by it returned
         // an empty queue forever with no error.
@@ -386,8 +388,8 @@ ${result.failed === 0 ? '_All reviews recorded with signed Art 12 receipts._' : 
     async (input) => {
       const result = await client.listIncidents({
         category: input.category,
-        severity: input.severity as 'low' | 'medium' | 'high' | 'critical' | undefined,
-        status: input.status as 'new' | 'reviewing' | 'escalated' | 'resolved' | 'dismissed' | undefined,
+        severity: input.severity,
+        status: input.status,
         source: input.source as 'text' | 'voice' | 'image' | 'video' | 'video_stream' | undefined,
         from: input.from,
         to: input.to,
@@ -475,7 +477,7 @@ ${summaryPreview}${envelopeNote}`;
     {
       title: 'Incident Overview',
       description:
-        'KPI snapshot of incidents over a time window (default = last 30 days): total, requires-review queue size (high/critical AND status new|reviewing), 24h/7d/30d totals, counts by category / severity / source / status, and the top 5 platforms. Cheap aggregation; no LLM call.',
+        'KPI snapshot of incidents over a time window (default = last 30 days): total, requires-review queue size (high/critical AND status new), 24h/7d/30d totals, counts by category / severity / source / status, and the top 5 platforms. Cheap aggregation; no LLM call.',
       annotations: READ_ONLY,
       inputSchema: {
         from: z.string().optional().describe('ISO 8601 inclusive lower bound. Default: now - 30 days.'),
@@ -591,7 +593,7 @@ ${rows || '_(no incidents in window)_'}`;
           .optional()
           .describe('Customer or team name for the header, e.g. "Acme Trust & Safety". Supply only if the user has told you their name — never guess or use a placeholder.'),
         category: z.string().optional().describe('Restrict the queue to one risk category'),
-        severity: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+        severity: z.enum(['low', 'moderate', 'medium', 'high', 'critical']).optional(),
         platform: z.string().optional(),
         status: z
           .enum(['new', 'reviewed', 'escalated'])
@@ -619,7 +621,7 @@ ${rows || '_(no incidents in window)_'}`;
           .optional()
           .describe('The `review_incident` action you would recommend'),
         confidence: z.number().min(0).max(1).optional().describe('Your confidence, 0-1'),
-        risk_level: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+        risk_level: z.enum(['low', 'moderate', 'medium', 'high', 'critical']).optional(),
         pattern_match: z.string().optional().describe('e.g. "3/3" — how many expected patterns matched'),
         skip: z
           .number()
@@ -635,7 +637,7 @@ ${rows || '_(no incidents in window)_'}`;
     async (input) => {
       const QUEUE_PAGE = 100;
       const page = await client.listIncidents({
-        status: (input.status ?? 'new') as 'new' | 'reviewing' | 'escalated',
+        status: input.status ?? 'new',
         category: input.category,
         severity: input.severity,
         platform: input.platform,

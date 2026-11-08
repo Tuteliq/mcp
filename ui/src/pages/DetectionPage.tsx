@@ -14,6 +14,7 @@ import { harmSignals } from '../../../src/support-relevance.js';
 import { UpsellBanner } from '../components/UpsellBanner';
 import { CardHeader, Callout, VerifiedBadge } from '../components/primitives';
 import type { ToolResultPayload } from '../types';
+import { notAVerdict } from '../utils/resultFields';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -87,11 +88,14 @@ export function DetectionPage({ data }: DetectionPageProps) {
   // failure comes back zeroed with `flag_for_review`; nothing detected with a
   // live action is a report the detector routes to a person. Both used to
   // render "All clear" over a 0% gauge.
-  const incomplete = result.analysis_status === 'engine_error';
+  const notVerdict = notAVerdict(result);
+  const incomplete = notVerdict !== null;
   const review = !detected && !incomplete && !!action && !['none', 'allow', 'monitor'].includes(action.toLowerCase());
 
   const shownLevel = detected ? level : incomplete || review ? 'medium' : 'safe';
-  const copy = incomplete
+  const copy = notVerdict === 'out_of_scope'
+    ? { title: 'Not analysed', subtitle: 'The declared participants put this conversation outside this detector\'s scope. This is not an all-clear' }
+    : incomplete
     ? { title: 'Analysis incomplete', subtitle: 'No verdict was produced. This is not an all-clear: send it to a moderator' }
     : review
       ? { title: 'Flagged for review', subtitle: 'Not detected as harm here, but a person should look at it' }

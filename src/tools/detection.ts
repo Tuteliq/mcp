@@ -3,8 +3,8 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import type { Tuteliq, ContextInput } from '@tuteliq/sdk';
 import { loadWidget } from '../package-root.js';
-import { severityEmoji, riskEmoji, formatSupportText, formatRationale, formatContinuation, formatTrajectory, riskScoreScope, verdictStatus, formatMessageRows, resultHeader, analysisIncomplete, INCOMPLETE_SCORES, formatSpeakerAndRouting } from '../formatters.js';
-import { conversationTypeField } from './conversation-type.js';
+import { severityEmoji, riskEmoji, formatSupportText, formatRationale, formatContinuation, formatTrajectory, riskScoreScope, verdictStatus, formatMessageRows, resultHeader, analysisIncomplete, incompleteScores, formatSpeakerAndRouting, formatDeterministicFlags, formatNicknameResult } from '../formatters.js';
+import { conversationTypeField, declaredContextFields, textDetectionFields, toSdkContext } from './conversation-type.js';
 import { harmSignals } from '../support-relevance.js';
 import { withViewId } from '../view-id.js';
 import { widgetUri } from '../widget-uri.js';
@@ -28,26 +28,13 @@ function handleTierError(err: any, toolName: string, featureLabel: string) {
   return null;
 }
 
-/**
- * Renders the additive, deterministic `profanity`/`risk_terms` fields when
- * present. Both are opt-in (flag_profanity/flag_risk_terms or the account
- * defaults) and never affect severity/risk_score/recommended_action, so this
- * is purely informational — omitted entirely when neither fired.
- */
-function formatDeterministicFlags(result: { profanity?: { detected: boolean; matches: string[] } | null; risk_terms?: { detected: boolean; matches: Array<{ term: string; category: string }> } | null }): string {
-  const lines: string[] = [];
-  if (result.profanity?.detected) lines.push(`**Profanity:** ${result.profanity.matches.join(', ')}`);
-  if (result.risk_terms?.detected) lines.push(`**Risk Terms:** ${result.risk_terms.matches.map(m => `${m.term} (${m.category})`).join(', ')}`);
-  return lines.length ? `\n${lines.join('\n')}\n` : '';
-}
-
 const contextSchema = z.object({
   language: z.string().optional(),
   ageGroup: z.string().optional(),
   relationship: z.string().optional(),
   platform: z.string().optional(),
   country: z.string().optional().describe('ISO 3166-1 alpha-2 country code (e.g., "GB", "US") for geo-localised helpline data'),
-  conversation_type: conversationTypeField,
+  ...declaredContextFields,
   // Supported by detect_unsafe only (enables multi-turn trajectory awareness
   // in a single call). Silently ignored by detect_bullying, which has no
   // multi-turn content field of its own -- use continuation_token there
@@ -122,15 +109,18 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
         verdict_only: z.boolean().optional().describe('Fast mode. Return only the verdict (severity, categories, recommended action) and omit any per-message breakdown. Lower latency for real-time screening; the verdict itself is unchanged.'),
         flag_profanity: z.boolean().optional().describe('Additive, deterministic word-list flag for plain profanity/vulgarity. Adds a `profanity` field to the response; never affects severity/risk_score/recommended_action. Free — no extra credits. Explicit true/false here overrides the account\'s default_flag_profanity setting for this call; omit to use the account default.'),
         flag_risk_terms: z.boolean().optional().describe('Additive, deterministic word-list flag for bare drug/violence terms (e.g. "cocaine", "kill"). Adds a `risk_terms` field to the response; never affects severity/risk_score/recommended_action. Free — no extra credits. Purely lexical: WILL fire on benign uses of an included term ("kill the lights"). Explicit true/false here overrides the account\'s default_flag_risk_terms setting for this call; omit to use the account default.'),
+        ...textDetectionFields,
         ...trackingSchema,
       },
       _meta: uiMeta('Shows bullying detection results with risk indicators', 'Analyzing content for bullying...', 'Bullying analysis complete.'),
     },
-    async ({ content, context, support_threshold, continuation_token, reset_conversation, verdict_only, flag_profanity, flag_risk_terms, external_id, customer_id, metadata, incident_moderation_enabled }) => {
+    async ({ content, context, support_threshold, continuation_token, reset_conversation, verdict_only, flag_profanity, flag_risk_terms, attestation, message_id, external_id, customer_id, metadata, incident_moderation_enabled }) => {
       try {
         const result = await client.detectBullying({
           content,
-          context: context as Record<string, string> | undefined,
+          context: toSdkContext(context) as ContextInput | undefined,
+          attestation,
+          messageId: message_id,
           supportThreshold: support_threshold,
           continuationToken: continuation_token,
           resetConversation: reset_conversation,
@@ -146,7 +136,7 @@ export function registerDetectionTools(server: McpServer, client: Tuteliq): void
         const emoji = severityEmoji[result.severity] || '\u26AA';
         let text = `## ${resultHeader(result, result.is_bullying, result.recommended_action, 'Bullying Detected', 'No Bullying Detected')}
 
-${analysisIncomplete(result) ? INCOMPLETE_SCORES : `**Severity:** ${emoji} ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}
+${analysisIncomplete(result) ? incompleteScores(result) : `**Severity:** ${emoji} ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}
 **Confidence:** ${(result.confidence * 100).toFixed(0)}%
 **Risk Score:** ${(result.risk_score * 100).toFixed(0)}%${riskScoreScope(result)}`}
 
@@ -191,25 +181,30 @@ ${formatRationale(result)}
         childAge: z.number().optional().describe('Age of the child in the conversation'),
         participantAge: z.number().optional().describe('Optional age of the non-minor participant'),
         context: z.object({
-          conversation_type: conversationTypeField,
+          ...declaredContextFields,
           platform: z.string().optional().describe('Platform name'),
           language: z.string().optional().describe('Language code (e.g., "en")'),
         }).optional().describe('Optional analysis context'),
+        include_relationship_frame: z.boolean().optional().describe('Optional, off by default. Also return `relationship_frame`: whether the participants appear to know each other offline, only online, or neither is established. Descriptive only; it never changes the verdict. Returned only when a tactic was flagged, and not in `verdict_only` mode.'),
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
         continuation_token: z.string().optional().describe('Opaque signed token returned by a prior detect_grooming call. Pass it back to maintain multi-turn awareness across chunked conversations without server-side content storage. The result includes a fresh continuation_token for the next call.'),
         reset_conversation: z.boolean().optional().describe('If true, discard any continuation_token and analyze these messages as a fresh conversation.'),
         verdict_only: z.boolean().optional().describe('Fast mode. Return only the conversation-level verdict (risk level, flags, recommended action) and omit the per-message breakdown. Lower latency for real-time screening; the verdict itself is unchanged.'),
+        ...textDetectionFields,
         ...trackingSchema,
       },
       _meta: uiMeta('Shows grooming detection results with risk indicators', 'Analyzing conversation for grooming patterns...', 'Grooming analysis complete.'),
     },
-    async ({ messages, childAge, participantAge, context, support_threshold, continuation_token, reset_conversation, verdict_only, external_id, customer_id, metadata, incident_moderation_enabled }) => {
+    async ({ messages, childAge, participantAge, context, include_relationship_frame, support_threshold, continuation_token, reset_conversation, verdict_only, attestation, message_id, external_id, customer_id, metadata, incident_moderation_enabled }) => {
       try {
         const result = await client.detectGrooming({
           messages,
           childAge,
           participantAge,
-          context: context as ContextInput | undefined,
+          context: toSdkContext(context) as ContextInput | undefined,
+          includeRelationshipFrame: include_relationship_frame,
+          attestation,
+          messageId: message_id,
           supportThreshold: support_threshold,
           continuationToken: continuation_token,
           resetConversation: reset_conversation,
@@ -223,11 +218,12 @@ ${formatRationale(result)}
         const emoji = riskEmoji[result.grooming_risk] || '\u26AA';
         let text = `## ${resultHeader(result, result.grooming_risk !== 'none', result.recommended_action, 'Grooming Risk Detected', 'No Grooming Detected')}
 
-${analysisIncomplete(result) ? INCOMPLETE_SCORES : `**Risk Level:** ${emoji} ${result.grooming_risk.charAt(0).toUpperCase() + result.grooming_risk.slice(1)}
+${analysisIncomplete(result) ? incompleteScores(result) : `**Risk Level:** ${emoji} ${result.grooming_risk.charAt(0).toUpperCase() + result.grooming_risk.slice(1)}
 **Confidence:** ${(result.confidence * 100).toFixed(0)}%
 **Risk Score:** ${(result.risk_score * 100).toFixed(0)}%${riskScoreScope(result)}`}
 
 ${result.flags.length > 0 ? `**Warning Flags:**\n${result.flags.map(f => `- \u{1F6A9} ${f}`).join('\n')}` : ''}
+${result.relationship_frame ? `**Relationship frame:** ${result.relationship_frame.replace(/_/g, ' ')} (descriptive only)` : ''}
 ${formatSpeakerAndRouting(result as unknown as Record<string, unknown>)}
 ${formatTrajectory(result)}
 
@@ -267,20 +263,25 @@ ${formatRationale(result)}
         content: z.string().describe('The text content to analyze for unsafe content'),
         context: contextSchema,
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
-                verdict_only: z.boolean().optional().describe('Fast mode. Skips generating the rationale, the only free-text field this endpoint produces. Lower latency and a smaller response; the verdict itself is unchanged.'),
+        verdict_only: z.boolean().optional().describe('Fast mode. Skips generating the rationale, the only free-text field this endpoint produces. Lower latency and a smaller response; the verdict itself is unchanged.'),
         continuation_token: z.string().optional().describe('Opaque signed token returned by a prior detect_unsafe call. Pass it back to maintain multi-turn awareness without server-side content storage. The result includes a fresh continuation_token to forward into the next call. Alternative to context.priorMessages for callers analyzing one new message at a time.'),
         reset_conversation: z.boolean().optional().describe('If true, discard any continuation_token and analyze this content as a fresh conversation.'),
+        new_conversation: z.boolean().optional().describe('Optional, with `continuation_token`: this message starts a new conversation with the same person. The conversation-level state carries over, so a pattern that persists across separate conversations stays visible.'),
         flag_profanity: z.boolean().optional().describe('Additive, deterministic word-list flag for plain profanity/vulgarity. Adds a `profanity` field to the response; never affects severity/risk_score/recommended_action. Free \u2014 no extra credits. Explicit true/false here overrides the account\'s default_flag_profanity setting for this call; omit to use the account default.'),
         flag_risk_terms: z.boolean().optional().describe('Additive, deterministic word-list flag for bare drug/violence terms (e.g. "cocaine", "kill"). Adds a `risk_terms` field to the response; never affects severity/risk_score/recommended_action. Free \u2014 no extra credits. Purely lexical: WILL fire on benign uses of an included term ("kill the lights"). Explicit true/false here overrides the account\'s default_flag_risk_terms setting for this call; omit to use the account default.'),
+        ...textDetectionFields,
         ...trackingSchema,
       },
       _meta: uiMeta('Shows unsafe content detection results', 'Analyzing content for safety concerns...', 'Safety analysis complete.'),
     },
-    async ({ content, context, support_threshold, verdict_only, continuation_token, reset_conversation, flag_profanity, flag_risk_terms, external_id, customer_id, metadata, incident_moderation_enabled }) => {
+    async ({ content, context, support_threshold, verdict_only, continuation_token, reset_conversation, new_conversation, flag_profanity, flag_risk_terms, attestation, message_id, external_id, customer_id, metadata, incident_moderation_enabled }) => {
       try {
         const result = await client.detectUnsafe({
           content,
-          context: context as Record<string, unknown> | undefined,
+          context: toSdkContext(context) as ContextInput | undefined,
+          newConversation: new_conversation,
+          attestation,
+          messageId: message_id,
           supportThreshold: support_threshold,
           verdictOnly: verdict_only,
           continuationToken: continuation_token,
@@ -296,9 +297,9 @@ ${formatRationale(result)}
         const emoji = severityEmoji[result.severity] || '\u26AA';
         let text = `## ${resultHeader(result, result.unsafe, result.recommended_action, 'Unsafe Content Detected', 'Content is Safe')}
 
-**Severity:** ${emoji} ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}
+${analysisIncomplete(result) ? incompleteScores(result) : `**Severity:** ${emoji} ${result.severity.charAt(0).toUpperCase() + result.severity.slice(1)}
 **Confidence:** ${(result.confidence * 100).toFixed(0)}%
-**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%
+**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%${riskScoreScope(result)}`}
 
 ${result.unsafe ? `**Categories:**\n${result.categories.map(c => `- \u26A0\uFE0F ${c}`).join('\n')}` : ''}
 ${formatSpeakerAndRouting(result as unknown as Record<string, unknown>)}
@@ -371,6 +372,51 @@ ${result.bullying ? `\n**Bullying Check:** ${verdictStatus(result.bullying.is_bu
         });
       } catch (err: any) {
         const upsell = handleTierError(err, 'analyze', 'Safety Analysis');
+        if (upsell) return upsell;
+        throw err;
+      }
+    },
+  );
+
+  // ── detect_nickname ────────────────────────────────────────────────────────
+  // Stores nothing and takes no correlation fields, so it is read-only and
+  // closed-world. Its `recommendation` is advice for the name, a different
+  // vocabulary from `recommended_action`, so it has its own formatter.
+  server.registerTool(
+    'detect_nickname',
+    {
+      title: 'Check Display Name',
+      description: 'Read a display name, username or nickname before it is shown, and return a signal about the name (not a verdict on the person) with advice: allow, allow and watch, ask to rename, or hold for review. It reads intent, for example a name that impersonates staff, seeks older contact, discloses an age or carries a contact detail. When the reading did not complete, the result says so and nothing is charged: retry rather than treating the name as clean.',
+      annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+      inputSchema: {
+        name: z.string().min(1).max(64).describe('The display name as typed (1-64 characters)'),
+        strictness: z.enum(['cautious', 'balanced', 'strict']).optional().describe('How readily a doubtful reading is acted on (default: balanced)'),
+        context: z.object({
+          language: z.string().optional().describe('Two-letter language code'),
+          age_group: z.string().optional().describe('Age group of the person choosing the name, e.g. "11-13"'),
+          conversation_type: conversationTypeField,
+          platform_reserved: z.array(z.string().max(32)).max(20).optional().describe('Your platform\'s own staff and support names (max 20, each up to 32 characters), so copies of them can be recognised'),
+        }).optional().describe('Optional context'),
+      },
+    },
+    async ({ name, strictness, context }) => {
+      try {
+        const result = await client.detectNickname({
+          name,
+          strictness,
+          context: context && {
+            language: context.language,
+            ageGroup: context.age_group,
+            conversationType: context.conversation_type,
+            platformReserved: context.platform_reserved,
+          },
+        });
+        return {
+          structuredContent: { toolName: 'detect_nickname', result, branding: { appName: 'Tuteliq' } },
+          content: [{ type: 'text' as const, text: formatNicknameResult(result) }],
+        };
+      } catch (err: any) {
+        const upsell = handleTierError(err, 'detect_nickname', 'Display Name Checks');
         if (upsell) return upsell;
         throw err;
       }

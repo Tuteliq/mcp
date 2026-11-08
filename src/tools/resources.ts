@@ -70,12 +70,15 @@ Pass a \`context\` object with any detection tool to improve accuracy.
 | Field | Type | Description |
 |-------|------|-------------|
 | \`ageGroup\` / \`age_group\` | string | Age bracket for calibrated scoring: \`"under 10"\`, \`"10-12"\`, \`"13-15"\`, \`"16-17"\`, \`"under 18"\` |
-| \`language\` | string | ISO 639-1 code (e.g. \`"en"\`, \`"de"\`, \`"sv"\`). Auto-detected if omitted. 27 languages supported. |
+| \`language\` | string | ISO 639-1 code (e.g. \`"en"\`, \`"de"\`, \`"sv"\`). Auto-detected if omitted. See the language support page for the current list. |
 | \`platform\` | string | Platform name (e.g. \`"Discord"\`, \`"Roblox"\`, \`"WhatsApp"\`). Adjusts for platform-specific norms and slang. |
 | \`priorMessages\` | array | Prior turns of this conversation, oldest first, for a single call to see full trajectory. Each entry: \`{ role: string, text: string, timestamp?: string }\`. Request-scoped -- never stored server-side. Returns per-message \`message_analysis\`. Supported by detect_unsafe and the fraud/coercive-control/distress-signals endpoint family; not by detect_bullying or detect_grooming (use \`continuation_token\` there, or detect_grooming's own \`messages\` array). |
 | \`country\` | string | ISO 3166-1 alpha-2 country code (e.g. \`"GB"\`, \`"US"\`, \`"SE"\`). Returns geo-localised crisis helplines. Falls back to user profile country if omitted. |
-| \`sender_trust\` | string | \`"verified"\`, \`"trusted"\`, or \`"unknown"\`. When \`"verified"\`, AUTH_IMPERSONATION is fully suppressed. |
-| \`sender_name\` | string | Sender identifier. Used with \`sender_trust\` for impersonation scoring. |
+| \`conversation_type\` | string | The setting the conversation was captured in (e.g. \`"helpline"\`, \`"education"\`, \`"gaming_chat"\`), declared by your platform from its own configuration. When omitted, the account default applies if one is set. |
+| \`sender\` | object | The sender as your platform knows them: \`{ role?, age_group? }\`. Role is one of \`child\`, \`teen\`, \`adult\`, \`guardian\`, \`educator\`, \`staff\`, \`unknown\`. Declared, never inferred from the text. |
+| \`recipients\` | array | Up to 20 recipients: \`{ role?, age_group?, relationship_to_sender? }\`. Relationship is one of \`guardian_of_sender\`, \`child_of_sender\`, \`sibling\`, \`peer\`, \`educator_of_sender\`, \`student_of_sender\`, \`staff\`, \`none\`, \`unknown\`. |
+| \`minor_disclosure_check\` | boolean | Also read whether the speaker says they are a minor in words other than an age. Returned as \`minor_disclosure\`. |
+| \`author_role\` | string | detect_distress_signals only: \`"subject"\` (the author is the person in distress) or \`"responder"\`. |
 
 ## Common Parameters (all detection tools)
 
@@ -85,6 +88,8 @@ Pass a \`context\` object with any detection tool to improve accuracy.
 | \`context\` | object | Optional context object (see above). |
 | \`include_evidence\` | boolean | When \`true\`, returns flagged phrases with tactic labels and weights. |
 | \`support_threshold\` | string | Minimum severity to include crisis helplines: \`"low"\`, \`"medium"\`, \`"high"\` (default), \`"critical"\`. Critical severity always includes support resources. |
+| \`attestation\` | boolean | Ask for a signed, non-identifying attestation of what was detected. |
+| \`message_id\` | string | Your id for this message (max 128 characters). |
 | \`external_id\` | string | Your external tracking ID (echoed in response). |
 | \`customer_id\` | string | Your customer identifier (echoed in response). |
 
@@ -93,15 +98,18 @@ Pass a \`context\` object with any detection tool to improve accuracy.
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | \`content\` | string | **Required.** Text to analyze. |
-| \`endpoints\` | string[] | **Required.** Endpoint IDs to run. Valid values: \`bullying\`, \`grooming\`, \`unsafe\`, \`social-engineering\`, \`app-fraud\`, \`romance-scam\`, \`mule-recruitment\`, \`gambling-harm\`, \`coercive-control\`, \`vulnerability-exploitation\`, \`radicalisation\` |
+| \`endpoints\` | string[] | **Required.** Endpoint IDs to run. Valid values: \`bullying\`, \`grooming\`, \`unsafe\`, \`social-engineering\`, \`app-fraud\`, \`romance-scam\`, \`mule-recruitment\`, \`gambling-harm\`, \`coercive-control\`, \`vulnerability-exploitation\`, \`radicalisation\`, \`distress-signals\`, \`tfgbv\`, \`synthetic-content\` |
 | \`context\` | object | Optional context object. |
 | \`include_evidence\` | boolean | Include evidence in each result. |
-| \`support_threshold\` | string | Crisis helpline threshold. |`;
+| \`support_threshold\` | string | Crisis helpline threshold. |
+| \`flag_profanity\` / \`flag_risk_terms\` | boolean | Word-list flags, applied to the bullying and unsafe results. |
+
+When a detector does not answer, the summary reports \`analysis_status: "partial"\` with \`failed_endpoints\` and its own \`recommended_action\`. A detector that did not answer has not cleared the content.`;
 
 const DOCUMENTATION = `# Tuteliq MCP — Quick Reference
 
 ## What is Tuteliq?
-Tuteliq is a child safety API that detects grooming, bullying, self-harm, fraud, radicalisation, and 10+ other harms across text, voice, image, and video. Sub-400ms response times. Zero data retention. KOSA, COPPA, and DSA compliant.
+Tuteliq is a child safety API that detects grooming, bullying, self-harm, fraud, radicalisation, and 10+ other harms across text, voice, image, and video. Zero data retention. KOSA, COPPA, and DSA compliant.
 
 ## Full Documentation
 - API Reference: https://docs.tuteliq.ai/api-reference/introduction

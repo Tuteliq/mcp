@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { conversationTypeField } from './conversation-type.js';
+import { declaredContextFields, toSdkContext } from './conversation-type.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import type { Tuteliq, ContextInput } from '@tuteliq/sdk';
@@ -31,6 +31,9 @@ const ANALYSE_MULTI_ENDPOINTS = [
   'coercive-control',
   'vulnerability-exploitation',
   'radicalisation',
+  'distress-signals',
+  'tfgbv',
+  'synthetic-content',
 ] as const;
 
 /**
@@ -189,7 +192,10 @@ ${result.recommended_followup}`;
       inputSchema: {
         situation: z.string().describe('Description of the situation needing guidance'),
         childAge: z.number().optional().describe('Age of the child involved'),
-        audience: z.enum(['child', 'parent', 'educator', 'platform']).optional().describe('Who the guidance is for (default: parent)'),
+        // `educator` was offered here and always rejected by the API. It stays
+        // accepted and is sent as `parent`, the closest audience, with a note
+        // on the result.
+        audience: z.enum(['child', 'parent', 'educator', 'platform']).optional().describe('Who the guidance is for: child, parent or platform (default: parent). `educator` is accepted and answered as `parent`.'),
         severity: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Severity of the situation'),
       },
       _meta: {
@@ -198,13 +204,17 @@ ${result.recommended_followup}`;
     },
     async ({ situation, childAge, audience, severity }) => {
       try {
-        const result = await client.getActionPlan({ situation, childAge, audience, severity });
+        const result = await client.getActionPlan({ situation, childAge, audience: audience === 'educator' ? 'parent' : audience, severity });
+        const readingLevel = result.approx_reading_level ?? result.reading_level;
+        const note = audience === 'educator'
+          ? '> There is no separate educator audience: this plan is written for a parent or guardian, which is the closest fit.\n\n'
+          : '';
 
-        const text = `## Action Plan
+        const text = `${note}## Action Plan
 
 **Audience:** ${result.audience}
 **Tone:** ${result.tone}
-${result.reading_level ? `**Reading Level:** ${result.reading_level}` : ''}
+${readingLevel ? `**Reading Level:** ${readingLevel}` : ''}
 
 ### Steps
 ${result.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')}`;
@@ -301,28 +311,36 @@ ${result.recommended_next_steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
             + ANALYSE_MULTI_ENDPOINTS.join(', ')
             + '.',
           ),
-        // Named so `conversation_type` is advertised; passthrough keeps any
+        // Named so the declared fields are advertised; passthrough keeps any
         // other key working as the bare record did.
-        context: z.object({ conversation_type: conversationTypeField }).passthrough().optional().describe('Optional analysis context. When `conversation_type` is omitted, the account default is used if one is set.'),
+        context: z.object({ ...declaredContextFields }).passthrough().optional().describe('Optional analysis context. When `conversation_type` is omitted, the account default is used if one is set.'),
         include_evidence: z.boolean().optional().describe('Include supporting evidence'),
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
+        flag_profanity: z.boolean().optional().describe('Additive word-list flag for plain profanity, applied to the bullying and unsafe results only. Never affects severity, risk_score or recommended_action. Omit to use the account default.'),
+        flag_risk_terms: z.boolean().optional().describe('Additive word-list flag for bare drug and violence terms, applied to the bullying and unsafe results only. Purely lexical, so it fires on benign uses too; never affects severity, risk_score or recommended_action. Omit to use the account default.'),
         external_id: z.string().optional().describe('External tracking ID'),
         customer_id: z.string().optional().describe('Customer identifier'),
+        metadata: z.record(z.string(), z.unknown()).optional().describe('Custom key-value pairs stored with detection results and included in webhooks.'),
+        incident_moderation_enabled: z.boolean().optional().describe('Per-call override of account incident logging: true forces persistence, false suppresses it. Omit for account default.'),
       },
       _meta: {
         ui: { resourceUri: MULTI_WIDGET_URI },
       },
     },
-    async ({ content, endpoints, context, include_evidence, support_threshold, external_id, customer_id }) => {
+    async ({ content, endpoints, context, include_evidence, support_threshold, flag_profanity, flag_risk_terms, external_id, customer_id, metadata, incident_moderation_enabled }) => {
       try {
         const result = await client.analyseMulti({
           content,
           detections: endpoints,
-          context: context as ContextInput | undefined,
+          context: toSdkContext(context) as ContextInput | undefined,
           includeEvidence: include_evidence,
           supportThreshold: support_threshold,
+          flagProfanity: flag_profanity,
+          flagRiskTerms: flag_risk_terms,
           external_id,
           customer_id,
+          metadata,
+          incident_moderation_enabled,
         });
 
         return withViewId({

@@ -5,7 +5,8 @@ interface LipSyncData {
   correlation: number;
   has_silent_mouth_movement: boolean;
   has_voice_without_movement: boolean;
-  signals: string[];
+  /** Not served by the API; kept optional for older results. */
+  signals?: string[];
 }
 
 interface LipSyncMeterProps {
@@ -146,9 +147,9 @@ export function LipSyncMeter({ data }: LipSyncMeterProps) {
         )}
 
         {/* Signals */}
-        {data.signals.length > 0 && (
+        {(data.signals?.length ?? 0) > 0 && (
           <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {data.signals.map((sig, i) => (
+            {data.signals!.map((sig, i) => (
               <span
                 key={i}
                 style={{

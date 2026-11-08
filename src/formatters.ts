@@ -12,8 +12,16 @@ import type {
   SyntheticProfile,
   VerificationSession,
   VerificationSessionResult,
+  VerificationConfig,
   RecommendedAction,
   UsageQuota,
+  NicknameResult,
+  SafetyClassificationResult,
+  ApiStatus,
+  ComponentPing,
+  FleetResult,
+  FleetDevice,
+  DsaTransparencyReport,
 } from '@tuteliq/sdk';
 import { isActionable } from '@tuteliq/sdk';
 import { harmSignals, relevantHelplines } from './support-relevance.js';
@@ -21,6 +29,7 @@ import { harmSignals, relevantHelplines } from './support-relevance.js';
 export const severityEmoji: Record<string, string> = {
   low: '\u{1F7E1}',
   medium: '\u{1F7E0}',
+  moderate: '\u{1F7E0}',
   high: '\u{1F534}',
   critical: '\u26D4',
 };
@@ -30,6 +39,7 @@ export const riskEmoji: Record<string, string> = {
   none: '\u2705',
   low: '\u{1F7E1}',
   medium: '\u{1F7E0}',
+  moderate: '\u{1F7E0}',
   high: '\u{1F534}',
   critical: '\u26D4',
 };
@@ -72,15 +82,36 @@ export function verdictHeader(
  * `recommended_action: flag_for_review`, and the zeros are not a finding.
  * Printing them under a green "No Grooming Detected" turned an engine failure
  * into an all-clear; an independent evaluation saw exactly that (2026-09).
+ *
+ * `out_of_scope_adults` is the same hazard from the other side: the declared
+ * participants put the conversation outside the grooming detector's scope, so
+ * nothing was analysed, and the zeros are again not a finding.
  */
 export function analysisIncomplete(result: object): boolean {
-  return (result as { analysis_status?: unknown } | undefined)?.analysis_status === 'engine_error';
+  const status = (result as { analysis_status?: unknown } | undefined)?.analysis_status;
+  return status === 'engine_error' || status === 'out_of_scope_adults';
+}
+
+function outOfScope(result: object): boolean {
+  return (result as { analysis_status?: unknown } | undefined)?.analysis_status === 'out_of_scope_adults';
 }
 
 export const INCOMPLETE_HEADER = '\u{1F7E0} Analysis Incomplete: Flagged for Review';
 export const INCOMPLETE_SCORES = '**Risk Score:** not available, the analysis did not complete. This is not a result: treat the content as unresolved and route it to a moderator.';
+export const OUT_OF_SCOPE_HEADER = '\u26AA Not Analysed: Outside This Detector\'s Scope';
+export const OUT_OF_SCOPE_SCORES = '**Risk Score:** not available, the conversation was not analysed: the declared participants put it outside this detector\'s scope. This is not a finding that the conversation is safe; if a participant may be a minor, correct the declared participants and analyse it again.';
 
-/** The verdict header, with the engine-failure case ahead of the others. */
+/** The header for a result that is not a verdict. */
+export function incompleteHeader(result: object): string {
+  return outOfScope(result) ? OUT_OF_SCOPE_HEADER : INCOMPLETE_HEADER;
+}
+
+/** The score lines for a result that is not a verdict. */
+export function incompleteScores(result: object): string {
+  return outOfScope(result) ? OUT_OF_SCOPE_SCORES : INCOMPLETE_SCORES;
+}
+
+/** The verdict header, with the not-a-verdict cases ahead of the others. */
 export function resultHeader(
   result: object,
   flagged: boolean,
@@ -88,7 +119,7 @@ export function resultHeader(
   detectedLabel: string,
   clearLabel: string,
 ): string {
-  return analysisIncomplete(result) ? INCOMPLETE_HEADER : verdictHeader(flagged, recommendedAction, detectedLabel, clearLabel);
+  return analysisIncomplete(result) ? incompleteHeader(result) : verdictHeader(flagged, recommendedAction, detectedLabel, clearLabel);
 }
 
 const SPEAKER_ROLE_MEANING: Record<string, string> = {
@@ -105,28 +136,90 @@ const SPEAKER_STANCE_MEANING: Record<string, string> = {
   unclear: 'not clear from the text',
 };
 
+const CONVERSATION_TYPE_SOURCE: Record<string, string> = {
+  request: 'declared on this request',
+  participants: 'from the declared participants',
+  account_default: 'the account default',
+};
+
+const reasonText = (v: unknown): string => (typeof v === 'string' && v.trim() ? ` ${v.trim()}` : '');
+
 /**
- * Who is speaking, and what the API did with a declared conversation type.
+ * Who is speaking, and what the API did with what the platform declared.
  *
  * `speaker_role` / `speaker_stance` are what tell a bystander's report or a
  * child's disclosure from the harm itself, and are what a platform routes a
  * report to a victim-protection queue on. They were in `structuredContent`
  * only, which a host does not show the assistant. `conversation_type_applied`
  * is the API confirming a declared setting changed routing.
+ *
+ * The routing outcomes below change who a result is about or where it should
+ * go (a report rather than the harm, a child telling someone about a risk to
+ * somebody else, a person telling their own story). Each is printed with the
+ * API's own reason text, never a reason of ours. The other adjustment fields
+ * the API reports stay in `structuredContent`.
  */
 export function formatSpeakerAndRouting(result: Record<string, unknown>): string {
   const lines: string[] = [];
-  const role = result?.speaker_role;
+  const r = result ?? {};
+  const role = r.speaker_role;
   if (typeof role === 'string') lines.push(`**Speaker role:** \`${role}\`${SPEAKER_ROLE_MEANING[role] ? ` (${SPEAKER_ROLE_MEANING[role]})` : ''}`);
-  const stance = result?.speaker_stance;
+  const stance = r.speaker_stance;
   if (typeof stance === 'string') lines.push(`**Speaker stance:** \`${stance}\`${SPEAKER_STANCE_MEANING[stance] ? ` (${SPEAKER_STANCE_MEANING[stance]})` : ''}`);
-  if (typeof result?.conversation_type_applied === 'string') {
-    lines.push(`**Conversation type applied:** \`${result.conversation_type_applied}\` (the declared setting changed the recommended action; the score is unchanged)`);
+  if (typeof r.conversation_type_in_effect === 'string' && typeof r.conversation_type_source === 'string') {
+    lines.push(`**Conversation type in effect:** \`${r.conversation_type_in_effect}\` (${CONVERSATION_TYPE_SOURCE[r.conversation_type_source] ?? r.conversation_type_source})`);
   }
-  if (result?.action_capped === true && typeof result?.action_capped_reason === 'string') {
-    lines.push(`**Action capped:** ${result.action_capped_reason}`);
+  if (typeof r.conversation_type_applied === 'string') {
+    lines.push(`**Conversation type applied:** \`${r.conversation_type_applied}\` (the declared setting changed the recommended action; the score is unchanged)`);
+  }
+  const applied = r.participants_applied as { conversation_type?: string; age_group?: string; child_age?: number } | undefined;
+  if (applied && typeof applied === 'object') {
+    const parts = [
+      applied.conversation_type ? `conversation type \`${applied.conversation_type}\`` : '',
+      applied.age_group ? `age group ${applied.age_group}` : '',
+      typeof applied.child_age === 'number' ? `child age ${applied.child_age}` : '',
+    ].filter(Boolean);
+    if (parts.length > 0) lines.push(`**Declared participants applied:** ${parts.join(', ')}`);
+  }
+  if (r.declared_age_overridden === true) lines.push(`**Declared age overridden:**${reasonText(r.declared_age_overridden_reason) || ' the declared age was not used for this result.'}`);
+  const disclosure = r.minor_disclosure as { detected?: boolean; suggested_age_group?: string; reason?: string } | undefined;
+  if (disclosure && typeof disclosure === 'object') {
+    lines.push(disclosure.detected
+      ? `**Minor disclosure:** the speaker indicates they are a minor${disclosure.suggested_age_group ? ` (suggested age group ${disclosure.suggested_age_group})` : ''}.${reasonText(disclosure.reason)}`
+      : '**Minor disclosure:** none found.');
+  }
+  if (r.minor_on_adult_platform_raised === true) lines.push(`**Minor on an adult platform:**${reasonText(r.minor_on_adult_platform_raised_reason) || ' the result was raised.'}`);
+  if (r.bullying_reported === true) {
+    const by = r.bullying_reported_by === 'target' ? ' by the person it is happening to' : r.bullying_reported_by === 'bystander' ? ' by a bystander' : '';
+    lines.push(`**Bullying reported:** the speaker is reporting bullying${by}, not doing it.${reasonText(r.bullying_reported_reason)}`);
+  }
+  if (r.third_party_concern === true) lines.push(`**Third-party concern:** route this to your safeguarding process.${reasonText(r.third_party_concern_reason)}`);
+  if (r.disclosure_capped === true) lines.push(`**Disclosure:** the writer is telling their own story; offer support rather than opening a moderation case.${reasonText(r.disclosure_capped_reason)}`);
+  if (r.priority_review === true) lines.push(`**Priority review:** review this ahead of other results.${reasonText(r.priority_review_reason)}`);
+  if (r.target_report === true) lines.push(`**Target report:** the writer is the person being defrauded, reporting it.${reasonText(r.target_report_reason)}`);
+  if (r.support_suggested === true) lines.push('**Support suggested:** a supportive check-in is suggested rather than a moderation case.');
+  if (r.action_capped === true && typeof r.action_capped_reason === 'string') {
+    lines.push(`**Action capped:** ${r.action_capped_reason}`);
+  }
+  if (r.attestation && typeof r.attestation === 'object') {
+    lines.push('**Attestation:** signed attestation attached (`structuredContent.result.attestation`).');
+  } else if (r.attestation === null) {
+    lines.push(`**Attestation:** not produced${typeof r.attestation_reason === 'string' ? ` (\`${r.attestation_reason}\`)` : ''}.`);
   }
   return lines.join('\n');
+}
+
+/**
+ * Renders the additive, deterministic `profanity`/`risk_terms` fields when
+ * present. Both are opt-in (flag_profanity/flag_risk_terms or the account
+ * defaults) and never affect severity/risk_score/recommended_action, so this
+ * is purely informational, omitted entirely when neither fired.
+ */
+export function formatDeterministicFlags(result: { profanity?: { detected: boolean; matches: string[] } | null; risk_terms?: { detected: boolean; matches: Array<{ term: string; category: string }> } | null }): string {
+  const lines: string[] = [];
+  if (result.profanity?.detected) lines.push(`**Profanity:** ${result.profanity.matches.join(', ')}`);
+  if (result.risk_terms?.detected) lines.push(`**Risk Terms:** ${result.risk_terms.matches.map(m => `${m.term} (${m.category})`).join(', ')}`);
+  return lines.length ? `\n${lines.join('\n')}\n` : '';
 }
 
 export function verdictStatus(flagged: boolean, recommendedAction: RecommendedAction): string {
@@ -377,12 +470,12 @@ export function formatDetectionResult(result: DetectionResult, toolName?: string
   // Nothing detected with a live action (a report the detector routes to
   // review) is "Flagged for Review", not a green all-clear.
   const header = analysisIncomplete(result)
-    ? `## ${INCOMPLETE_HEADER}`
+    ? `## ${incompleteHeader(result)}`
     : detected
       ? `## ${levelEmoji} ${label} Detected`
       : `## ${verdictHeader(false, result.recommended_action, `${label} Detected`, `No ${label} Detected`)}`;
   const scores = analysisIncomplete(result)
-    ? INCOMPLETE_SCORES
+    ? incompleteScores(result)
     : `**Risk Score:** ${(result.risk_score * 100).toFixed(0)}%${riskScoreScope(result)}
 **Level:** ${result.level}
 **Confidence:** ${(result.confidence * 100).toFixed(0)}%`;
@@ -422,33 +515,60 @@ ${calibration}`.replace(/\n{3,}/g, '\n\n').trim()
     + formatContinuation(result, toolName ?? `detect_${result.endpoint.replace(/-/g, '_')}`);
 }
 
+/**
+ * The multi-endpoint result.
+ *
+ * A partial run (`summary.analysis_status: partial`) goes first: a detector
+ * that did not answer is not one that found nothing, and a run that reads
+ * "Threats Detected: 0" above a missing grooming result is the missed harm
+ * this server must never print. The API then sets a summary
+ * `recommended_action`, which is the one to route on.
+ */
 export function formatMultiResult(result: AnalyseMultiResult): string {
   const s = result.summary;
   const overallEmoji = riskEmoji[s.overall_risk_level] || '\u26AA';
+  const failed = s.failed_endpoints ?? [];
+  const partial = s.analysis_status === 'partial' || failed.length > 0;
 
-  const summarySection = `## Multi-Endpoint Analysis
+  const incomplete = partial
+    ? `## ${INCOMPLETE_HEADER}
+
+**Analysis status:** partial, ${failed.length} of ${s.total_endpoints} detectors did not answer. A detector that did not answer has not cleared the content.
+${failed.length > 0 ? `**Did not answer:** ${failed.map(f => `${f.endpoint} (\`${f.code}\`)`).join(', ')}` : ''}
+${s.recommended_action ? `**Recommended Action:** \`${s.recommended_action}\`${s.action_detail ? `\n${s.action_detail}` : ''}` : ''}
+
+`
+    : '';
+
+  const closeCalls = s.highest_risk.close_calls ?? [];
+  const summarySection = `${incomplete}## Multi-Endpoint Analysis
 
 **Overall Risk:** ${overallEmoji} ${s.overall_risk_level}
 **Endpoints Analyzed:** ${s.total_endpoints}
 **Threats Detected:** ${s.detected_count}
 **Highest Risk:** ${s.highest_risk.endpoint} (${(s.highest_risk.risk_score * 100).toFixed(0)}%)
-${result.cross_endpoint_modifier ? `**Cross-Endpoint Modifier:** ${result.cross_endpoint_modifier.toFixed(2)}x` : ''}`;
+${closeCalls.length > 0 ? `**Read together with:** ${closeCalls.map(c => c.endpoint).join(', ')} (scored about the same; part of the same finding)` : ''}
+${s.skipped_endpoints?.length ? `**Skipped:** ${s.skipped_endpoints.join(', ')}${s.skipped_reason ? ` (${s.skipped_reason})` : ''}` : ''}
+${result.cross_endpoint_modifier ? `**Cross-Endpoint Modifier:** ${result.cross_endpoint_modifier.toFixed(2)}x` : ''}`.replace(/\n{3,}/g, '\n\n');
 
   const perEndpoint = result.results
     .map(r => {
-      const emoji = r.detected ? (riskEmoji[r.level] || '\u26AA') : '\u2705';
+      const emoji = r.detected ? (riskEmoji[r.level ?? ''] || '\u26AA') : '\u2705';
+      const routing = formatSpeakerAndRouting(r as unknown as Record<string, unknown>);
       return `### ${emoji} ${r.endpoint}
-**Detected:** ${r.detected ? 'Yes' : 'No'} | **Risk:** ${(r.risk_score * 100).toFixed(0)}% | **Level:** ${r.level}
+**Detected:** ${r.detected ? 'Yes' : 'No'} | **Risk:** ${(r.risk_score * 100).toFixed(0)}% | **Level:** ${r.level ?? 'n/a'} | **Action:** \`${r.recommended_action}\`
 ${r.categories.length > 0 ? `**Categories:** ${r.categories.map(c => c.tag).join(', ')}` : ''}
-${r.rationale ?? r.action_detail ?? '_No written analysis returned for this endpoint._'}`;
+${routing}
+${r.rationale ?? '_No written analysis returned for this endpoint._'}`.replace(/\n{2,}/g, '\n');
     })
     .join('\n\n');
 
+  const signals = result.results.filter(r => r.detected).flatMap(r => harmSignals(r));
   return `${summarySection}
 
 ---
 
-${perEndpoint}`;
+${perEndpoint}` + (result.support ? formatSupportText(result.support, signals) : '');
 }
 
 export interface SupportBlock {
@@ -543,7 +663,8 @@ export function formatVideoResult(result: VideoAnalysisResult): string {
 **Recommended Action:** \`${result.recommended_action}\`${result.action_detail ? `\n${result.action_detail}` : ''}
 
 ### Safety Findings
-${findingsSection}`;
+${findingsSection}
+${formatDeterministicFlags(result)}`.trim();
 }
 
 export function formatDocumentResult(result: DocumentAnalysisResult): string {
@@ -646,11 +767,18 @@ export function formatSyntheticImageResult(result: SyntheticImageResult): string
     ? `**Categories:** ${result.categories.map(c => c.tag).join(', ')}`
     : '';
 
-  const visionSection = result.vision ? `### Vision AI Forensics
-**Likely Synthetic:** ${result.vision.is_likely_synthetic ? 'Yes' : 'No'} (${(result.vision.synthetic_confidence * 100).toFixed(0)}%)
-${result.vision.artifacts.length > 0 ? `**Artifacts:** ${result.vision.artifacts.join(', ')}` : ''}
-${result.vision.face_analysis ? `**Face Analysis:** ${result.vision.face_analysis}` : ''}
-**Assessment:** ${result.vision.overall_assessment}` : '';
+  // `semantic_analysis` is what the API serves; `vision` was its old name and
+  // is read only as a fallback for an older deployment.
+  const semantic = result.semantic_analysis ?? result.vision;
+  const visionSection = semantic ? `### Image Analysis
+**Likely Synthetic:** ${semantic.is_likely_synthetic ? 'Yes' : 'No'} (${(semantic.synthetic_confidence * 100).toFixed(0)}%)
+${semantic.artifacts?.length > 0 ? `**Artifacts:** ${semantic.artifacts.join(', ')}` : ''}
+${semantic.face_analysis ? `**Face Analysis:** ${semantic.face_analysis}` : ''}
+**Assessment:** ${semantic.overall_assessment}` : '';
+
+  const screenshotSection = result.screenshot_detection?.is_screenshot
+    ? `**Screen Capture:** looks like a screenshot (${(result.screenshot_detection.confidence * 100).toFixed(0)}%)`
+    : '';
 
   const metadataSection = result.metadata_analysis ? `### EXIF / Metadata
 **Format:** ${result.metadata_analysis.format} (${result.metadata_analysis.dimensions.width}x${result.metadata_analysis.dimensions.height})
@@ -663,10 +791,11 @@ ${result.metadata_analysis.suspicious_absence ? '\u26A0\uFE0F **Suspicious:** Hi
 ${result.provenance.claim_generator ? `**Claim Generator:** ${result.provenance.claim_generator}` : ''}
 **AI Generated:** ${result.provenance.is_ai_generated ? `Yes${result.provenance.ai_tool ? ` (${result.provenance.ai_tool})` : ''}` : 'No'}` : '';
 
-  const signalsSection = result.forensic_signals ? `### Forensic Signals
-**Total Signals:** ${result.forensic_signals.signal_count}
-**Combined Boost:** +${(result.forensic_signals.combined_confidence_boost * 100).toFixed(0)}%
-${result.forensic_signals.sources.map(s => `- **${s.name}:** ${s.signal_count} signals (+${(s.confidence_boost * 100).toFixed(0)}%)`).join('\n')}` : '';
+  // A count only: which checks fired and how much each moved the result is
+  // how the detector works, not something a reader acts on.
+  const signalsSection = result.forensic_signals?.signal_count
+    ? `**Forensic Signals:** ${result.forensic_signals.signal_count} independent signals found`
+    : '';
 
   const hashSection = result.perceptual_hash ? `**Perceptual Hash:** \`${result.perceptual_hash}\`` : '';
 
@@ -681,6 +810,7 @@ ${result.forensic_signals.sources.map(s => `- **${s.name}:** ${s.signal_count} s
 ${categories}
 
 ${visionSection}
+${screenshotSection}
 
 ${metadataSection}
 
@@ -710,11 +840,13 @@ export function formatSyntheticAudioResult(result: SyntheticAudioResult): string
     ? `### Transcript\n${result.transcription.text}`
     : '';
 
+  // `rms_level` is what the API serves; `rms_mean` is an older name.
+  const rms = result.audio_stats?.rms_level ?? result.audio_stats?.rms_mean;
   const statsSection = result.audio_stats ? `### Audio Statistics
 ${result.audio_stats.dynamic_range != null ? `**Dynamic Range:** ${result.audio_stats.dynamic_range.toFixed(1)} dB` : ''}
 ${result.audio_stats.silence_ratio != null ? `**Silence Ratio:** ${(result.audio_stats.silence_ratio * 100).toFixed(1)}%` : ''}
 ${result.audio_stats.flat_factor != null ? `**Flat Factor:** ${result.audio_stats.flat_factor.toFixed(2)} (higher = more uniform)` : ''}
-${result.audio_stats.rms_mean != null ? `**RMS Mean:** ${result.audio_stats.rms_mean.toFixed(1)} dB` : ''}` : '';
+${rms != null ? `**RMS Level:** ${rms.toFixed(1)} dB` : ''}` : '';
 
   const spectralSection = result.spectral_signals && result.spectral_signals.length > 0
     ? `### Spectral Signals\n${result.spectral_signals.map(s => `- ${s}`).join('\n')}`
@@ -751,19 +883,25 @@ export function formatSyntheticVideoResult(result: SyntheticVideoResult): string
 
   const videoMeta = result.video ? `**Duration:** ${result.video.duration_seconds.toFixed(1)}s | **Frames Analyzed:** ${result.video.frames_analyzed} | **Audio:** ${result.video.has_audio ? 'Yes' : 'No'}` : '';
 
-  const temporalSection = result.temporal_consistency ? `### Temporal Face Consistency
-**Identity Consistency:** ${(result.temporal_consistency.identity_consistency_score * 100).toFixed(0)}%
-**Landmark Stability:** ${(result.temporal_consistency.landmark_stability_score * 100).toFixed(0)}%
-**Overall Score:** ${(result.temporal_consistency.temporal_consistency_score * 100).toFixed(0)}%
-**Faces Detected:** ${result.temporal_consistency.frames_with_faces}/${result.temporal_consistency.total_frames} frames
-${result.temporal_consistency.anomalous_frame_pairs.length > 0 ? `**Anomalies:** ${result.temporal_consistency.anomalous_frame_pairs.map(p => `frames ${p.frame_a}\u2013${p.frame_b} (distance: ${p.distance.toFixed(2)})`).join(', ')}` : ''}
-${result.temporal_consistency.signals.length > 0 ? `**Signals:** ${result.temporal_consistency.signals.join(', ')}` : ''}` : '';
+  // The served names first; the older ones are read only as a fallback.
+  const tc = result.temporal_consistency;
+  const pctOf = (v: number | undefined) => (typeof v === 'number' ? `${(v * 100).toFixed(0)}%` : 'n/a');
+  const anomalies = tc ? (tc.anomalous_pairs ?? tc.anomalous_frame_pairs ?? []) : [];
+  const temporalSection = tc ? `### Temporal Face Consistency
+**Identity Consistency:** ${pctOf(tc.identity_consistency ?? tc.identity_consistency_score)}
+**Landmark Stability:** ${pctOf(tc.landmark_stability ?? tc.landmark_stability_score)}
+**Overall Score:** ${pctOf(tc.score ?? tc.temporal_consistency_score)}
+**Frames With Faces:** ${tc.frames_with_faces}${result.video?.frames_analyzed != null ? ` of ${result.video.frames_analyzed}` : ''}
+${anomalies.length > 0 ? `**Anomalies:** ${anomalies.map(p => `frames ${p.frame_a}\u2013${p.frame_b}`).join(', ')}` : ''}` : '';
 
   const lipSyncSection = result.lip_sync ? `### Lip-Sync Correlation
 **Correlation:** ${result.lip_sync.correlation.toFixed(2)} ${result.lip_sync.correlation < 0.3 ? '\u26A0\uFE0F Poor' : result.lip_sync.correlation < 0.5 ? '\u{1F7E0} Weak' : '\u2705 Good'}
 ${result.lip_sync.has_silent_mouth_movement ? '\u26A0\uFE0F Silent mouth movement detected' : ''}
-${result.lip_sync.has_voice_without_movement ? '\u26A0\uFE0F Voice without mouth movement detected' : ''}
-${result.lip_sync.signals.length > 0 ? `**Signals:** ${result.lip_sync.signals.join(', ')}` : ''}` : '';
+${result.lip_sync.has_voice_without_movement ? '\u26A0\uFE0F Voice without mouth movement detected' : ''}` : '';
+
+  const driftSection = result.drift_signature && result.drift_signature !== 'stable'
+    ? `**Drift Signature:** ${result.drift_signature}`
+    : '';
 
   const spectralSection = result.spectral_signals && result.spectral_signals.length > 0
     ? `### Spectral Audio Signals\n${result.spectral_signals.map(s => `- ${s}`).join('\n')}`
@@ -777,6 +915,7 @@ ${result.lip_sync.signals.length > 0 ? `**Signals:** ${result.lip_sync.signals.j
 **Level:** ${result.level}
 ${videoMeta}
 ${categories}
+${driftSection}
 
 ${temporalSection}
 
@@ -820,30 +959,54 @@ ${categoryLines || '_No categories recorded._'}`.trim();
 // Verification Formatters
 // =============================================================================
 
-export function formatVerificationSession(result: VerificationSession, mode: string): string {
-  return `## \u2705 Verification Session Created
-
-**Session ID:** \`${result.session_id}\`
-**Mode:** ${mode}
-**Expires:** ${result.expires_at}
-
-### Verification URL
-${result.url}
-
-Open this URL in a browser for the user to complete the verification flow (document capture, liveness check, selfie). Use \`get_verification_session\` to poll for the result.`;
+/** An epoch-millisecond timestamp as ISO 8601; anything else as given. */
+function isoTime(v: unknown): string | undefined {
+  if (typeof v === 'number' && Number.isFinite(v)) return new Date(v).toISOString();
+  return typeof v === 'string' && v ? v : undefined;
 }
 
-export function formatVerificationSessionResult(result: VerificationSessionResult): string {
-  const statusEmoji: Record<string, string> = {
-    pending: '\u23F3',
-    in_progress: '\u{1F504}',
-    completed: '\u2705',
-    failed: '\u274C',
-    expired: '\u23F0',
-    cancelled: '\u{1F6AB}',
-  };
+export function formatVerificationSession(result: VerificationSession, mode: string, notices: string[] = []): string {
+  const lines = [
+    '## \u2705 Verification Session Created',
+    '',
+    `**Session ID:** \`${result.session_id}\``,
+    `**Mode:** ${mode}`,
+  ];
+  if (result.verification_mode) lines.push(`**Check:** ${result.verification_mode === 'liveness_only' ? 'live face only' : 'document and live face'}`);
+  if (result.chip_policy) lines.push(`**Chip policy:** ${result.chip_policy}`);
+  const expires = isoTime(result.expires_at);
+  if (expires) lines.push(`**Expires:** ${expires}`);
+  lines.push(
+    '',
+    '### Verification URL',
+    result.url,
+    '',
+    'Open this URL in a browser for the user to complete the verification flow. Use `get_verification_session` to poll for the result.',
+  );
+  for (const n of notices) lines.push('', `> ${n}`);
+  return lines.join('\n');
+}
 
-  const emoji = statusEmoji[result.status] || '\u26AA';
+const SESSION_STATUS_EMOJI: Record<string, string> = {
+  pending: '\u23F3',
+  in_progress: '\u{1F504}',
+  document_required: '\u{1F4C4}',
+  completed: '\u2705',
+  failed: '\u274C',
+  expired: '\u23F0',
+};
+
+/**
+ * A verification session poll.
+ *
+ * The extracted document fields, `date_of_birth` and `failure_reasons` are
+ * released once, to the first authenticated poll after the session finishes;
+ * later polls carry the decision alone, so every one of those reads is
+ * optional here. A `failed` session renders its result too: why it failed is
+ * the part a reader needs.
+ */
+export function formatVerificationSessionResult(result: VerificationSessionResult): string {
+  const emoji = SESSION_STATUS_EMOJI[result.status] || '\u26AA';
   const lines: string[] = [
     `## ${emoji} Verification Session`,
     '',
@@ -851,13 +1014,19 @@ export function formatVerificationSessionResult(result: VerificationSessionResul
     `**Status:** ${result.status}`,
   ];
 
-  if (result.mode) lines.push(`**Mode:** ${result.mode}`);
-  if (result.created_at) lines.push(`**Created:** ${result.created_at}`);
-  if (result.expires_at) lines.push(`**Expires:** ${result.expires_at}`);
+  if (result.verification_mode) lines.push(`**Check:** ${result.verification_mode === 'liveness_only' ? 'live face only' : 'document and live face'}`);
+  if (result.chip_policy) lines.push(`**Chip policy:** ${result.chip_policy}`);
+  const created = isoTime(result.created_at);
+  const expires = isoTime(result.expires_at);
+  if (created) lines.push(`**Created:** ${created}`);
+  if (expires) lines.push(`**Expires:** ${expires}`);
 
-  if (result.status !== 'completed' || !result.result) {
+  const finished = result.status === 'completed' || result.status === 'failed';
+  if (!finished || !result.result) {
     if (result.status === 'pending' || result.status === 'in_progress') {
-      lines.push('', '_Verification in progress. Poll again to check for completion._');
+      lines.push('', `_Verification in progress${result.step_progress ? ` (step: ${result.step_progress})` : ''}. Poll again to check for completion._`);
+    } else if (result.status === 'document_required') {
+      lines.push('', '_Waiting for the user to add a document photo. Poll again later._');
     }
     return lines.join('\n');
   }
@@ -866,64 +1035,41 @@ export function formatVerificationSessionResult(result: VerificationSessionResul
   lines.push('');
   lines.push(`### Result: ${r.status === 'verified' ? '\u2705 Verified' : r.status === 'needs_review' ? '\u{1F7E0} Needs Review' : '\u274C Failed'}`);
   if (r.age != null) lines.push(`**Age:** ${r.age}`);
+  if (r.age_range) lines.push(`**Age Range:** ${r.age_range.low} to ${r.age_range.high} (estimated from the live face)`);
   if (r.date_of_birth) lines.push(`**Date of Birth:** ${r.date_of_birth}`);
   if (r.is_minor != null) lines.push(`**Is Minor:** ${r.is_minor ? 'Yes' : 'No'}`);
+  const evidence = r.document_evidence ?? result.document_evidence;
+  if (evidence) lines.push(`**Document Evidence:** ${evidence.replace(/_/g, ' ')}`);
 
-  // Document details
-  if (r.document) {
+  const d = r.document;
+  if (d) {
     lines.push('', '### Document');
-    lines.push(`**OCR Confidence:** ${r.document.ocr_confidence}%`);
-    if (r.document.name_extracted) lines.push(`**Name:** ${r.document.name_extracted}`);
-    if (r.document.document_number) lines.push(`**Document Number:** ${r.document.document_number}${r.document.document_number_valid != null ? ` (${r.document.document_number_valid ? '\u2705 valid' : '\u274C invalid'})` : ''}`);
-    if (r.document.country_code) lines.push(`**Country:** ${r.document.country_code}`);
-    if (r.document.document_type) lines.push(`**Type:** ${r.document.document_type}`);
-    if (r.document.expiration_date) lines.push(`**Expires:** ${r.document.expiration_date}${r.document.expired ? ' \u274C Expired' : ''}`);
-    if (r.document.mrz_valid != null) lines.push(`**MRZ Valid:** ${r.document.mrz_valid ? '\u2705 Yes' : '\u274C No'}`);
-    if (r.document.mrz_fields) {
-      const m = r.document.mrz_fields;
-      const mrzParts = [m.surname, m.given_names, m.nationality, m.date_of_birth].filter(Boolean);
-      if (mrzParts.length > 0) lines.push(`**MRZ Data:** ${mrzParts.join(' | ')}`);
-    }
+    lines.push(`**OCR Confidence:** ${d.ocr_confidence}%`);
+    const name = d.name_extracted || [d.first_name, d.last_name].filter(Boolean).join(' ');
+    if (name) lines.push(`**Name:** ${name}`);
+    if (d.document_number) lines.push(`**Document Number:** ${d.document_number}${d.document_number_valid != null ? ` (${d.document_number_valid ? '\u2705 valid' : '\u274C invalid'})` : ''}`);
+    if (d.nationality) lines.push(`**Nationality:** ${d.nationality}`);
+    if (d.country_code) lines.push(`**Country:** ${d.country_code}`);
+    if (d.document_type) lines.push(`**Type:** ${d.document_type}`);
+    if (d.expiration_date) lines.push(`**Expires:** ${d.expiration_date}${d.expired ? ' \u274C Expired' : ''}`);
+    if (d.chip_verified) lines.push(`**Chip:** read and verified${d.chip_issuer_trusted === false ? ' (issuer not trusted)' : d.chip_issuer_trusted ? ' (trusted issuer)' : ''}`);
   }
 
-  // Barcode
-  if (r.barcode) {
-    lines.push('', '### Barcode');
-    lines.push(`**Format:** ${r.barcode.format} | **AAMVA:** ${r.barcode.has_aamva ? 'Yes' : 'No'}`);
-    if (r.barcode.fields) {
-      const f = r.barcode.fields;
-      if (f.first_name || f.last_name) lines.push(`**Name:** ${[f.first_name, f.last_name].filter(Boolean).join(' ')}`);
-      if (f.state) lines.push(`**State:** ${f.state}`);
-    }
-  }
-
-  // Document authenticity
-  if (r.document_authenticity) {
-    const da = r.document_authenticity;
-    lines.push('', '### Document Authenticity');
-    lines.push(`**Authentic:** ${da.is_authentic ? '\u2705 Yes' : da.is_authentic === false ? '\u274C No' : 'Unknown'} (${(da.confidence * 100).toFixed(0)}%)`);
-    if (da.security_features_visible.length > 0) lines.push(`**Security Features:** ${da.security_features_visible.join(', ')}`);
-    if (da.anomalies.length > 0) lines.push(`**Anomalies:** ${da.anomalies.join(', ')}`);
-    if (da.recapture_detected) lines.push(`\u26A0\uFE0F **Recapture Detected:** ${da.recapture_type || 'Yes'}`);
-  }
-
-  // Face match
   if (r.face_match) {
     lines.push('', '### Face Match');
-    lines.push(`**Matched:** ${r.face_match.matched ? '\u2705 Yes' : '\u274C No'} | **Confidence:** ${(r.face_match.confidence * 100).toFixed(0)}% | **Distance:** ${r.face_match.distance.toFixed(2)}`);
+    lines.push(`**Matched:** ${r.face_match.matched ? '\u2705 Yes' : '\u274C No'} | **Confidence:** ${(r.face_match.confidence * 100).toFixed(0)}%`);
   }
 
-  // Liveness
   if (r.liveness) {
     lines.push(`**Liveness:** ${r.liveness.valid ? '\u2705 Passed' : `\u274C Failed${r.liveness.reason ? ` (${r.liveness.reason})` : ''}`}`);
   }
 
-  // Failure reasons
-  if (r.failure_reasons.length > 0) {
+  const reasons = r.failure_reasons ?? [];
+  if (reasons.length > 0) {
     lines.push('', '### Failure Reasons');
-    for (const reason of r.failure_reasons) {
-      lines.push(`- ${reason}`);
-    }
+    for (const reason of reasons) lines.push(`- ${reason}`);
+  } else if (r.status === 'failed' && r.failure_reasons == null) {
+    lines.push('', '_Failure reasons are released once, to the first poll after the session finished, and are not repeated here._');
   }
 
   return lines.join('\n');
@@ -1003,12 +1149,9 @@ export function formatQuota(quota: UsageQuota): string {
 export function formatUsageSummary(summary: unknown): string {
   // GET /usage/summary returns one day: { tier, date, usage: { totalRequests,
   // successRequests, errorRequests }, quota: { requestsPerMinute,
-  // requestsPerDay, remainingToday } }. The SDK's UsageSummary type declares
-  // a billing-period shape (messages_used, usage_percentage, ...) that the
-  // route has never sent, so reading it as typed called toFixed on undefined
-  // and the tool failed on every call. This reads what arrives, renders the
-  // billing-period fields as well if they are ever present, and prints "n/a"
-  // for anything missing. It never throws.
+  // requestsPerDay, remainingToday } }, which is what the SDK's UsageSummary
+  // declares since 3.0.0. Reads stay guarded: this text must never print
+  // "n/a" as "undefined", whatever an older deployment omits. It never throws.
   const s = (summary && typeof summary === 'object' ? summary : {}) as Record<string, unknown>;
   const obj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' ? v as Record<string, unknown> : {});
   const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
@@ -1021,21 +1164,6 @@ export function formatUsageSummary(summary: unknown): string {
   const tier = str(s.tier);
   if (tier) lines.push(`**Tier:** ${tier}`);
 
-  const used = num(s.messages_used);
-  const limit = num(s.message_limit);
-  if (used !== undefined || limit !== undefined) {
-    const pct = num(s.usage_percentage);
-    const days = num(s.days_remaining);
-    const start = str(s.period_start);
-    const end = str(s.period_end);
-    if (start || end) lines.push(`**Billing Period:** ${start ?? 'n/a'} → ${end ?? 'n/a'}${days === undefined ? '' : ` (${days} days left)`}`);
-    lines.push(`**Used:** ${show(used)} / ${show(limit)}${pct === undefined ? '' : ` (${pct.toFixed(1)}%)`}`);
-    const credits = num(s.purchased_credits);
-    if (credits !== undefined) lines.push(`**Purchased Credits:** ${credits}`);
-    const available = num(s.total_available);
-    if (available !== undefined) lines.push(`**Total Available:** ${available}`);
-  }
-
   const total = num(usage.totalRequests);
   const ok = num(usage.successRequests);
   const failed = num(usage.errorRequests);
@@ -1044,15 +1172,184 @@ export function formatUsageSummary(summary: unknown): string {
   const perMinute = num(quota.requestsPerMinute);
   const date = str(s.date);
   if (date) lines.push(`**Date:** ${date}`);
-  if (total !== undefined || used === undefined) {
-    const split = ok !== undefined && failed !== undefined ? ` (${ok} succeeded, ${failed} failed)` : '';
-    lines.push(`**Requests Today:** ${show(total)}${split}`);
-    const remaining = perDay === -1 || remainingToday === -1
-      ? 'unlimited'
-      : `${show(remainingToday)}${perDay === undefined ? '' : ` of ${perDay}`}`;
-    lines.push(`**Remaining Today:** ${remaining}`);
-    lines.push(`**Rate Limit:** ${show(perMinute, '/min')}`);
-    lines.push('', 'For the billing period (used, limit, days left) use get_usage_monthly.');
+  const split = ok !== undefined && failed !== undefined ? ` (${ok} succeeded, ${failed} failed)` : '';
+  lines.push(`**Requests:** ${show(total)}${split}`);
+  const remaining = perDay === -1 || remainingToday === -1
+    ? 'unlimited'
+    : `${show(remainingToday)}${perDay === undefined ? '' : ` of ${perDay}`}`;
+  lines.push(`**Remaining Today:** ${remaining}`);
+  lines.push(`**Rate Limit:** ${show(perMinute, '/min')}`);
+  lines.push('', 'For the billing period (used, limit, days left) use get_usage_monthly.');
+  return lines.join('\n');
+}
+
+// =============================================================================
+// Nickname, safety classification, status, fleet, verification config
+// =============================================================================
+
+const NICKNAME_RECOMMENDATION: Record<string, string> = {
+  allow: '\u2705 Allow',
+  allow_and_watch: '\u{1F7E1} Allow and watch',
+  ask_to_rename: '\u{1F7E0} Ask to rename',
+  hold_for_review: '\u{1F534} Hold for review',
+};
+
+/**
+ * A display-name reading. It is a signal about the name, not a verdict on the
+ * person, and its `recommendation` is a different vocabulary from
+ * `recommended_action`, so it never goes through `verdictHeader`.
+ *
+ * `reading_complete: false` means nothing was analysed (and nothing charged):
+ * the `none` signal that comes with it is not a clean reading.
+ */
+export function formatNicknameResult(result: NicknameResult): string {
+  if (result.reading_complete === false) {
+    return [
+      '## \u{1F7E0} Not Analysed: Retry',
+      '',
+      '**Signal:** not available, the name was not analysed and the call was not charged. This is not a clean reading: retry before showing the name.',
+    ].join('\n');
+  }
+  const lines = [
+    `## Display Name: ${NICKNAME_RECOMMENDATION[result.recommendation] ?? result.recommendation}`,
+    '',
+    `**Signal:** ${result.signal}`,
+    `**Confidence:** ${(result.confidence * 100).toFixed(0)}%`,
+    `**Strictness:** ${result.strictness}`,
+  ];
+  if (result.categories.length > 0) lines.push(`**Categories:** ${result.categories.join(', ')}`);
+  if (result.recommendation_detail) lines.push('', `**Recommendation:** \`${result.recommendation}\``, result.recommendation_detail);
+  const flagged = result.parts.filter(p => p.reading !== 'ordinary');
+  if (flagged.length > 0) {
+    lines.push('', '### Parts of the name');
+    for (const p of flagged) lines.push(`- \`${p.text}\`: ${p.reading}${p.category ? ` (${p.category})` : ''}`);
+  }
+  if (result.rationale) lines.push('', '### Rationale', result.rationale);
+  return lines.join('\n');
+}
+
+export function formatSafetyClassification(result: SafetyClassificationResult): string {
+  if (!result.exists) {
+    return '## Safety Classification\n\nThis account has not been classified yet. That is not a score of zero: a classification appears once the account has enough activity.';
+  }
+  const c = result.classification;
+  const lines = ['## Safety Classification', '', `**Date:** ${c.date}`];
+  if (c.insufficient_data || c.score === null) {
+    lines.push(`**Score:** not available yet, too little activity to classify. This is not a bad score.${c.reason ? ` ${c.reason}` : ''}`);
+  } else {
+    lines.push(`**Score:** ${c.score} / 100${c.band ? ` (${c.band.replace(/_/g, ' ')})` : ''}`);
+  }
+  if (c.components.length > 0) {
+    lines.push('', '### Components');
+    for (const k of c.components) lines.push(`- **${k.label}:** ${k.points} / ${k.max}${k.tip ? `. ${k.tip}` : ''}`);
+  }
+  lines.push('', `_${c.disclaimer}_`);
+  return lines.join('\n');
+}
+
+const STATUS_EMOJI: Record<string, string> = {
+  operational: '\u2705',
+  degraded: '\u{1F7E0}',
+  outage: '\u{1F534}',
+  major_outage: '\u{1F534}',
+};
+
+export function formatApiStatus(status: ApiStatus): string {
+  const lines = [
+    `## ${STATUS_EMOJI[status.status] ?? '\u26AA'} Service Status: ${status.status.replace(/_/g, ' ')}`,
+    '',
+    `**Updated:** ${status.updated_at}`,
+    '',
+    '### Components',
+  ];
+  for (const [name, c] of Object.entries(status.components ?? {})) {
+    lines.push(`- **${name.replace(/_/g, ' ')}:** ${STATUS_EMOJI[c.status] ?? ''} ${c.status}${c.message ? ` (${c.message})` : ''}`);
+  }
+  if (status.uptime) lines.push('', `**Uptime:** ${status.uptime.last_24h}% (24h), ${status.uptime.last_7d}% (7d), ${status.uptime.last_30d}% (30d)`);
+  const recent = status.incidents?.recent ?? [];
+  if (status.incidents?.active || recent.length > 0) {
+    lines.push('', `### Incidents (${status.incidents.active} active)`);
+    for (const i of recent) lines.push(`- ${i.title} (${i.status}, ${i.created_at})`);
   }
   return lines.join('\n');
+}
+
+export function formatComponentPing(ping: ComponentPing): string {
+  const state = ping.skipped ? '\u26AA not checked on this deployment' : ping.healthy ? '\u2705 healthy' : '\u{1F534} not healthy';
+  return [
+    `## Component: ${ping.component}`,
+    '',
+    `**State:** ${state}`,
+    ...(ping.latency_ms != null ? [`**Latency:** ${ping.latency_ms} ms`] : []),
+    ...(ping.message ? [`**Message:** ${ping.message}`] : []),
+    `**Checked:** ${ping.timestamp}`,
+  ].join('\n');
+}
+
+function fleetDeviceLines(d: FleetDevice): string[] {
+  const failedRules = d.results.filter(r => !r.passed);
+  return [
+    `### ${d.passed ? '\u2705' : '\u274C'} ${d.device_id}`,
+    `**Platform:** ${d.platform} | **Agent:** ${d.agent_version} | **Policy:** ${d.policy_id}`,
+    `**Attested:** ${d.attested_at} | **Expires:** ${d.expires_at}`,
+    ...failedRules.map(r => `- \u274C ${typeof r.rule?.name === 'string' ? r.rule.name : JSON.stringify(r.rule)}${r.detail ? `: ${r.detail}` : ''}`),
+  ];
+}
+
+export function formatFleet(result: FleetResult): string {
+  const s = result.summary;
+  const lines = [
+    '## Device Fleet',
+    '',
+    `**Devices:** ${s.total} | **Compliant:** ${s.compliant} | **Not compliant:** ${s.non_compliant} (${s.compliance_pct}% compliant)`,
+    `**Credits Used:** ${result.credits_used}`,
+  ];
+  for (const d of result.devices.slice(0, 25)) lines.push('', ...fleetDeviceLines(d));
+  if (result.devices.length > 25) lines.push('', `_...and ${result.devices.length - 25} more devices in \`structuredContent\`._`);
+  return lines.join('\n');
+}
+
+export function formatFleetDevice(device: FleetDevice, creditsUsed: number): string {
+  return ['## Device Attestation', '', ...fleetDeviceLines(device), '', `**Credits Used:** ${creditsUsed}`].join('\n');
+}
+
+export function formatVerificationConfig(config: VerificationConfig): string {
+  return [
+    '## Verification Settings',
+    '',
+    ...(config.country ? [`**Country:** ${config.country}${config.market ? ` (market: ${config.market})` : ''}`] : []),
+    `**Check:** ${config.mode === 'liveness_only' ? 'live face only' : 'document and live face'}`,
+    `**Adult from age:** ${config.age_threshold}`,
+  ].join('\n');
+}
+
+/** Markdown summary for the assistant; the full report rides in structuredContent. */
+export function formatDsaReportSummary(report: DsaTransparencyReport & { credits_used?: number }): string {
+  const notHeld = report.sections.flatMap((s) => s.fields).filter((f) => f.availability === 'not_held_by_tuteliq').length;
+  const categories = report.own_initiative_by_category.map((row) => {
+    const ref = row.dsa_subcategory ? `${row.dsa_subcategory.template_ref} ${row.dsa_subcategory.label}` : `${row.dsa_category.template_ref} ${row.dsa_category.label}`;
+    const c = row.counts;
+    return `| ${ref} | ${c.automated_detections} | ${c.human_reviewed} | ${c.upheld_after_human_review} | ${c.dismissed_after_human_review} |`;
+  });
+  const unmapped = report.unmapped_categories.map((row) => `- **${row.tuteliq_category}**: ${row.counts.automated_detections}`);
+  return [
+    '## DSA transparency report data',
+    '',
+    `**Reporting period:** ${report.reporting_period.from} to ${report.reporting_period.to}`,
+    `**Template:** ${report.template.regulation}`,
+    `**Incidents counted:** ${report.scope.incidents_counted} (test traffic excluded: ${report.scope.test_incidents_excluded})`,
+    ...(report.credits_used === undefined ? [] : [`**Credits used:** ${report.credits_used}`]),
+    '',
+    '### Own-initiative detections by template category',
+    categories.length
+      ? ['| Category | Detections | Human reviewed | Upheld | Dismissed |', '|---|---|---|---|---|', ...categories].join('\n')
+      : '_(none)_',
+    '',
+    '### Detections for the platform to classify',
+    unmapped.length ? unmapped.join('\n') : '_(none)_',
+    '',
+    `${notHeld} template fields are not held by Tuteliq and must be supplied by the platform; they are returned as null with reason not_held_by_tuteliq.`,
+    '',
+    `_${report.notice}_`,
+  ].join('\n');
 }

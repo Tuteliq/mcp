@@ -49,7 +49,7 @@ const GROOMING_TOOLS_WITH_TYPE = [
     'detect_bullying', 'detect_grooming', 'detect_unsafe',
     'detect_social_engineering', 'detect_app_fraud', 'detect_romance_scam', 'detect_mule_recruitment',
     'detect_gambling_harm', 'detect_coercive_control', 'detect_vulnerability_exploitation',
-    'detect_radicalisation', 'detect_distress_signals', 'detect_tfgbv', 'analyse_multi',
+    'detect_radicalisation', 'detect_distress_signals', 'detect_tfgbv', 'analyse_multi', 'detect_nickname',
 ];
 
 describe('1. a platform can declare the conversation type', () => {

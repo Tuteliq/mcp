@@ -4,6 +4,7 @@ import { WidgetShell } from '../components/WidgetShell';
 import { CardHeader, Tag, StatusPill } from '../components/primitives';
 import { useViewState } from '../hooks/useViewState';
 import type { ToolResultPayload, ActionPlanResult } from '../types';
+import { readingLevel } from '../utils/resultFields';
 
 interface ViewState {
   completedSteps: number[];
@@ -53,7 +54,7 @@ export function ActionPlanPage({ data, viewUUID }: { data: ToolResultPayload; vi
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         <Tag>Audience · {result.audience}</Tag>
         <Tag>Tone · {result.tone}</Tag>
-        {result.reading_level && <Tag>Reading level · {result.reading_level}</Tag>}
+        {readingLevel(result) && <Tag>Reading level · {readingLevel(result)}</Tag>}
       </div>
 
       {/* Completion bar. Reads as momentum on a long list, and gives the
