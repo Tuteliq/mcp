@@ -5,6 +5,6 @@ import { defineConfig } from 'vitest/config';
 // server live next to the source they cover.
 export default defineConfig({
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'ui/src/**/*.test.ts'],
   },
 });
