@@ -94,7 +94,7 @@ Widget source lives in `ui/src`. Design tokens are centralised in
 `ui/src/theme.ts`; prefer them over colour literals so the palette stays in one
 place.
 
-## Available Tools (81 MCP)
+## Available Tools (87 MCP)
 
 ### Safety Detection
 
@@ -104,7 +104,8 @@ place.
 | `detect_grooming` | Detect grooming patterns and predatory behavior in conversations |
 | `detect_unsafe` | Identify unsafe content (self-harm, violence, explicit material) |
 | `analyze` | Quick comprehensive safety check (bullying + unsafe) |
-| `analyse_multi` | Run multiple detection endpoints on a single piece of text in one call |
+| `analyse_multi` | Run multiple detection endpoints on a single piece of text in one call; a run where a detector did not answer is reported as incomplete |
+| `detect_nickname` | Read a display name before it is shown and advise: allow, allow and watch, ask to rename, or hold for review |
 | `batch_analyze` | Analyze up to 50 items in a single request — all twelve detection types (bullying, grooming, unsafe, emotions, social_engineering, app_fraud, romance_scam, mule_recruitment, gambling_harm, coercive_control, vulnerability_exploitation, radicalisation) — ideal for bulk triage |
 | `analyze_emotions` | Analyze emotional content and mental state indicators — accepts single text or full conversations |
 | `get_action_plan` | Generate age-appropriate guidance for safety situations |
@@ -122,6 +123,8 @@ place.
 | `detect_coercive_control` | Detect coercive control patterns (isolation, financial control, monitoring, threats) |
 | `detect_vulnerability_exploitation` | Detect exploitation of vulnerable individuals (elderly, disabled, financially distressed) |
 | `detect_radicalisation` | Detect radicalisation indicators (extremist rhetoric, us-vs-them framing, ideological grooming) |
+| `detect_distress_signals` | Detect distress-signal patterns in language (loneliness, isolation, hopelessness, withdrawal) |
+| `detect_tfgbv` | Detect tech-facilitated gender-based violence (image-based abuse, stalking, doxing, digital coercion) |
 
 ### Voice, Image, Video & Document Analysis
 
@@ -129,27 +132,28 @@ place.
 |------|-------------|
 | `analyze_voice` | Transcribe audio and run safety analysis on the transcript |
 | `analyze_image` | Analyze images for visual safety + OCR text extraction |
-| `analyze_video` | Analyze video files for safety concerns via key frame extraction (supports mp4, mov, avi, webm, mkv) |
-| `analyze_document` | Analyze PDF documents for safety concerns — per-page multi-endpoint detection with chain-of-custody hashing (max 50MB, 100 pages) |
+| `analyze_video` | Analyze video files for safety concerns from frames sampled across the video (supports mp4, mov, avi, webm) |
+| `analyze_document` | Analyze a PDF, or an image read as a one-page document, for safety concerns: per-page multi-endpoint detection with chain-of-custody hashing (PDF max 50MB, 100 pages; png, jpeg, webp) |
 
 ### Synthetic Content Detection
 
 | Tool | Description |
 |------|-------------|
 | `detect_synthetic_text` | Detect AI-generated text across 10 child-safety categories (synthetic CSAM, deepfake scripts, AI grooming) |
-| `detect_synthetic_image` | 6-signal forensic pipeline: vision AI, EXIF metadata, pixel stats, C2PA Content Credentials, watermarks, pHash |
-| `detect_synthetic_audio` | Dual-signal forensics: transcript + mel spectrogram vision + quantitative audio statistics |
-| `detect_synthetic_video` | 5-track analysis: per-frame vision, temporal face consistency, lip-sync correlation, spectral audio, transcript |
+| `detect_synthetic_image` | Detect AI-generated or manipulated images, with image analysis, metadata, C2PA Content Credentials and screen-capture evidence |
+| `detect_synthetic_audio` | Detect AI-generated or cloned voice audio, with the transcript and audio measurements behind the result |
+| `detect_synthetic_video` | Detect AI-generated or deepfake video, with face consistency across frames, lip-sync and audio evidence |
 
 ### Identity & Age Verification
 
 | Tool | Description |
 |------|-------------|
 | `create_verification_session` | Create a session for age or identity verification — returns a URL for the user to complete the flow |
-| `get_verification_session` | Poll session status — returns full document intelligence (MRZ, barcode, authenticity, face match, liveness) |
+| `get_verification_session` | Poll session status: the decision, age, document evidence, face match, liveness and any failure reasons |
 | `cancel_verification_session` | Cancel an active session (no credits consumed) |
+| `get_verification_config` | Which check a user in a given market gets under your key, and the adult age there |
 
-These three tools are registered when you run this package yourself. The hosted connector does not serve them.
+These four tools are registered when you run this package yourself. The hosted connector does not serve them.
 
 ### Incidents & Moderation
 
@@ -208,7 +212,7 @@ and the card is unbranded — it is never defaulted to a placeholder.
 | `get_usage_history` | Get daily usage history |
 | `get_usage_by_tool` | Get usage by tool/endpoint |
 | `get_usage_monthly` | Get monthly usage with billing info |
-| `get_usage_summary` | Get today's usage: requests made, succeeded and failed, remaining today, and the rate limit |
+| `get_usage_summary` | Get one day's usage (today by default): requests made, succeeded and failed, remaining today, and the rate limit |
 | `get_usage_quota` | Get real-time rate-limit status — pre-flight check before batch runs |
 
 ### Policy Configuration
@@ -233,8 +237,8 @@ and the card is unbranded — it is never defaulted to a placeholder.
 
 | Tool | Description |
 |------|-------------|
-| `get_detection_settings` | See which detection endpoints are enabled/disabled + default context |
-| `update_detection_settings` | Enable/disable endpoints, set default context |
+| `get_detection_settings` | See which detection endpoints are enabled/disabled, the default context and the default conversation type |
+| `update_detection_settings` | Enable/disable endpoints, set the default context and the default conversation type |
 | `reset_detection_settings` | Reset to defaults (all endpoints enabled) |
 
 ### Threat Intelligence (Business+ tier)
@@ -257,6 +261,19 @@ and the card is unbranded — it is never defaulted to a placeholder.
 | `withdraw_consent` | Withdraw a previously granted consent |
 | `rectify_data` | Correct user data (Right to Rectification) |
 | `get_audit_logs` | Get audit trail of all data operations |
+| `get_encryption_key` | Get the public key incidents are encrypted to |
+| `register_encryption_key` | Register or rotate the public key incidents are encrypted to |
+| `revoke_encryption_key` | Revoke the registered encryption key |
+
+### Compliance Reporting, Account Health and Fleet
+
+| Tool | Description |
+|------|-------------|
+| `generate_dsa_transparency_report` | Aggregated moderation data for a period, laid out on the EU DSA transparency-report template |
+| `get_safety_classification` | The account's daily safety classification, with a tip for each component below full marks |
+| `get_service_status` | Current health of the service, or of one component |
+| `get_fleet` | Latest posture attestation of each device in the endpoint agent fleet |
+| `get_fleet_device` | One device's latest posture attestation |
 
 ### Breach Management
 
@@ -281,16 +298,13 @@ All detection tools accept an optional `context` object. These fields influence 
 | `ageGroup` | `string` | Age group (e.g., `"10-12"`, `"13-15"`, `"under 18"`). Triggers age-calibrated scoring. |
 | `platform` | `string` | Platform name (e.g., `"Discord"`, `"Roblox"`). Adjusts detection for platform norms. |
 | `relationship` | `string` | Relationship context (e.g., `"classmates"`, `"stranger"`). |
-| `sender_trust` | `string` | Sender verification status: `"verified"`, `"trusted"`, or `"unknown"`. |
-| `sender_name` | `string` | Name of the sender (used with `sender_trust`). |
+| `conversation_type` | `string` | The setting the conversation was captured in (e.g. `"helpline"`, `"education"`, `"gaming_chat"`), declared by your platform from its own configuration. When omitted, the account default applies if one is set. |
+| `sender` | `object` | The sender as your platform knows them: `{ role?, age_group? }`. Declared, never inferred from the text. |
+| `recipients` | `array` | Up to 20 recipients: `{ role?, age_group?, relationship_to_sender? }`. |
+| `minor_disclosure_check` | `boolean` | Also read whether the speaker says they are a minor in words other than an age. Returned as `minor_disclosure`. |
+| `author_role` | `string` | `detect_distress_signals` only: `"subject"` or `"responder"`. |
 
-#### `sender_trust` Behavior
-
-When `sender_trust` is set to `"verified"` or `"trusted"`:
-- **AUTH_IMPERSONATION** is fully suppressed — a verified sender cannot be impersonating an authority
-- **URGENCY_FABRICATION** is suppressed for routine time-sensitive information (schedules, deadlines, appointments)
-- Content is only flagged if it contains genuinely malicious elements (credential theft, phishing links, financial demands)
-- This prevents false positives on legitimate institutional messages (school notifications, hospital reminders, government advisories)
+The text detection tools also accept `attestation` (a signed, non-identifying attestation of what was detected) and `message_id`.
 
 ### `support_threshold`
 
@@ -322,6 +336,9 @@ The `analyse_multi` tool accepts up to 10 endpoints per call. Valid endpoint val
 | `coercive-control` | Coercive control patterns |
 | `vulnerability-exploitation` | Exploitation of vulnerable individuals |
 | `radicalisation` | Radicalisation indicators |
+| `distress-signals` | Distress-signal patterns |
+| `tfgbv` | Tech-facilitated gender-based violence |
+| `synthetic-content` | AI-generated text |
 
 ---
 

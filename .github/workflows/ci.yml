@@ -24,6 +24,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Test
+        run: npm test
+
       - name: Audit dependencies
         # Fail the build on high/critical CVEs. Moderate/low surface in the
         # output but don't block — used for vulns where upstream hasn't

@@ -93,14 +93,15 @@ describe('annotations follow from what a tool takes', () => {
         return Object.keys(schema?.shape ?? schema?.def?.shape ?? {});
     };
     const CORRELATION = ['external_id', 'customer_id', 'metadata', 'incident_moderation_enabled'];
-    // `list_incidents` takes external_id as a filter on a read. `create_verification_session` is already declared
-    // as writing. `batch_analyze` takes the correlation fields per item, one level down.
+    // `list_incidents` takes external_id as a filter on a read. `batch_analyze` takes the correlation fields per
+    // item, one level down.
     const recordsAndNotifies = [
-        ...names.filter((n) => inputs(n).some((k) => CORRELATION.includes(k)) && n !== 'list_incidents' && n !== 'create_verification_session'),
+        ...names.filter((n) => inputs(n).some((k) => CORRELATION.includes(k)) && n !== 'list_incidents'),
         'batch_analyze',
     ];
     // Any input whose name ends in `url`, not only one named exactly `url`: `redirect_url` on
-    // `create_verification_session` passed the narrower rule and was left closed-world.
+    // `create_verification_session` once passed the narrower rule and was left closed-world. The API never read
+    // `redirect_url`, and the tool no longer takes it, so that tool is closed-world again (pinned below).
     const takesUrl = names.filter((n) => inputs(n).some((k) => /url$/i.test(k)) && !EXTERNAL.includes(n));
     const fetchesUrl = takesUrl;
 
@@ -109,7 +110,11 @@ describe('annotations follow from what a tool takes', () => {
         expect(inputs('detect_bullying')).toContain('external_id');
         expect(recordsAndNotifies.length).toBeGreaterThanOrEqual(19);
         expect(fetchesUrl).toEqual(expect.arrayContaining(['analyze_voice', 'analyze_image', 'analyze_video', 'analyze_document']));
-        expect(takesUrl).toContain('create_verification_session');
+        expect(takesUrl).not.toContain('create_verification_session');
+    });
+
+    it('create_verification_session names no outside destination: closed-world, additive', () => {
+        expect(tools.create_verification_session.annotations).toEqual({ readOnlyHint: false, destructiveHint: false, openWorldHint: false });
     });
 
     it.each(recordsAndNotifies)('%s can store an incident and notify a webhook: not read-only, not closed-world, not destructive', (name) => {
@@ -135,7 +140,7 @@ describe('annotations follow from what a tool takes', () => {
 describe('a host can leave the verification tools out', () => {
     const list = (options?: Parameters<typeof createServer>[1]) =>
         Object.keys((createServer('test_key_for_registration_only_0123456789', options) as unknown as { _registeredTools: object })._registeredTools);
-    const VERIFICATION = ['create_verification_session', 'get_verification_session', 'cancel_verification_session'];
+    const VERIFICATION = ['create_verification_session', 'get_verification_session', 'cancel_verification_session', 'get_verification_config'];
 
     it('registers them by default', () => {
         expect(list()).toEqual(expect.arrayContaining(VERIFICATION));

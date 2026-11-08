@@ -16,6 +16,9 @@ import { widgetUri } from '../widget-uri.js';
 import { RECORDS_AND_NOTIFIES } from './hints.js';
 
 /**
+ * `bypass_cache` is a no-op: the API has no verdict cache. It stays accepted,
+ * and is no longer forwarded, so existing calls keep working.
+ *
  * V3.15.4 — permissive boolean parser.
  *
  * MCP hosts (Claude Desktop, Cursor, OpenAI tool runtime, agent
@@ -87,13 +90,13 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high)'),
         external_id: z.string().optional().describe('External tracking ID'),
         customer_id: z.string().optional().describe('Customer identifier'),
-        bypass_cache: bypassCacheInput.describe('Skip the verdict cache for both read and write. Use for forensic re-tests or regression probes when a guaranteed fresh evaluation is required. Cache keys are SHA-256 of the input bytes (one-way; we never store the content itself) and verdicts expire after 1 hour by default. Accepts boolean true/false or string "true"/"false"/"1"/"0" for MCP host compatibility.'),
+        bypass_cache: bypassCacheInput.describe('Deprecated and has no effect: there is no verdict cache. Accepted so existing calls keep working.'),
       },
       _meta: {
         ui: { resourceUri: SYNTHETIC_WIDGET_URI },
       },
     },
-    async ({ content, context, support_threshold, external_id, customer_id, bypass_cache }) => {
+    async ({ content, context, support_threshold, external_id, customer_id }) => {
       try {
         const result = await client.detectSyntheticText({
           content,
@@ -101,7 +104,6 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
           supportThreshold: support_threshold,
           external_id,
           customer_id,
-          bypassCache: bypass_cache,
         });
 
         return withViewId({
@@ -122,7 +124,7 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
     'detect_synthetic_image',
     {
       title: 'Detect Synthetic Image',
-      description: 'Detect AI-generated images using a 6-signal forensic pipeline: vision AI analysis, EXIF metadata extraction, pixel statistics, C2PA Content Credentials, watermark detection, and perceptual hashing. Supports png, jpg, jpeg, gif, webp. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
+      description: 'Detect AI-generated or manipulated images. Returns a classification, confidence and risk score, with the supporting evidence: image analysis, metadata, C2PA Content Credentials and whether the image looks like a screen capture. Supports png, jpg, jpeg, gif, webp. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
       annotations: RECORDS_AND_NOTIFIES,
       inputSchema: {
         file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the image file on disk'),
@@ -134,13 +136,13 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
         platform: z.string().optional().describe('Platform name for context'),
         external_id: z.string().optional().describe('External tracking ID'),
         customer_id: z.string().optional().describe('Customer identifier'),
-        bypass_cache: bypassCacheInput.describe('Skip the verdict cache for both read and write. Use for forensic re-tests or regression probes when a guaranteed fresh evaluation is required. Cache keys are SHA-256 of the input bytes; verdicts expire after 1 hour by default. Accepts boolean or string "true"/"false" for MCP host compatibility.'),
+        bypass_cache: bypassCacheInput.describe('Deprecated and has no effect: there is no verdict cache. Accepted so existing calls keep working.'),
       },
       _meta: {
         ui: { resourceUri: SYNTHETIC_WIDGET_URI },
       },
     },
-    async ({ file_path, url, base64, filename: filenameHint, age_group, language, platform, external_id, customer_id, bypass_cache }) => {
+    async ({ file_path, url, base64, filename: filenameHint, age_group, language, platform, external_id, customer_id }) => {
       try {
         const { buffer, filename } = await resolveFile({ file_path, url, base64, filename: filenameHint });
 
@@ -152,7 +154,6 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
           platform,
           external_id,
           customer_id,
-          bypassCache: bypass_cache,
         });
 
         return withViewId({
@@ -173,7 +174,7 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
     'detect_synthetic_audio',
     {
       title: 'Detect Synthetic Audio',
-      description: 'Detect AI-generated audio using dual-signal forensics: transcript analysis + mel spectrogram vision + quantitative audio statistics. Supports mp3, wav, m4a, ogg, flac, webm, mp4. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
+      description: 'Detect AI-generated or cloned voice audio. Returns a classification, confidence and risk score, with the transcript and audio measurements behind it. Supports mp3, wav, m4a, ogg, flac, webm, mp4. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
       annotations: RECORDS_AND_NOTIFIES,
       inputSchema: {
         file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the audio file on disk'),
@@ -185,13 +186,13 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
         platform: z.string().optional().describe('Platform name for context'),
         external_id: z.string().optional().describe('External tracking ID'),
         customer_id: z.string().optional().describe('Customer identifier'),
-        bypass_cache: bypassCacheInput.describe('Skip the verdict cache for both read and write. Use for forensic re-tests when a guaranteed fresh evaluation is required. Accepts boolean or string "true"/"false" for MCP host compatibility.'),
+        bypass_cache: bypassCacheInput.describe('Deprecated and has no effect: there is no verdict cache. Accepted so existing calls keep working.'),
       },
       _meta: {
         ui: { resourceUri: SYNTHETIC_WIDGET_URI },
       },
     },
-    async ({ file_path, url, base64, filename: filenameHint, age_group, language, platform, external_id, customer_id, bypass_cache }) => {
+    async ({ file_path, url, base64, filename: filenameHint, age_group, language, platform, external_id, customer_id }) => {
       try {
         const { buffer, filename } = await resolveFile({ file_path, url, base64, filename: filenameHint });
 
@@ -203,7 +204,6 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
           platform,
           external_id,
           customer_id,
-          bypassCache: bypass_cache,
         });
 
         return withViewId({
@@ -224,7 +224,7 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
     'detect_synthetic_video',
     {
       title: 'Detect Synthetic Video',
-      description: 'Detect AI-generated or deepfake video using 5-track analysis: per-frame vision forensics, temporal face consistency, lip-sync correlation, spectral audio analysis, and transcript detection. Supports mp4, webm, avi, mov. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
+      description: 'Detect AI-generated or deepfake video. Returns a classification, confidence and risk score, with the evidence behind it: face consistency across frames, lip-sync between mouth and voice, and the audio. Supports mp4, webm, avi, mov. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
       annotations: RECORDS_AND_NOTIFIES,
       inputSchema: {
         file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the video file on disk'),
@@ -237,13 +237,13 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
         platform: z.string().optional().describe('Platform name for context'),
         external_id: z.string().optional().describe('External tracking ID'),
         customer_id: z.string().optional().describe('Customer identifier'),
-        bypass_cache: bypassCacheInput.describe('Skip the verdict cache for both read and write. Use for forensic re-tests when a guaranteed fresh evaluation is required. Accepts boolean or string "true"/"false" for MCP host compatibility.'),
+        bypass_cache: bypassCacheInput.describe('Deprecated and has no effect: there is no verdict cache. Accepted so existing calls keep working.'),
       },
       _meta: {
         ui: { resourceUri: SYNTHETIC_WIDGET_URI },
       },
     },
-    async ({ file_path, url, base64, filename: filenameHint, max_frames, age_group, language, platform, external_id, customer_id, bypass_cache }) => {
+    async ({ file_path, url, base64, filename: filenameHint, max_frames, age_group, language, platform, external_id, customer_id }) => {
       try {
         const { buffer, filename } = await resolveFile({ file_path, url, base64, filename: filenameHint });
 
@@ -256,7 +256,6 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
           platform,
           external_id,
           customer_id,
-          bypassCache: bypass_cache,
         });
 
         return withViewId({
@@ -272,11 +271,7 @@ export function registerSyntheticTools(server: McpServer, client: Tuteliq): void
   );
 
   // ── get_synthetic_profile ──────────────────────────────────────────────────
-  // REMOVED in v3.15.4 — the backing API route
-  // GET /api/v1/safety/synthetic-content/profile/:customer_id was never
-  // shipped, so this tool advertised a capability that 404'd at call time.
-  // Removed from the tool list to avoid surfacing a broken capability.
-  // If you reintroduce the route, restore the tool block from git history
-  // (last present at e5b0d45). The SDK method client.getSyntheticProfile()
-  // is also being removed in @tuteliq/sdk 2.13.0.
+  // REMOVED in v3.15.4: the backing API route was removed from the API, so
+  // this tool advertised a capability that failed at call time. If the route
+  // returns, restore the tool block from git history (last present at e5b0d45).
 }

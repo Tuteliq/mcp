@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { multiIsClean, temporalView, audioRms, readingLevel, imageSemantic } from './resultFields';
+import { multiIsClean, temporalView, audioRms, readingLevel, imageSemantic, notAVerdict } from './resultFields';
 
 /** The widgets against the response shapes the API serves (SDK 3.0.0). */
 describe('widget fields', () => {
@@ -25,5 +25,11 @@ describe('widget fields', () => {
 
   it('the synthetic image view reads semantic_analysis', () => {
     expect(imageSemantic({ semantic_analysis: { overall_assessment: 'a' } })).toEqual({ overall_assessment: 'a' });
+  });
+
+  it('a grooming result that was not analysed is not a verdict', () => {
+    expect(notAVerdict({ analysis_status: 'out_of_scope_adults' })).toBe('out_of_scope');
+    expect(notAVerdict({ analysis_status: 'engine_error' })).toBe('engine_error');
+    expect(notAVerdict({ analysis_status: 'ok' })).toBeNull();
   });
 });

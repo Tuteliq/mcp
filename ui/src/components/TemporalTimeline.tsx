@@ -1,24 +1,13 @@
 import React from 'react';
 import { colors, fontFamily } from '../theme';
 
-interface AnomalousFramePair {
-  frame_a: number;
-  frame_b: number;
-  distance: number;
-}
-
-interface TemporalConsistency {
-  identity_consistency_score: number;
-  landmark_stability_score: number;
-  temporal_consistency_score: number;
-  frames_with_faces: number;
-  total_frames: number;
-  anomalous_frame_pairs: AnomalousFramePair[];
-  signals: string[];
-}
+import { temporalView } from '../utils/resultFields';
 
 interface TemporalTimelineProps {
-  data: TemporalConsistency;
+  /** `temporal_consistency` as the API serves it */
+  data: any;
+  /** `video.frames_analyzed`, the frame total */
+  framesAnalyzed?: number;
 }
 
 function scoreColor(score: number): string {
@@ -27,10 +16,11 @@ function scoreColor(score: number): string {
   return colors.severity.high;
 }
 
-export function TemporalTimeline({ data }: TemporalTimelineProps) {
-  const totalFrames = data.total_frames;
+export function TemporalTimeline({ data: raw, framesAnalyzed }: TemporalTimelineProps) {
+  const data = temporalView(raw, framesAnalyzed);
+  const totalFrames = Math.max(1, data.totalFrames);
   const anomalousFrameSet = new Set<number>();
-  data.anomalous_frame_pairs.forEach(p => {
+  data.anomalousPairs.forEach(p => {
     anomalousFrameSet.add(p.frame_a);
     anomalousFrameSet.add(p.frame_b);
   });
@@ -44,15 +34,15 @@ export function TemporalTimeline({ data }: TemporalTimelineProps) {
     dots.push({
       index: frameIdx,
       isAnomaly: anomalousFrameSet.has(frameIdx),
-      hasFace: frameIdx < data.frames_with_faces,
+      hasFace: frameIdx < data.framesWithFaces,
     });
   }
 
   const scores = [
-    { label: 'Identity Consistency', value: data.identity_consistency_score },
-    { label: 'Landmark Stability', value: data.landmark_stability_score },
-    { label: 'Temporal Consistency', value: data.temporal_consistency_score },
-  ];
+    { label: 'Identity Consistency', value: data.identity },
+    { label: 'Landmark Stability', value: data.landmark },
+    { label: 'Temporal Consistency', value: data.score },
+  ].filter((s): s is { label: string; value: number } => typeof s.value === 'number');
 
   return (
     <div style={{ marginBottom: 16, animation: 'synth-fadeSlideUp 0.5s ease 0.35s both' }}>
@@ -74,7 +64,7 @@ export function TemporalTimeline({ data }: TemporalTimelineProps) {
         </svg>
         Temporal Analysis
         <span style={{ marginLeft: 'auto', fontSize: 10, color: colors.text.muted, fontWeight: 400 }}>
-          {data.frames_with_faces}/{totalFrames} frames with faces
+          {data.framesWithFaces}/{totalFrames} frames with faces
         </span>
       </div>
 
@@ -107,7 +97,7 @@ export function TemporalTimeline({ data }: TemporalTimelineProps) {
                 left: 4,
                 right: 4,
                 height: 2,
-                background: `linear-gradient(90deg, ${scoreColor(data.temporal_consistency_score)}88, ${scoreColor(data.temporal_consistency_score)}44)`,
+                background: `linear-gradient(90deg, ${scoreColor(data.score ?? 0)}88, ${scoreColor(data.score ?? 0)}44)`,
                 transform: 'translateY(-50%)',
                 borderRadius: 1,
               }}
@@ -137,7 +127,7 @@ export function TemporalTimeline({ data }: TemporalTimelineProps) {
               />
             ))}
           </div>
-          {data.anomalous_frame_pairs.length > 0 && (
+          {data.anomalousPairs.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4, fontSize: 10, color: colors.text.muted }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors.brand.primaryLight }} />
@@ -145,7 +135,7 @@ export function TemporalTimeline({ data }: TemporalTimelineProps) {
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors.severity.high }} />
-                Anomaly ({data.anomalous_frame_pairs.length} pair{data.anomalous_frame_pairs.length !== 1 ? 's' : ''})
+                Anomaly ({data.anomalousPairs.length} pair{data.anomalousPairs.length !== 1 ? 's' : ''})
               </span>
             </div>
           )}
@@ -177,33 +167,6 @@ export function TemporalTimeline({ data }: TemporalTimelineProps) {
           );
         })}
 
-        {/* Signals */}
-        {data.signals.length > 0 && (
-          <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {data.signals.map((sig, i) => (
-              <span
-                key={i}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  padding: '3px 10px',
-                  borderRadius: 8,
-                  fontSize: 10,
-                  fontWeight: 500,
-                  color: colors.severity.medium,
-                  background: 'rgba(232,168,92,0.12)',
-                  border: '1px solid rgba(232,168,92,0.25)',
-                  fontFamily,
-                  animation: `synth-fadeSlideRight 0.3s ease ${0.7 + i * 0.06}s both`,
-                }}
-              >
-                <span style={{ width: 4, height: 4, borderRadius: '50%', background: colors.severity.medium }} />
-                {sig}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

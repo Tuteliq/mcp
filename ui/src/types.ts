@@ -104,6 +104,8 @@ export interface ActionPlanResult {
   audience: string;
   steps: string[];
   tone: string;
+  approx_reading_level?: string;
+  /** Older name of approx_reading_level */
   reading_level?: string;
 }
 
@@ -117,8 +119,12 @@ export interface ReportResult {
 export interface AnalyseMultiSummary {
   total_endpoints: number;
   detected_count: number;
-  highest_risk: { endpoint: string; risk_score: number };
+  highest_risk: { endpoint: string; risk_score: number; close_calls?: Array<{ endpoint: string; risk_score: number }> };
   overall_risk_level: string;
+  analysis_status?: 'complete' | 'partial';
+  recommended_action?: string;
+  action_detail?: string;
+  failed_endpoints?: Array<{ endpoint: string; code: string; error: string }>;
 }
 
 export interface AnalyseMultiResult {

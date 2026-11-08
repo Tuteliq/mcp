@@ -8,12 +8,12 @@ import { ConfidenceBar } from '../components/ConfidenceBar';
 import { CategoryChips } from '../components/CategoryChips';
 import { SeverityBadge } from '../components/SeverityBadge';
 import { ClassificationBanner } from '../components/ClassificationBanner';
-import { ForensicSignalGrid } from '../components/ForensicSignalGrid';
 import { AudioStatsPanel } from '../components/AudioStatsPanel';
 import { TemporalTimeline } from '../components/TemporalTimeline';
 import { LipSyncMeter } from '../components/LipSyncMeter';
 import { ProfileDonut } from '../components/ProfileDonut';
 import type { ToolResultPayload } from '../types';
+import { imageSemantic } from '../utils/resultFields';
 
 // ── Shared styles ──────────────────────────────────────────────────────────────
 
@@ -287,7 +287,7 @@ function SyntheticTextView({ result }: { result: any }) {
 function SyntheticImageView({ result }: { result: any }) {
   const meta = result.metadata_analysis;
   const prov = result.provenance;
-  const vision = result.vision;
+  const vision = imageSemantic(result);
   const forensic = result.forensic_signals;
 
   return (
@@ -295,13 +295,11 @@ function SyntheticImageView({ result }: { result: any }) {
       <ClassificationBanner classification={result.classification} />
       <ScorePanel risk_score={result.risk_score} confidence={result.confidence} level={result.level} />
 
-      {/* Forensic Signal Grid */}
-      {forensic && forensic.sources && forensic.sources.length > 0 && (
-        <ForensicSignalGrid
-          sources={forensic.sources}
-          totalSignals={forensic.signal_count}
-          combinedBoost={forensic.combined_confidence_boost}
-        />
+      {/* A count only: which checks fired is how the detector works, not something a reader acts on. */}
+      {forensic?.signal_count > 0 && (
+        <div style={{ fontSize: 12.5, color: colors.text.secondary, fontFamily, marginBottom: 12 }}>
+          {forensic.signal_count} independent forensic signal{forensic.signal_count === 1 ? '' : 's'} found
+        </div>
       )}
 
       <AnimatedCategoryChips categories={result.categories} />
@@ -309,7 +307,7 @@ function SyntheticImageView({ result }: { result: any }) {
       {/* Vision details expandable */}
       {vision && (
         <Expandable
-          title="Vision AI Details"
+          title="Image Analysis Details"
           delay={0.4}
           icon={
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={colors.brand.primaryLight} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -708,7 +706,7 @@ function SyntheticVideoView({ result }: { result: any }) {
 
       {/* Temporal Timeline */}
       {result.temporal_consistency && (
-        <TemporalTimeline data={result.temporal_consistency} />
+        <TemporalTimeline data={result.temporal_consistency} framesAnalyzed={result.video?.frames_analyzed} />
       )}
 
       {/* Lip Sync */}

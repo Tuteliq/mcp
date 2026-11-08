@@ -8,6 +8,7 @@ import { ConfidenceBar } from '../components/ConfidenceBar';
 import { CategoryChips } from '../components/CategoryChips';
 import { colors, fonts, radius, severityColor } from '../theme';
 import type { ToolResultPayload, AnalyseMultiResult } from '../types';
+import { multiIsClean } from '../utils/resultFields';
 
 const multiKeyframes = `
 @keyframes multi-fadeSlideUp {
@@ -108,8 +109,12 @@ export function MultiPage({ data }: { data: ToolResultPayload; viewUUID?: string
   const { summary, results } = result;
 
   const level = (summary.overall_risk_level || 'none').toLowerCase();
-  const isClean = summary.detected_count === 0;
-  const shownLevel = isClean ? 'safe' : level;
+  // A detector that did not answer has not cleared the content, so a
+  // partial run is never shown as clean, and says which detectors are missing.
+  const failed = summary.failed_endpoints ?? [];
+  const partial = summary.analysis_status === 'partial' || failed.length > 0;
+  const isClean = multiIsClean(summary);
+  const shownLevel = isClean ? 'safe' : partial && summary.detected_count === 0 ? 'medium' : level;
 
   // Flagged detectors first — the reason the user ran a fan-out is to find
   // them, and scrolling past nine "Clear" rows to reach one is the wrong shape.
@@ -129,8 +134,10 @@ export function MultiPage({ data }: { data: ToolResultPayload; viewUUID?: string
 
       <StatusBanner
         level={shownLevel}
-        title={isClean ? 'All clear' : verdictLabel[level] || 'Risk detected'}
-        subtitle={`${summary.detected_count} of ${summary.total_endpoints} detectors flagged this content`}
+        title={partial ? 'Analysis incomplete: flagged for review' : isClean ? 'All clear' : verdictLabel[level] || 'Risk detected'}
+        subtitle={partial
+          ? `${failed.length} of ${summary.total_endpoints} detectors did not answer${failed.length ? ` (${failed.map(f => f.endpoint).join(', ')})` : ''}. ${summary.detected_count} flagged. Recommended action: ${summary.recommended_action ?? 'flag_for_review'}.`
+          : `${summary.detected_count} of ${summary.total_endpoints} detectors flagged this content`}
         style={{ marginBottom: 26 }}
       />
 
@@ -138,7 +145,7 @@ export function MultiPage({ data }: { data: ToolResultPayload; viewUUID?: string
         <RiskGauge score={summary.highest_risk.risk_score} level={shownLevel} />
         <div style={{ flex: 1, minWidth: 220 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-            <SeverityBadge level={shownLevel} label={isClean ? 'Safe' : level} />
+            <SeverityBadge level={shownLevel} label={isClean ? 'Safe' : partial && summary.detected_count === 0 ? 'incomplete' : level} />
             <span style={{ fontSize: 12.5, color: colors.text.muted }}>Highest risk across all detectors</span>
           </div>
           {result.cross_endpoint_modifier != null && (

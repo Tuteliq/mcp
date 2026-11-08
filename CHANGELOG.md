@@ -9,6 +9,37 @@ break programmatic callers.
 
 ## [Unreleased]
 
+## [4.3.0] - 2026-11-08
+
+Brings the server up to date with `@tuteliq/sdk` 3.0.0 and the current API. Requires `@tuteliq/sdk` 3.0.0 or later. Every input value accepted before is still accepted.
+
+### Added
+
+- **New tools:** `detect_nickname` (reads a display name before it is shown and advises on it), `generate_dsa_transparency_report` (aggregated moderation data on the EU DSA transparency-report template), `get_safety_classification`, `get_service_status`, `get_fleet`, `get_fleet_device`, and `get_verification_config` (in the `verification` group, so a host that leaves verification out leaves it out too).
+- **Declared participants on `context`:** `sender`, `recipients` (with `relationship_to_sender`) and `minor_disclosure_check` on every text detection tool and `analyse_multi`, next to `conversation_type`. `detect_distress_signals` takes `context.author_role`.
+- **`attestation` and `message_id`** on the text detection tools; `include_relationship_frame` on `detect_grooming`; `new_conversation` on `detect_unsafe`; `metadata` and `incident_moderation_enabled` on the fraud and harm tools.
+- **`analyse_multi`** accepts the `distress-signals`, `tfgbv` and `synthetic-content` endpoints, and `flag_profanity` / `flag_risk_terms`.
+- **Media:** `flag_risk_terms` on `analyze_image` and `analyze_video`; `analysis_type` and `max_frames` on `analyze_video`; `analyze_document` accepts png, jpeg and webp images as one-page documents, and `split_by_sender` for messaging screenshots.
+- **Verification:** `chip_policy` on `create_verification_session`.
+- `default_conversation_type` on `update_detection_settings`; `date` on `get_usage_summary`; `list_incidents` and `moderation_queue` accept severity `moderate` (the stored value; `medium` still works); `review_incident` lists the accepted risk levels and categories.
+- **Result text** now carries the outcomes a platform routes on, with the API's own reason: a bullying report, a third-party concern, a coercive-control disclosure, a radicalisation priority review, an app-fraud target report, a suggested supportive check-in, a minor disclosure, an overridden declared age, the declared setting and participants in effect, and whether a signed attestation is attached. `analyse_multi` shows each detector's routing fields, the crisis-support block and endpoints to read together. `export_account_data` warns when the export is incomplete. `get_usage_monthly` shows the verification allowance on enterprise verification plans.
+
+### Fixed
+
+- **`detect_synthetic_video` and `get_verification_session` no longer fail** on the responses the API serves. A failed verification session now shows its failure reasons, and session timestamps read as dates.
+- **An analysis that did not complete never reads as clean.** An `analyse_multi` run where a detector did not answer is shown as incomplete, with the detectors that did not answer and the action to take, in the text and the widget. A grooming call that was not analysed no longer prints "No Grooming Detected". A display-name reading that did not complete says so and is never shown as clean.
+- **Inputs the API rejected now work:** `document_type: id_card` is sent as `national_id`; `get_action_plan` with audience `educator` is answered for a parent, and the result says so.
+- **Result sections that never appeared now do:** synthetic image analysis, the audio level on synthetic audio, and the action plan reading level, in the text and the widgets.
+- `create_verification_session` no longer advertises `redirect_url`, `external_id` and `customer_id`, which the API never accepted; one passed anyway is ignored with a note on the result. The tool no longer names an outside destination, so it is no longer marked open-world.
+- `detect_coercive_control`, `detect_vulnerability_exploitation` and `detect_distress_signals` no longer promise a conversation risk section their endpoints do not return.
+- Tool descriptions, resources and the README describe what each tool does rather than how it works. `analyze_video` no longer lists mkv, which the API does not accept.
+- Stated tool counts match the server (87).
+
+### Changed
+
+- `bypass_cache` on the synthetic content tools has no effect and is no longer sent; it stays accepted.
+- The synthetic image result reports how many forensic signals were found rather than listing each check.
+
 ### Security
 
 - **Transitive dependencies patched.** `body-parser` (high: denial of service via trailing bytes after a compressed body), `fast-uri` (four URI-parsing advisories), `qs` and `@hono/node-server` are lifted to fixed releases. The `overrides` floors are raised to match, and `body-parser` gains one, so a fresh install cannot resolve a vulnerable version.

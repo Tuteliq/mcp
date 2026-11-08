@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Tuteliq, PolicyRule } from '@tuteliq/sdk';
+import { conversationTypeField } from './conversation-type.js';
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false } as const;
 const ADDITIVE = { readOnlyHint: false, destructiveHint: false, openWorldHint: false } as const;
@@ -183,7 +184,7 @@ export function registerAutomationTools(server: McpServer, client: Tuteliq): voi
     'get_detection_settings',
     {
       title: 'Get Detection Settings',
-      description: 'Get the account\'s detection settings: which endpoints are enabled/disabled, the default context merged into detection requests, and the account-level defaults for the profanity/risk-term word-list flags.',
+      description: 'Get the account\'s detection settings: which endpoints are enabled/disabled, the default context merged into detection requests, the default conversation type, and the account-level defaults for the profanity/risk-term word-list flags.',
       annotations: READ_ONLY,
       inputSchema: {},
     },
@@ -192,7 +193,7 @@ export function registerAutomationTools(server: McpServer, client: Tuteliq): voi
       const ctx = s.default_context && Object.keys(s.default_context).length
         ? Object.entries(s.default_context).map(([k, v]) => `- **${k}:** ${v}`).join('\n')
         : '_None set._';
-      return { content: [{ type: 'text', text: `## Detection Settings\n\n**Enabled:** ${s.enabled_endpoints?.join(', ') || '_all defaults_'}\n**Disabled:** ${s.disabled_endpoints?.length ? s.disabled_endpoints.join(', ') : '_none_'}\n\n### Default Context\n${ctx}\n\n### Word-List Flags\n- **default_flag_profanity:** ${s.default_flag_profanity ?? false}\n- **default_flag_risk_terms:** ${s.default_flag_risk_terms ?? false}\n\n### Available Endpoints\n${s.available_endpoints.join(', ')}` }] };
+      return { content: [{ type: 'text', text: `## Detection Settings\n\n**Enabled:** ${s.enabled_endpoints?.join(', ') || '_all defaults_'}\n**Disabled:** ${s.disabled_endpoints?.length ? s.disabled_endpoints.join(', ') : '_none_'}\n**Default conversation type:** ${s.default_conversation_type ?? '_none_'}\n\n### Default Context\n${ctx}\n\n### Word-List Flags\n- **default_flag_profanity:** ${s.default_flag_profanity ?? false}\n- **default_flag_risk_terms:** ${s.default_flag_risk_terms ?? false}\n\n### Available Endpoints\n${s.available_endpoints.join(', ')}` }] };
     },
   );
 
@@ -212,16 +213,17 @@ export function registerAutomationTools(server: McpServer, client: Tuteliq): voi
         }).optional().describe('Default context merged into detection requests'),
         default_flag_profanity: z.boolean().optional().describe('Account-level default for flag_profanity on detect_bullying/detect_unsafe when a call omits it. An explicit flag_profanity on the call itself always overrides this.'),
         default_flag_risk_terms: z.boolean().optional().describe('Account-level default for flag_risk_terms on detect_bullying/detect_unsafe when a call omits it. An explicit flag_risk_terms on the call itself always overrides this.'),
+        default_conversation_type: conversationTypeField.describe('Account-level conversation type, applied when a detection call does not declare one; results then report `conversation_type_source: account_default`. Set it from your platform\'s own configuration, never from end-user input.'),
       },
     },
-    async ({ enabled_endpoints, disabled_endpoints, default_context, default_flag_profanity, default_flag_risk_terms }) => {
+    async ({ enabled_endpoints, disabled_endpoints, default_context, default_flag_profanity, default_flag_risk_terms, default_conversation_type }) => {
       if (enabled_endpoints && disabled_endpoints) {
         return {
           content: [{ type: 'text' as const, text: '⚠️ enabled_endpoints and disabled_endpoints are mutually exclusive — provide at most one.' }],
           isError: true,
         };
       }
-      const result = await client.updateDetectionSettings({ enabled_endpoints, disabled_endpoints, default_context, default_flag_profanity, default_flag_risk_terms });
+      const result = await client.updateDetectionSettings({ enabled_endpoints, disabled_endpoints, default_context, default_flag_profanity, default_flag_risk_terms, default_conversation_type });
       return { content: [{ type: 'text', text: `## ${result.success ? '✅ Settings Updated' : '❌ Update Failed'}\n\n${result.message}` }] };
     },
   );

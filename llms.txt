@@ -1,9 +1,9 @@
 # Tuteliq MCP Server
 
-> MCP server for Tuteliq — AI-powered child safety and fraud detection tools for Claude, Cursor, and other MCP-compatible AI assistants.
+> MCP server for Tuteliq: AI-powered child safety and fraud detection tools for Claude, Cursor, and other MCP-compatible AI assistants.
 
 ## What is this?
-A Model Context Protocol (MCP) server with 41 tools for detecting online harms: bullying, grooming, self-harm, sextortion, romance scams, social engineering, radicalisation, coercive control, gambling harm, and more. Includes voice, image, and video analysis, webhook management, GDPR compliance tools, and crisis helpline support.
+A Model Context Protocol (MCP) server with 87 tools for detecting online harms: bullying, grooming, self-harm, sextortion, romance scams, social engineering, radicalisation, coercive control, gambling harm, and more. Includes voice, image, video and document analysis, synthetic content detection, display name checks, identity and age verification sessions, incident moderation, webhook management, GDPR and DSA compliance tools, and crisis helpline support.
 
 ## Install
 
@@ -19,33 +19,46 @@ npx -y @tuteliq/mcp with TUTELIQ_API_KEY environment variable.
 ## Get an API Key
 Create a free account at https://tuteliq.ai and generate an API key from the Dashboard. For MCP plugins, generate a Secure Token under Settings > Plugins.
 
-## Available Tools (41 MCP + 2 API-only)
+## Available Tools (87 MCP)
 
 ### Safety Detection
-- detect_bullying — Detect bullying, harassment, and harmful language
-- detect_grooming — Detect grooming patterns and predatory behavior in conversations
-- detect_unsafe — Identify unsafe content (self-harm, violence, explicit material, sextortion)
-- analyze — Quick comprehensive safety check (bullying + unsafe)
-- analyse_multi — Run multiple detection endpoints on a single piece of text
-- batch_analyze — Analyze up to 50 items in one request; all twelve detection types, each item optionally carrying your own `id`
-- analyze_emotions — Analyze emotional content and mental state indicators (single text or conversation)
-- get_action_plan — Generate age-appropriate guidance for safety situations
-- generate_report — Create incident reports from conversations
+- detect_bullying: Detect bullying, harassment, and harmful language
+- detect_grooming: Detect grooming patterns and predatory behavior in conversations
+- detect_unsafe: Identify unsafe content (self-harm, violence, explicit material, sextortion)
+- detect_nickname: Read a display name before it is shown and advise on it
+- analyze: Quick comprehensive safety check (bullying + unsafe)
+- analyse_multi: Run multiple detection endpoints on a single piece of text; a run where a detector did not answer is reported as incomplete
+- batch_analyze: Analyze up to 50 items in one request; all twelve detection types, each item optionally carrying your own `id`
+- analyze_emotions: Analyze emotional content and mental state indicators (single text or conversation)
+- get_action_plan: Generate age-appropriate guidance for safety situations
+- generate_report: Create incident reports from conversations
 
 ### Fraud & Harm Detection
-- detect_social_engineering — Pretexting, urgency fabrication, authority impersonation
-- detect_app_fraud — Fake investment platforms, phishing apps, subscription traps
-- detect_romance_scam — Love-bombing, financial requests, identity deception
-- detect_mule_recruitment — Money mule recruitment, easy-money offers, bank account sharing
-- detect_gambling_harm — Chasing losses, concealment, gambling-related distress
-- detect_coercive_control — Isolation, financial control, monitoring, threats
-- detect_vulnerability_exploitation — Targeting elderly, disabled, or financially distressed individuals
-- detect_radicalisation — Extremist rhetoric, us-vs-them framing, ideological grooming
+- detect_social_engineering: Pretexting, urgency fabrication, authority impersonation
+- detect_app_fraud: Fake investment platforms, phishing apps, subscription traps
+- detect_romance_scam: Love-bombing, financial requests, identity deception
+- detect_mule_recruitment: Money mule recruitment, easy-money offers, bank account sharing
+- detect_gambling_harm: Chasing losses, concealment, gambling-related distress
+- detect_coercive_control: Isolation, financial control, monitoring, threats
+- detect_vulnerability_exploitation: Targeting elderly, disabled, or financially distressed individuals
+- detect_radicalisation: Extremist rhetoric, us-vs-them framing, ideological grooming
+- detect_distress_signals: Loneliness, isolation, hopelessness and withdrawal language
+- detect_tfgbv: Tech-facilitated gender-based violence
 
-### Voice, Image & Video Analysis
-- analyze_voice — Transcribe audio and run safety analysis
-- analyze_image — Analyze images for visual safety + OCR text extraction
-- analyze_video — Analyze video files via key frame extraction (mp4, mov, avi, webm, mkv)
+### Voice, Image, Video & Document Analysis
+- analyze_voice: Transcribe audio and run safety analysis
+- analyze_image: Analyze images for visual safety + OCR text extraction
+- analyze_video: Analyze video files from frames sampled across the video (mp4, mov, avi, webm)
+- analyze_document: Analyze a PDF, or an image read as a one-page document
+
+### Synthetic Content Detection
+- detect_synthetic_text, detect_synthetic_image, detect_synthetic_audio, detect_synthetic_video
+
+### Identity & Age Verification (self-hosted package only)
+- create_verification_session, get_verification_session, cancel_verification_session, get_verification_config
+
+### Incidents & Moderation
+- get_incidents_overview, list_incidents, get_incident, get_incident_trends, moderation_queue, review_incident, batch_review_incidents, get_audit_receipt
 
 ### Webhook Management
 - list_webhooks, create_webhook, update_webhook, delete_webhook, test_webhook, regenerate_webhook_secret
@@ -54,30 +67,31 @@ Create a free account at https://tuteliq.ai and generate an API key from the Das
 - get_pricing, get_pricing_details, get_usage_history, get_usage_by_tool, get_usage_monthly, get_usage_summary, get_usage_quota
 
 ### Policy Configuration
-- get_policy, set_policy — read/update per-category detection thresholds and auto-moderation settings
+- get_policy, set_policy: read/update the account's detection policy and auto-moderation settings
 
 ### Policy Automation Rules
-- list_policy_rules, create_policy_rule, get_policy_rule, update_policy_rule, delete_policy_rule — rules that block/flag/escalate/notify automatically on matching detections
-- evaluate_policy_rules — dry-run rules against a hypothetical detection result
+- list_policy_rules, create_policy_rule, get_policy_rule, update_policy_rule, delete_policy_rule: rules that block/flag/escalate/notify automatically on matching detections
+- evaluate_policy_rules: dry-run rules against a hypothetical detection result
 
 ### Detection Settings
-- get_detection_settings, update_detection_settings, reset_detection_settings — per-account endpoint enable/disable + default context
+- get_detection_settings, update_detection_settings, reset_detection_settings: per-account endpoint enable/disable, default context and default conversation type
 
 ### Threat Intelligence (Business+ tier)
-- get_intelligence_trends, get_emerging_threats, get_weekly_digest, get_risk_trends — anonymised network-wide threat signals
+- get_intelligence_trends, get_emerging_threats, get_weekly_digest, get_risk_trends: anonymised network-wide threat signals
 
 ### GDPR & Compliance
 - delete_account_data, export_account_data, record_consent, get_consent_status, withdraw_consent, rectify_data, get_audit_logs
+- generate_dsa_transparency_report: aggregated moderation data on the EU DSA transparency-report template
+- get_encryption_key, register_encryption_key, revoke_encryption_key
 
 ### Breach Management
 - log_breach, list_breaches, get_breach, update_breach_status
 
-### Verification (API & SDK only)
-- verify_age — Age verification via document, biometric, or combined methods (Pro tier)
-- verify_identity — Identity verification with face matching and liveness detection (Business tier)
+### Account Health & Fleet
+- get_safety_classification, get_service_status, get_fleet, get_fleet_device
 
 ## Supported Languages
-27 languages with auto-detection: English (stable), Spanish, Portuguese, French, German, Italian, Dutch, Polish, Romanian, Turkish, Greek, Czech, Hungarian, Bulgarian, Croatian, Slovak, Slovenian, Lithuanian, Latvian, Estonian, Maltese, Irish, Swedish, Norwegian, Danish, Finnish, Ukrainian (beta).
+Automatic language detection. English is stable and other languages are in beta; see https://docs.tuteliq.ai/languages for the current list.
 
 ## Links
 - Website: https://tuteliq.ai

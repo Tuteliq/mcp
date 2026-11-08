@@ -3,7 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import type { Tuteliq } from '@tuteliq/sdk';
 import { loadWidget } from '../package-root.js';
-import { severityEmoji, trendEmoji, formatVideoResult, formatDocumentResult } from '../formatters.js';
+import { severityEmoji, trendEmoji, formatVideoResult, formatDocumentResult, formatDeterministicFlags } from '../formatters.js';
 import { withViewId } from '../view-id.js';
 import { resolveFile } from '../resolveFile.js';
 import { widgetUri } from '../widget-uri.js';
@@ -48,7 +48,7 @@ export function registerMediaTools(server: McpServer, client: Tuteliq): void {
     'analyze_voice',
     {
       title: 'Analyze Voice',
-      description: 'Analyze an audio file for safety concerns. Transcribes the audio via Whisper, then runs safety analysis on the transcript. Supports mp3, wav, m4a, ogg, flac, webm, mp4. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
+      description: 'Analyze an audio file for safety concerns. Transcribes the speech, then runs safety analysis on the transcript. Supports mp3, wav, m4a, ogg, flac, webm, mp4. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
       annotations: FETCHES_FROM_URL,
       inputSchema: {
         file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the audio file on disk'),
@@ -137,12 +137,13 @@ ${analysisLines.join('\n')}`;
         base64: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Base64-encoded image data (with or without data URI prefix)'),
         filename: z.string().optional().describe('Filename hint (e.g., "photo.jpg") — required with base64, optional otherwise'),
         analysis_type: z.enum(['bullying', 'unsafe', 'emotions', 'all']).optional().describe('Type of analysis to run on extracted text (default: all)'),
+        flag_risk_terms: z.boolean().optional().describe('Additive word-list flag for bare drug and violence terms in the extracted text. Adds a `risk_terms` field; purely lexical, so it fires on benign uses too, and never affects severity, risk score or the recommended action. Omit to use the account default.'),
       },
       _meta: {
         ui: { resourceUri: MEDIA_WIDGET_URI },
       },
     },
-    async ({ file_path, url, base64, filename: filenameHint, analysis_type }) => {
+    async ({ file_path, url, base64, filename: filenameHint, analysis_type, flag_risk_terms }) => {
       try {
         const { buffer, filename } = await resolveFile({ file_path, url, base64, filename: filenameHint });
 
@@ -150,6 +151,7 @@ ${analysisLines.join('\n')}`;
           file: buffer,
           filename,
           analysisType: analysis_type || 'all',
+          flagRiskTerms: flag_risk_terms,
         });
 
         const emoji = severityEmoji[result.overall_severity] || '\u2705';
@@ -179,7 +181,8 @@ ${result.vision.visual_categories.length > 0 ? `**Visual Categories:** ${result.
 
 ${result.vision.extracted_text ? `### Extracted Text (OCR)\n${result.vision.extracted_text}` : ''}
 
-${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines.join('\n')}` : ''}`;
+${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines.join('\n')}` : ''}
+${formatDeterministicFlags(result)}`;
 
         return withViewId({
           structuredContent: { toolName: 'analyze_image', result, branding: { appName: 'Tuteliq' } },
@@ -199,7 +202,7 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
     'analyze_video',
     {
       title: 'Analyze Video',
-      description: 'Analyze a video file for safety concerns. Extracts key frames and runs safety classification. Supports mp4, mov, avi, webm, mkv. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
+      description: 'Analyze a video file for safety concerns. Samples frames across the video and runs safety classification. Supports mp4, mov, avi, webm. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
       annotations: FETCHES_FROM_URL,
       inputSchema: {
         file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the video file on disk'),
@@ -207,12 +210,15 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
         base64: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Base64-encoded video data (with or without data URI prefix)'),
         filename: z.string().optional().describe('Filename hint (e.g., "clip.mp4") — required with base64, optional otherwise'),
         age_group: z.string().optional().describe('Age group for calibrated analysis (e.g., "child", "teen", "adult")'),
+        analysis_type: z.enum(['unsafe', 'all']).optional().describe('Analysis to run on the sampled frames (default: all)'),
+        max_frames: z.number().int().min(1).max(20).optional().describe('Frames to sample across the video (default 10, at most 20)'),
+        flag_risk_terms: z.boolean().optional().describe('Additive word-list flag for bare drug and violence terms in the extracted text. Adds a `risk_terms` field; purely lexical, so it fires on benign uses too, and never affects severity, risk score or the recommended action. Omit to use the account default.'),
       },
       _meta: {
         ui: { resourceUri: MEDIA_WIDGET_URI },
       },
     },
-    async ({ file_path, url, base64, filename: filenameHint, age_group }) => {
+    async ({ file_path, url, base64, filename: filenameHint, age_group, analysis_type, max_frames, flag_risk_terms }) => {
       try {
         const { buffer, filename } = await resolveFile({ file_path, url, base64, filename: filenameHint });
 
@@ -220,6 +226,9 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
           file: buffer,
           filename,
           ageGroup: age_group,
+          analysisType: analysis_type,
+          maxFrames: max_frames,
+          flagRiskTerms: flag_risk_terms,
         });
 
         return withViewId({
@@ -240,23 +249,24 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
     'analyze_document',
     {
       title: 'Analyze Document',
-      description: 'Analyze a PDF document for safety and compliance concerns. Extracts text from each page, runs detection endpoints in parallel, and returns per-page results with an overall risk assessment. Zero-retention: no document data is stored after processing. Supports PDF only (max 50MB, 100 pages). Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
+      description: 'Analyze a PDF document, or a single image read as a one-page document, for safety and compliance concerns. Reads the text of each page, runs the chosen detection endpoints, and returns per-page results with an overall risk assessment. Zero-retention: no document data is stored after processing. Supports PDF (max 50MB, 100 pages) and png, jpeg or webp images. For a messaging screenshot, set `split_by_sender` to judge the last received message with the rest of the conversation as history. Provide EXACTLY ONE of file_path, url or base64. Supplying more than one is an error.',
       annotations: FETCHES_FROM_URL,
       inputSchema: {
-        file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the PDF file on disk'),
-        url: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. URL to download the PDF from'),
-        base64: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Base64-encoded PDF data (with or without data URI prefix)'),
-        filename: z.string().optional().describe('Filename hint (e.g., "report.pdf") — required with base64, optional otherwise'),
+        file_path: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Absolute path to the PDF or image file on disk'),
+        url: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. URL to download the PDF or image from'),
+        base64: z.string().optional().describe('EXACTLY ONE of file_path, url or base64. Base64-encoded PDF or image data (with or without data URI prefix)'),
+        filename: z.string().optional().describe('Filename hint (e.g., "report.pdf", "chat.png"), required with base64, optional otherwise'),
         endpoints: z.array(z.enum(['unsafe', 'bullying', 'grooming', 'social-engineering', 'coercive-control', 'radicalisation', 'romance-scam', 'mule-recruitment'])).optional().describe('Detection endpoints to run per page (default: unsafe, coercive-control, radicalisation)'),
         age_group: z.string().optional().describe('Age group for calibrated analysis (e.g., "13-15")'),
         language: z.string().optional().describe('Language hint (e.g., "en", "sv")'),
         support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to include crisis helplines (default: high)'),
+        split_by_sender: z.boolean().optional().describe('Images only. For a messaging screenshot, split it into messages with the side each came from, so the last received message is judged with the rest as history. Costs one extra call.'),
       },
       _meta: {
         ui: { resourceUri: MEDIA_WIDGET_URI },
       },
     },
-    async ({ file_path, url, base64, filename: filenameHint, endpoints, age_group, language, support_threshold }) => {
+    async ({ file_path, url, base64, filename: filenameHint, endpoints, age_group, language, support_threshold, split_by_sender }) => {
       try {
         const { buffer, filename } = await resolveFile({ file_path, url, base64, filename: filenameHint });
 
@@ -267,6 +277,7 @@ ${textAnalysisLines.length > 0 ? `### Text Analysis Results\n${textAnalysisLines
           ageGroup: age_group,
           language,
           supportThreshold: support_threshold,
+          splitBySender: split_by_sender,
         });
 
         return withViewId({

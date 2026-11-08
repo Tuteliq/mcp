@@ -57,7 +57,7 @@ export function createServer(apiKeyOverride?: string, options: CreateServerOptio
   }
 
   // Audio + document tools can run longer than the SDK default 30s timeout
-  // (whisper.cpp cold-start transcription + multi-page OCR). Cap at 120s,
+  // (speech transcription + multi-page OCR). Cap at 120s,
   // the maximum the SDK accepts.
   const client = new Tuteliq(apiKey, { timeout: 120000 });
 

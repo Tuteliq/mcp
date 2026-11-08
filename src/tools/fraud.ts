@@ -6,7 +6,7 @@ import { formatDetectionResult } from '../formatters.js';
 import { withViewId } from '../view-id.js';
 import { widgetUri } from '../widget-uri.js';
 import { RECORDS_AND_NOTIFIES } from './hints.js';
-import { conversationTypeField } from './conversation-type.js';
+import { declaredContextFields, textDetectionFields, toSdkContext } from './conversation-type.js';
 
 const DETECTION_WIDGET_URI = widgetUri('detection-result');
 
@@ -36,6 +36,8 @@ interface FraudToolDef {
    * than inventing a new mechanism.
    */
   deprecatedFor?: string;
+  /** Context keys only this endpoint reads. */
+  contextExtras?: z.ZodRawShape;
 }
 
 /**
@@ -48,15 +50,18 @@ const PRIOR_MESSAGES_NOTE =
   + ' (oldest first, `{ role, text, timestamp? }`) to see it in one call --'
   + ' request-scoped, never stored server-side.';
 
-/** Appended to the description of every tool that supports multi-turn state. */
+/**
+ * Appended to the description of every tool that supports multi-turn state.
+ *
+ * It used to promise a "Conversation risk" section with `trajectory_risk`,
+ * `trajectory` and `severity_series`. These endpoints do not return those
+ * fields (only bullying, grooming and unsafe do), so the section never
+ * appeared; the promise is gone until they do.
+ */
 const CONTINUATION_NOTE =
-  ' Multi-turn: every result ends with a "Conversation state" section containing a `continuation_token` —'
-  + ' pass that exact string back as `continuation_token` on the next call to carry trajectory awareness'
-  + ' forward. No message content is stored server-side; the token is the state.'
-  + ' `risk_score` scores only the content in this call; from the second turn onward the result also carries'
-  + ' a "Conversation risk" section with `trajectory_risk` (0-1 for the conversation), `trajectory`'
-  + ' (rising/stable/declining/none) and `severity_series` (per-turn severity, oldest first). A calm turn'
-  + ' after an escalation scores low on its own and high as a conversation — act on the higher of the two.';
+  ' Multi-turn: every result ends with a "Conversation state" section containing a `continuation_token`:'
+  + ' pass that exact string back as `continuation_token` on the next call to carry conversation awareness'
+  + ' forward. No message content is stored server-side; the token is the state.';
 
 const FRAUD_TOOLS: FraudToolDef[] = [
   {
@@ -133,6 +138,9 @@ const FRAUD_TOOLS: FraudToolDef[] = [
     invoking: 'Analyzing for distress-signal patterns...',
     invoked: 'Distress-signals analysis complete.',
     conversational: true,
+    contextExtras: {
+      author_role: z.enum(['subject', 'responder']).optional().describe('Optional. Whether the author is the person in distress (`subject`) or someone responding to them (`responder`). Echoed as `distress_subject`; attribution only, it never changes severity or the recommended action.'),
+    },
   },
   {
     name: 'detect_tfgbv',
@@ -152,12 +160,12 @@ const FRAUD_TOOLS: FraudToolDef[] = [
  * the key existed, and the block came back localised to the account default.
  * Naming the fields is the fix; the passthrough keeps any other key working.
  */
-const fraudContextSchema = z.object({
+const fraudContextShape = {
   language: z.string().optional().describe('Language code (e.g., "en"). Auto-detected if omitted.'),
   ageGroup: z.string().optional().describe('Age group (e.g., "13-15")'),
   platform: z.string().optional().describe('Platform name (e.g., "Discord", "Telegram")'),
   country: z.string().optional().describe('ISO 3166-1 alpha-2 country code (e.g., "GB", "US", "SE"). Localises the crisis helplines returned with a positive result.'),
-  conversation_type: conversationTypeField,
+  ...declaredContextFields,
   // Request-scoped: never stored server-side, used once to build the
   // analysis prompt for this call and then discarded. Independent of
   // continuation_token (below) -- carries state WITHIN one call instead of
@@ -168,16 +176,22 @@ const fraudContextSchema = z.object({
     text: z.string(),
     timestamp: z.string().optional(),
   })).optional().describe('Prior turns of this conversation, oldest first, submitted for this request only -- not stored server-side. Lets a single call see the trajectory a gradually-building risk needs.'),
-}).passthrough().optional().describe('Optional analysis context');
+};
 
-const fraudInputSchema = {
+const fraudContextSchema = (extras: z.ZodRawShape = {}) =>
+  z.object({ ...fraudContextShape, ...extras }).passthrough().optional().describe('Optional analysis context');
+
+const fraudInputSchema = (tool: FraudToolDef) => ({
   content: z.string().describe('Text content to analyze'),
-  context: fraudContextSchema,
+  context: fraudContextSchema(tool.contextExtras),
   include_evidence: z.boolean().optional().describe('Include supporting evidence excerpts'),
   support_threshold: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Minimum severity to show crisis support resources (default: high). Critical always shows.'),
+  ...textDetectionFields,
   external_id: z.string().optional().describe('External tracking ID'),
   customer_id: z.string().optional().describe('Customer identifier'),
-};
+  metadata: z.record(z.string(), z.unknown()).optional().describe('Custom key-value pairs stored with detection results and included in webhooks.'),
+  incident_moderation_enabled: z.boolean().optional().describe('Per-call override of account incident logging: true forces persistence, false suppresses it. Omit for account default.'),
+});
 
 /** Extra inputs for the endpoints that carry conversation state. */
 const continuationInputSchema = {
@@ -185,7 +199,6 @@ const continuationInputSchema = {
   reset_conversation: z.boolean().optional().describe('If true, discard any continuation_token and analyze this content as a fresh conversation.'),
 };
 
-const conversationalInputSchema = { ...fraudInputSchema, ...continuationInputSchema };
 
 export function registerFraudTools(server: McpServer, client: Tuteliq): void {
   for (const tool of FRAUD_TOOLS) {
@@ -200,22 +213,26 @@ export function registerFraudTools(server: McpServer, client: Tuteliq): void {
         // cast keeps one handler signature for both shapes, and the fields are
         // simply absent (undefined) on the tools that never accept them.
         inputSchema: (tool.conversational
-          ? conversationalInputSchema
-          : fraudInputSchema) as typeof conversationalInputSchema,
+          ? { ...fraudInputSchema(tool), ...continuationInputSchema }
+          : fraudInputSchema(tool)) as ReturnType<typeof fraudInputSchema> & typeof continuationInputSchema,
         _meta: {
           ui: { resourceUri: DETECTION_WIDGET_URI },
         },
       },
-      async ({ content, context, include_evidence, support_threshold, external_id, customer_id, continuation_token, reset_conversation }) => {
+      async ({ content, context, include_evidence, support_threshold, attestation, message_id, external_id, customer_id, metadata, incident_moderation_enabled, continuation_token, reset_conversation }) => {
         try {
           const fn = (client as any)[tool.method].bind(client);
           const result = await fn({
             content,
-            context: context as ContextInput | undefined,
+            context: toSdkContext(context) as ContextInput | undefined,
             includeEvidence: include_evidence,
             supportThreshold: support_threshold,
+            attestation,
+            messageId: message_id,
             external_id,
             customer_id,
+            metadata,
+            incident_moderation_enabled,
             ...(tool.conversational && {
               continuationToken: continuation_token,
               resetConversation: reset_conversation,

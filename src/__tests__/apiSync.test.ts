@@ -134,7 +134,7 @@ describe('inputs the API rejected or ignored', () => {
     it('get_action_plan accepts audience educator, sends parent, and says so', async () => {
         reply = { audience: 'parent', steps: ['Talk to them'], tone: 'calm', approx_reading_level: 'Grade 7' };
         const out = await call('get_action_plan', { situation: 's', audience: 'educator' });
-        expect(sent[0].body.audience).toBe('parent');
+        expect(sent[0].body.role).toBe('parent');
         expect(out).toMatch(/educator/i);
         expect(out).toContain('**Reading Level:** Grade 7');
     });
