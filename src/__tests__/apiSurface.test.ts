@@ -182,6 +182,18 @@ describe('new request fields', () => {
         expect(out).toContain('**Chip policy:** required');
     });
 
+    it('create_verification_session sends auto_capture, including false', async () => {
+        reply = { session_id: 's', mobile_url: 'https://verify.example/s', expires_at: 1762561800000, mode: 'age', auto_capture: false };
+        await call('create_verification_session', { mode: 'age', auto_capture: false });
+        expect(sent[0].body.auto_capture).toBe(false);
+    });
+
+    it('create_verification_session leaves auto_capture to the API default when omitted', async () => {
+        reply = { session_id: 's', mobile_url: 'https://verify.example/s', expires_at: 1762561800000, mode: 'age' };
+        await call('create_verification_session', { mode: 'age' });
+        expect(sent[0].body).not.toHaveProperty('auto_capture');
+    });
+
     it('a used-up verification allowance is a plain sentence with no purchase link', async () => {
         replyStatus = 402;
         reply = { error: { code: 'VERIFY_11014', message: 'Monthly verification allowance used', details: { next_period_start: '2026-12-01T00:00:00Z', buy_credits_url: 'https://tuteliq.ai/dashboard/credits' } } };

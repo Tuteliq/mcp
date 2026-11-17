@@ -503,7 +503,7 @@ The message contains direct exclusionary language...
 
 ---
 
-## Supported Languages (27)
+## Supported Languages (32)
 
 Language is auto-detected when not specified. Beta languages have good accuracy but may have edge cases compared to English.
 
@@ -536,6 +536,11 @@ Language is auto-detected when not specified. Beta languages have good accuracy 
 | Danish | `da` | Beta |
 | Finnish | `fi` | Beta |
 | Ukrainian | `uk` | Beta |
+| Chinese | `zh` | Beta |
+| Japanese | `ja` | Beta |
+| Korean | `ko` | Beta |
+| Arabic | `ar` | Beta |
+| Russian | `ru` | Beta |
 
 ---
 
@@ -555,11 +560,11 @@ Enable `PII_REDACTION_ENABLED=true` on your Tuteliq API to automatically strip e
 
 ## Supported Languages
 
-Tuteliq supports **27 languages** with automatic detection — no configuration required.
+Tuteliq supports **32 languages** with automatic detection — no configuration required.
 
-**English** (stable) and **26 beta languages**: Spanish, Portuguese, Ukrainian, Swedish, Norwegian, Danish, Finnish, German, French, Dutch, Polish, Italian, Turkish, Romanian, Greek, Czech, Hungarian, Bulgarian, Croatian, Slovak, Lithuanian, Latvian, Estonian, Slovenian, Maltese, and Irish.
+**English** (stable) and **31 beta languages**: Spanish, Portuguese, Ukrainian, Swedish, Norwegian, Danish, Finnish, German, French, Dutch, Polish, Italian, Turkish, Romanian, Greek, Czech, Hungarian, Bulgarian, Croatian, Slovak, Lithuanian, Latvian, Estonian, Slovenian, Maltese, Irish, Chinese, Japanese, Korean, Arabic, and Russian.
 
-All 24 EU official languages + Ukrainian, Norwegian, and Turkish. Each language includes culture-specific safety guidelines covering local slang, grooming patterns, self-harm coded vocabulary, and filter evasion techniques.
+All 24 EU official languages, plus Ukrainian, Norwegian, Turkish, Chinese, Japanese, Korean, Arabic, and Russian. Each language includes culture-specific safety guidelines covering local slang, grooming patterns, self-harm coded vocabulary, and filter evasion techniques.
 
 See the [Language Support docs](https://docs.tuteliq.ai/languages) for details.
 

@@ -9,6 +9,19 @@ break programmatic callers.
 
 ## [Unreleased]
 
+## [4.4.0] - 2026-11-17
+
+Requires `@tuteliq/sdk` 3.2.0 or later. Every input value accepted before is still accepted.
+
+### Added
+
+- **Verification:** `auto_capture` on `create_verification_session`. With `false`, the verification page guides the user and they tap Capture instead of the page taking the document photo itself.
+- **Face match score:** `get_verification_session` shows the face match score, the preferred reading of how strongly the faces match, next to the confidence. Results from API versions without it read as before.
+
+### Changed
+
+- README lists the 32 supported languages, adding Chinese, Japanese, Korean, Arabic and Russian.
+
 ## [4.3.0] - 2026-11-08
 
 Brings the server up to date with `@tuteliq/sdk` 3.0.0 and the current API. Requires `@tuteliq/sdk` 3.0.0 or later. Every input value accepted before is still accepted.

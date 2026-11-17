@@ -59,10 +59,11 @@ export function registerVerificationTools(server: McpServer, client: Tuteliq): v
         mode: z.enum(['age', 'identity']).describe('Verification mode: "age" for age verification, "identity" for full identity verification'),
         document_type: z.enum(['passport', 'national_id', 'drivers_license', 'id_card']).optional().describe('Preferred document type hint for the web UI: passport, national_id or drivers_license (`id_card` is accepted as national_id)'),
         chip_policy: z.enum(['optional', 'required', 'instead_of_photo']).optional().describe('How a passport or ID card chip read counts as document evidence. `optional` (default): the document photo is required and a chip read adds to it. `required`: the photo and a valid chip read are both required. `instead_of_photo`: a chip read that proves itself genuine replaces the photo; otherwise the session asks for a photo.'),
+        auto_capture: z.boolean().optional().describe('Whether the verification page takes the document photo itself once the document is framed, steady and sharp. Default `true`. With `false`, the page guides the user and they tap Capture.'),
       }).passthrough(),
     },
     async (input) => {
-      const { mode, document_type, chip_policy } = input;
+      const { mode, document_type, chip_policy, auto_capture } = input;
       const ignored = IGNORED_CREATE_FIELDS.filter((k) => (input as Record<string, unknown>)[k] !== undefined);
       const notices = ignored.length > 0
         ? [`${ignored.map((k) => `\`${k}\``).join(', ')} ${ignored.length > 1 ? 'were' : 'was'} ignored: the API does not accept ${ignored.length > 1 ? 'them' : 'it'}. Set the redirect address in the dashboard verification settings.`]
@@ -72,6 +73,7 @@ export function registerVerificationTools(server: McpServer, client: Tuteliq): v
           mode: mode === 'age' ? VerificationMode.AGE : VerificationMode.IDENTITY,
           document_type: document_type ? DOCUMENT_TYPES[document_type] : undefined,
           chip_policy,
+          auto_capture,
         });
 
         return {
