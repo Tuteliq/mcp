@@ -560,7 +560,7 @@ Enable `PII_REDACTION_ENABLED=true` on your Tuteliq API to automatically strip e
 
 ## Supported Languages
 
-Tuteliq supports **32 languages** with automatic detection — no configuration required.
+Tuteliq supports **32 languages** with automatic detection, with no configuration required.
 
 **English** (stable) and **31 beta languages**: Spanish, Portuguese, Ukrainian, Swedish, Norwegian, Danish, Finnish, German, French, Dutch, Polish, Italian, Turkish, Romanian, Greek, Czech, Hungarian, Bulgarian, Croatian, Slovak, Lithuanian, Latvian, Estonian, Slovenian, Maltese, Irish, Chinese, Japanese, Korean, Arabic, and Russian.
 
