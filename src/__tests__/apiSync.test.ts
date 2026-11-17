@@ -93,6 +93,20 @@ describe('tools that threw on a served response', () => {
         expect(out).not.toMatch(/undefined|NaN/);
     });
 
+    it('get_verification_session shows the match score first, with confidence kept', () => {
+        const result = { ...completed.result, face_match: { matched: true, confidence: 0.55, match_score: 0.91 } };
+        const out = formatVerificationSessionResult({ ...completed, result } as any);
+        expect(out).toContain('**Match Score:** 91%');
+        expect(out).toContain('**Confidence:** 55%');
+        expect(out.indexOf('**Match Score:**')).toBeLessThan(out.indexOf('**Confidence:**'));
+    });
+
+    it('get_verification_session leaves the match score out when an older API omits it', () => {
+        const out = formatVerificationSessionResult(completed as any);
+        expect(out).not.toContain('Match Score');
+        expect(out).toContain('**Confidence:** 93%');
+    });
+
     it('get_verification_session renders a result with failure reasons absent', () => {
         const { failure_reasons: _f, ...result } = completed.result;
         expect(() => formatVerificationSessionResult({ ...completed, result } as any)).not.toThrow();

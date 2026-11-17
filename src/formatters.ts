@@ -1057,7 +1057,9 @@ export function formatVerificationSessionResult(result: VerificationSessionResul
 
   if (r.face_match) {
     lines.push('', '### Face Match');
-    lines.push(`**Matched:** ${r.face_match.matched ? '\u2705 Yes' : '\u274C No'} | **Confidence:** ${(r.face_match.confidence * 100).toFixed(0)}%`);
+    // match_score is the API's preferred reading; older API versions omit it.
+    const score = r.face_match.match_score != null ? ` | **Match Score:** ${(r.face_match.match_score * 100).toFixed(0)}%` : '';
+    lines.push(`**Matched:** ${r.face_match.matched ? '\u2705 Yes' : '\u274C No'}${score} | **Confidence:** ${(r.face_match.confidence * 100).toFixed(0)}%`);
   }
 
   if (r.liveness) {
